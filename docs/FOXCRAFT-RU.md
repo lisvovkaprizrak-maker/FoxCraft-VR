@@ -40,7 +40,7 @@ COMMIT
 ## Оставшиеся препятствия
 
 1. Связать артефакт Fabric JAR с будущей Unity-сборкой. Java-код и автоматическая сборка JAR уже в репозитории; скрипт `tools/foxcraft_stage_fabric.py` копирует проверенный JAR в `Assets/StreamingAssets/FoxChatKeyboard-bridge-0.6.0.jar`. **JAR не сохраняется в Git после каждой сборки; он доступен в GitHub Actions Artifacts.**
-2. Собрать Pojlib AAR для QuestCraft 6.0.0 и интегрировать его в Unity-проект. Проверить существующие зависимости.
+2. Получить Pojlib AAR для QuestCraft 6.0.0 и интегрировать его в Unity-проект. Добавлен экспериментальный workflow `.github/workflows/foxcraft-pojlib-aar.yml`, который пробует собрать AAR в GitHub Actions без Unity-лицензии. Его успешность должна быть проверена отдельно; AAR пока нельзя считать готовым.
 3. Подготовить отдельный идентификатор приложения `com.foxcraftvr.quest`, название/иконку FoxCraft и подпись тестового APK, не затронув оригинальную QuestCraft.
 4. Обеспечить Unity-лицензию для облачной Android-сборки и проверить конкретные версии Unity/Android SDK.
 5. Проверить совместимость системной клавиатуры с OpenXR **1.14.3**. Специальный флаг Enable System Keyboard появился в OpenXR **1.17.0**; обновлять пакет вслепую нельзя.
