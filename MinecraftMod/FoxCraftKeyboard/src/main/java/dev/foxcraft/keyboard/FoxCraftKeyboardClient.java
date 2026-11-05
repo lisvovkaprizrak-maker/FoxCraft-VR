@@ -19,7 +19,10 @@ public final class FoxCraftKeyboardClient implements ClientModInitializer {
                 keyboard.render(s, context, mouseX, mouseY));
 
             ScreenMouseEvents.allowMouseClick(screen).register((s, mouseX, mouseY, button) ->
-                !keyboard.handleClick(s, mouseX, mouseY, button));
+                !keyboard.mousePressed(s, mouseX, mouseY, button));
+
+            ScreenMouseEvents.allowMouseRelease(screen).register((s, mouseX, mouseY, button) ->
+                !keyboard.mouseReleased(s, mouseX, mouseY, button));
         });
     }
 }
