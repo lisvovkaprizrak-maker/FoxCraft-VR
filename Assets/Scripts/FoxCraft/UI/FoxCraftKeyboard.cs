@@ -122,6 +122,13 @@ namespace FoxCraft.UI
         public bool IsVisible { get { return canvas != null && canvas.gameObject.activeSelf; } }
         public bool IsGameTextMode { get { return gameTextMode && IsVisible; } }
 
+        /// <summary>Whether an EventSystem selection belongs to the generated keyboard.</summary>
+        public bool ContainsUIObject(GameObject selectedObject)
+        {
+            return selectedObject != null && canvas != null &&
+                   selectedObject.transform.IsChildOf(canvas.transform);
+        }
+
         private void Position()
         {
             Camera eventCamera = placementAnchor != null ? placementAnchor.GetComponent<Camera>() : Camera.main;
