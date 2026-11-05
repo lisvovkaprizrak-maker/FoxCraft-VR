@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.IO;
+using System.Security.Cryptography;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -21,9 +22,11 @@ public static class FoxCraftInGameKeyboardInstaller
             yield break;
         }
 
-        if (ExistingKeyboardFound(targetFolder, out bool sameVersion))
+        if (ExistingKeyboardFound(targetFolder, out bool sameVersion) && !sameVersion)
         {
-            complete?.Invoke(sameVersion);
+            // An incompatible installed version (or inaccessible mods folder)
+            // must never be replaced silently.
+            complete?.Invoke(false);
             yield break;
         }
 
@@ -122,13 +125,34 @@ public static class FoxCraftInGameKeyboardInstaller
         try
         {
             Directory.CreateDirectory(folder);
-            if (!File.Exists(destination))
+            if (File.Exists(destination))
             {
-                File.WriteAllBytes(temporary, bytes);
-                if (!File.Exists(destination))
-                    File.Move(temporary, destination);
+                // A matching filename does not prove it contains the same JAR.
+                // Never replace a user-installed file of unknown origin.
+                using (SHA256 sha = SHA256.Create())
+                {
+                    byte[] expected = sha.ComputeHash(bytes);
+                    using (FileStream existing = File.OpenRead(destination))
+                    {
+                        byte[] actual = sha.ComputeHash(existing);
+                        if (actual.Length != expected.Length)
+                            return false;
+                        for (int i = 0; i < expected.Length; i++)
+                        {
+                            if (expected[i] == actual[i]) continue;
+                            Debug.LogWarning("[FoxCraft] Existing keyboard JAR has different contents; " +
+                                "leaving it unchanged.");
+                            return false;
+                        }
+                    }
+                }
+                Debug.Log("[FoxCraft] Matching keyboard JAR is already installed.");
+                return true;
             }
 
+            File.WriteAllBytes(temporary, bytes);
+            if (!File.Exists(destination))
+                File.Move(temporary, destination);
             bool installed = File.Exists(destination);
             if (installed)
                 Debug.Log("[FoxCraft] Fabric 1.21.5 keyboard ready for Minecraft launch.");
