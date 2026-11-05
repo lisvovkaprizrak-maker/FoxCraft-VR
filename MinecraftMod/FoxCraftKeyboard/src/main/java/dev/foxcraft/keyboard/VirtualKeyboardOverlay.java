@@ -21,8 +21,7 @@ public final class VirtualKeyboardOverlay {
     private static final int TEXT = 0xFFFFFFFF;
     private static final int MINI = 0xFFFFBB6D;
 
-    private final KeyHoldController hold = new KeyHoldController();
-    private boolean capturedPress;
+    private final KeyboardPointerInput pointer = new KeyboardPointerInput();
     private KeyboardLayout.Panel panel;
     private Screen previousScreen;
     private int layoutWidth = -1;
@@ -40,15 +39,14 @@ public final class VirtualKeyboardOverlay {
     public void render(Screen screen, DrawContext context, int mouseX, int mouseY) {
         if (screen != previousScreen) {
             previousScreen = screen;
-            hold.cancel();
-            capturedPress = false;
+            pointer.cancel();
             collapsed = false;
             panel = null;
         }
 
         if (focusedField(screen) == null) {
             panel = null;
-            hold.cancel();
+            pointer.cancel();
             return;
         }
         boolean chat = screen instanceof ChatScreen;
@@ -86,12 +84,12 @@ public final class VirtualKeyboardOverlay {
         KeyboardLayout.Key heldAlternate = null;
         for (KeyboardLayout.Key key : panel.keys()) {
             boolean hovered = key.contains(mouseX, mouseY);
-            boolean longHeld = hold.isHolding(key, now);
+            boolean longHeld = pointer.isHolding(key, now);
             int bg = longHeld ? KEY_PRESSED : (hovered ? KEY_HOVER : KEY_BG);
             context.fill(key.x(), key.y(), key.x() + key.width(),
                 key.y() + key.height(), bg);
 
-            float progress = hold.progress(key, now);
+            float progress = pointer.progress(key, now);
             if (progress > 0f) {
                 int bar = Math.max(1, Math.round(key.width() * progress));
                 context.fill(key.x(), key.y() + key.height() - 2,
@@ -143,38 +141,27 @@ public final class VirtualKeyboardOverlay {
             panel.y(), ORANGE);
     }
 
-    /** Returns true if the key press was captured, preventing screen click-through. */
+    /** Returns true if the gesture is captured (including key gaps). */
     public boolean mousePressed(Screen screen, double x, double y, int button) {
         if (screen != previousScreen || button != GLFW.GLFW_MOUSE_BUTTON_LEFT ||
-            panel == null || focusedField(screen) == null)
+            focusedField(screen) == null)
             return false;
-        if (!panel.contains(x, y)) return false;
-        // Capture both halves of a pointer gesture, including panel margins:
-        // without this a press on a gap can leak its release into Minecraft UI.
-        capturedPress = true;
-        KeyboardLayout.Key key = panel.at(x, y);
-        if (key != null && key.command() != KeyboardLayout.Command.NONE)
-            hold.press(key, System.nanoTime() / 1_000_000L);
-        else
-            hold.cancel();
-        return true; // Also swallow clicks on panel gaps.
+        return pointer.press(panel, x, y, System.nanoTime() / 1_000_000L);
     }
 
-    /** Returns true if captured; letters are committed only when released. */
+    /** A matching release is swallowed even if the pointer left the panel. */
     public boolean mouseReleased(Screen screen, double x, double y, int button) {
         if (screen != previousScreen) {
-            hold.cancel();
-            capturedPress = false;
+            pointer.cancel();
             return false;
         }
-        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !capturedPress) return false;
-        capturedPress = false;
-        KeyboardLayout.Key releasedOn = panel != null ? panel.at(x, y) : null;
-        KeyHoldController.Activation activation = hold.release(
-            releasedOn, System.nanoTime() / 1_000_000L);
-        if (activation != null && focusedField(screen) != null)
-            activate(screen, activation);
-        return true;
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) return false;
+
+        KeyboardPointerInput.Release release = pointer.release(
+            panel, x, y, System.nanoTime() / 1_000_000L);
+        if (release.activation() != null && focusedField(screen) != null)
+            activate(screen, release.activation());
+        return release.consumed();
     }
 
     private void activate(Screen screen, KeyHoldController.Activation result) {
