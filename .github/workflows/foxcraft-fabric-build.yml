@@ -47,6 +47,10 @@ jobs:
               assert not any(name.startswith("net/fabricmc/") for name in names)
           print("JAR validated:", path, path.stat().st_size, "bytes")
           PY
+      - name: Stage JAR into Unity StreamingAssets
+        run: |
+          python3 tools/foxcraft_stage_fabric.py
+          test -s Assets/StreamingAssets/FoxChatKeyboard-bridge-0.6.0.jar
       - name: Upload compiled Fabric JAR
         uses: actions/upload-artifact@v4
         with:
