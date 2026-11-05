@@ -23,4 +23,4 @@ jobs:
       - name: Validate upstream Unity project
         run: python3 tools/foxcraft_preflight.py .
       - name: Run validation unit tests
-        run: python3 -m unittest discover -s tests -p 'test_foxcraft_preflight.py' -v
+        run: python3 -m unittest discover -s tests -p 'test_foxcraft_*.py' -v
