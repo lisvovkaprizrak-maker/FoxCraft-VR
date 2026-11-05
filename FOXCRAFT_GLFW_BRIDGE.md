@@ -43,3 +43,15 @@ Place all three on the same active scene object, or assign references in the Ins
 - https://github.com/QuestCraftPlusPlus/Pojlib/blob/QuestCraft-6.0.0/src/main/java/org/lwjgl/glfw/CallbackBridge.java
 - https://github.com/QuestCraftPlusPlus/Pojlib/blob/QuestCraft-6.0.0/src/main/java/pojlib/input/LwjglGlfwKeycode.java
 - https://github.com/QuestCraftPlusPlus/Pojlib/blob/QuestCraft-6.0.0/src/main/java/pojlib/UnityPlayerActivity.java
+
+## Unity focus message contract (experimental)
+
+Attach `FoxCraftGameFocusReceiver` to the same active Unity GameObject as `FoxCraftGameTextInputCoordinator` (or set the reference explicitly).
+
+- `UnityPlayer.UnitySendMessage(gameObjectName, "OpenTextField", base64Utf8Text)`: opens an editing session. Encode the initial text as standard Base64 from UTF-8; send an empty string for empty text.
+- `UnityPlayer.UnitySendMessage(gameObjectName, "CloseTextField", "")`: closes without submitting.
+- Both `acceptGameFocusMessages` on the receiver and `enableNativeInput` on the GLFW bridge are **false by default**.
+- The exact GameObject name must match the object in the running Unity scene.
+- **No Minecraft-side call site is implemented yet**; these are receiver endpoints, not proof that in-game text focus is detectable.
+
+Never enable the bridge based only on `CallbackBridge.isGrabbing()`: pointer-grab state is not a reliable indicator of text editing. Do not send text unless a known Minecraft GUI has focus.
