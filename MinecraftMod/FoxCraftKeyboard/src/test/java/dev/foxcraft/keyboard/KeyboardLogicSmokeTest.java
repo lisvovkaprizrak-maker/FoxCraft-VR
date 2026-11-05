@@ -76,6 +76,48 @@ public final class KeyboardLogicSmokeTest {
         require(yoResult != null && yoResult.alternate() && "ё".equals(yoResult.text()),
             "Long press on Е selects Ё exactly once");
 
+        KeyboardPointerInput pointer = new KeyboardPointerInput();
+        require(pointer.press(ru, letter.x() + 1, letter.y() + 1, 7000),
+            "Controller left-button press is captured");
+        KeyboardPointerInput.Release quick = pointer.release(
+            ru, letter.x() + 1, letter.y() + 1, 7200);
+        require(quick.consumed() && quick.activation() != null &&
+            "й".equals(quick.activation().text()), "Pointer tap types a letter exactly once");
+        require(!pointer.release(ru, letter.x() + 1, letter.y() + 1, 7200).consumed(),
+            "A second release without a new press is ignored");
+
+        require(pointer.press(ru, letter.x() + 1, letter.y() + 1, 8000),
+            "Long press begins");
+        require(pointer.progress(letter, 8300) > 0f, "Hold progress is visible");
+        KeyboardPointerInput.Release held = pointer.release(
+            ru, letter.x() + 1, letter.y() + 1, 8499);
+        require(held.consumed() && held.activation() != null &&
+            "~".equals(held.activation().text()) && held.activation().alternate(),
+            "Controller hold commits symbol without typing the letter");
+
+        // A panel gap has no key, but a matching release must never click
+        // through into Minecraft's UI.
+        require(pointer.press(ru, ru.x() + 1, ru.y() + 1, 9000),
+            "Panel gap press is consumed");
+        KeyboardPointerInput.Release gap = pointer.release(
+            ru, ru.x() + 1, ru.y() + 1, 9200);
+        require(gap.consumed() && gap.activation() == null,
+            "Panel gap release is consumed without typing");
+
+        require(pointer.press(ru, letter.x() + 1, letter.y() + 1, 10000),
+            "Press starts before pointer drag");
+        KeyboardPointerInput.Release dragged = pointer.release(
+            ru, -10, -10, 11000);
+        require(dragged.consumed() && dragged.activation() == null,
+            "Drag-away release is consumed but types nothing");
+        require(pointer.press(ru, letter.x() + 1, letter.y() + 1, 12000),
+            "Press starts before focus change");
+        pointer.cancel();
+        require(!pointer.release(ru, letter.x() + 1, letter.y() + 1, 13000).consumed(),
+            "Focus change clears pending capture");
+        require(!pointer.press(ru, -10, -10, 14000),
+            "Outside-keyboard press goes to the underlying screen");
+
         KeyboardLayout.Panel collapsed = KeyboardLayout.make(854, 480, true, true, false, false, true);
         require(collapsed.keys().stream().anyMatch(k -> k.command() == KeyboardLayout.Command.EXPAND),
             "Collapsed keyboard can reopen");
