@@ -14,7 +14,7 @@ public final class KeyboardLayout {
         LEFT, RIGHT, BACKSPACE, ENTER, COLLAPSE, EXPAND
     }
 
-    public record Key(String label, Command command, String value,
+    public record Key(String label, Command command, String value, String alternate,
                       int x, int y, int width, int height) {
         public boolean contains(double px, double py) {
             return px >= x && px < x + width && py >= y && py < y + height;
@@ -46,6 +46,19 @@ public final class KeyboardLayout {
         {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"},
         {"@", "#", "$", "%", "&", "-", "+", "(", ")", "/"},
         {"*", "\"", "'", ":", ";", "!", "?", ".", ",", "_"}
+    };
+
+    // Small legends shown above each letter; hold the key to type the legend.
+    // The order matches the letter grid for each layout.
+    private static final String[][] ENGLISH_ALTERNATES = {
+        {"1","2","3","4","5","6","7","8","9","0"},
+        {"@","#","$","%","&","-","+","(",")"},
+        {"*","\\\"","'",":",";","!","?"}
+    };
+    private static final String[][] RUSSIAN_ALTERNATES = {
+        {"1","2","3","4","5","6","7","8","9","0","№"},
+        {"@","#","$","%","&","-","+","(",")","/","\\\\"},
+        {"*","\\\"","'",":",";","!","?",".",","}
     };
 
     private KeyboardLayout() {}
@@ -84,8 +97,12 @@ public final class KeyboardLayout {
         rowY += headerHeight + gap;
 
         String[][] layout = symbols ? SYMBOLS : (russian ? RUSSIAN : ENGLISH);
-        for (String[] row : layout) {
-            addLetters(keys, insideX, rowY, insideWidth, rowHeight, gap, row, shift && !symbols);
+        for (int rowIndex = 0; rowIndex < layout.length; rowIndex++) {
+            String[] row = layout[rowIndex];
+            String[] legends = symbols ? null :
+                (russian ? RUSSIAN_ALTERNATES[rowIndex] : ENGLISH_ALTERNATES[rowIndex]);
+            addLetters(keys, insideX, rowY, insideWidth, rowHeight, gap, row, legends,
+                shift && !symbols);
             rowY += rowHeight + gap;
         }
         addWeighted(keys, insideX, rowY, insideWidth, rowHeight, gap,
@@ -100,7 +117,8 @@ public final class KeyboardLayout {
     }
 
     private static void addLetters(List<Key> keys, int x, int y, int width,
-                                   int height, int gap, String[] row, boolean upper) {
+                                   int height, int gap, String[] row, String[] legends,
+                                   boolean upper) {
         int total = row.length;
         int innerWidth = width - gap * (total - 1);
         int used = 0;
@@ -109,6 +127,7 @@ public final class KeyboardLayout {
             int left = (int) ((long) innerWidth * i / total);
             String character = upper ? row[i].toUpperCase(Locale.ROOT) : row[i];
             keys.add(new Key(character, Command.TYPE, character,
+                legends != null && i < legends.length ? legends[i] : "",
                 x + used + gap * i, y, right - left, height));
             used += right - left;
         }
@@ -126,7 +145,7 @@ public final class KeyboardLayout {
             int left = (int) ((long) available * cumWeight / totalWeight);
             cumWeight += weights[i];
             int right = (int) ((long) available * cumWeight / totalWeight);
-            keys.add(new Key(labels[i], commands[i], values[i],
+            keys.add(new Key(labels[i], commands[i], values[i], "",
                 x + used + gap * i, y, right - left, height));
             used += right - left;
         }
