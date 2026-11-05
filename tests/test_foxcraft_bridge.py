@@ -38,6 +38,8 @@ class FoxCraftBridgeIntegrationTests(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, src)
         self.assertNotIn('Debug.Log(keyboard.text)', src)
+        self.assertIn("Char.IsHighSurrogate(safeText[limit - 1])", src)
+        self.assertIn("Char.IsLowSurrogate(safeText[limit])", src)
 
     def test_russian_text_wire_encoding_is_utf8_base64(self):
         text = "Привет, FoxCraft! Ёж 🦊"
