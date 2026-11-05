@@ -1,0 +1,325 @@
+using System;
+using TMPro;
+using UnityEngine;
+using UnityEngine.Events;
+using UnityEngine.UI;
+
+namespace FoxCraft.UI
+{
+    /// <summary>
+    /// World-space VR keyboard for Unity launcher fields.
+    /// Does not inject text into the Minecraft Java runtime: connect OnTextChanged/OnSubmitted
+    /// to the game's existing input bridge separately.
+    /// </summary>
+    public sealed class FoxCraftKeyboard : MonoBehaviour
+    {
+        [Serializable] public sealed class TextEvent : UnityEvent<string> { }
+
+        [Header("Optional configuration")]
+        [SerializeField] private TMP_FontAsset font;
+        [SerializeField] private Transform placementAnchor;
+        [SerializeField] private Vector3 localOffset = new Vector3(0f, -0.18f, 0.55f);
+        [SerializeField] private float worldScale = 0.0008f;
+        [SerializeField] private bool showOnStart;
+
+        [Header("Events (use these for your Minecraft input adapter)")]
+        public TextEvent OnTextChanged = new TextEvent();
+        public TextEvent OnSubmitted = new TextEvent();
+        public UnityEvent OnCancelled = new UnityEvent();
+
+        private enum Language { English, Russian }
+        private Language language = Language.English;
+        private bool shift;
+        private bool symbols;
+        private TMP_InputField target;
+        private Canvas canvas;
+        private RectTransform keyboardPanel;
+        private string buffer = "";
+        private int cursor;
+        private bool built;
+
+        private static readonly string[][] English =
+        {
+            new[] { "q", "w", "e", "r", "t", "y", "u", "i", "o", "p" },
+            new[] { "a", "s", "d", "f", "g", "h", "j", "k", "l" },
+            new[] { "z", "x", "c", "v", "b", "n", "m" }
+        };
+
+        private static readonly string[][] Russian =
+        {
+            new[] { "й", "ц", "у", "к", "е", "н", "г", "ш", "щ", "з", "х" },
+            new[] { "ф", "ы", "в", "а", "п", "р", "о", "л", "д", "ж", "э" },
+            new[] { "я", "ч", "с", "м", "и", "т", "ь", "б", "ю" }
+        };
+
+        private static readonly string[][] Symbols =
+        {
+            new[] { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0" },
+            new[] { "@", "#", "$", "%", "&", "-", "+", "(", ")", "/" },
+            new[] { "*", "\"", "'", ":", ";", "!", "?", ".", ",", "_" }
+        };
+
+        private static readonly Color Background = new Color(0.055f, 0.071f, 0.12f, 0.97f);
+        private static readonly Color KeyColor = new Color(0.13f, 0.17f, 0.24f, 1f);
+        private static readonly Color UtilityColor = new Color(0.20f, 0.25f, 0.32f, 1f);
+        private static readonly Color AccentColor = new Color(1f, 0.48f, 0.17f, 1f);
+
+        private void Awake()
+        {
+            Build();
+            canvas.gameObject.SetActive(showOnStart);
+        }
+
+        /// <summary>Open the keyboard for a TextMeshPro input field in the Unity launcher.</summary>
+        public void ShowFor(TMP_InputField input)
+        {
+            if (!built) Build();
+            target = input;
+            buffer = input != null ? (input.text ?? "") : "";
+            cursor = Mathf.Clamp(input != null ? input.caretPosition : buffer.Length, 0, buffer.Length);
+            Refresh();
+            Position();
+            canvas.gameObject.SetActive(true);
+        }
+
+        /// <summary>Open without a Unity input field; consume OnTextChanged/OnSubmitted externally.</summary>
+        public void ShowWithText(string initialText)
+        {
+            if (!built) Build();
+            target = null;
+            buffer = initialText ?? "";
+            cursor = buffer.Length;
+            Refresh();
+            Position();
+            canvas.gameObject.SetActive(true);
+        }
+
+        public void Hide()
+        {
+            if (canvas != null) canvas.gameObject.SetActive(false);
+            target = null;
+        }
+
+        public string CurrentText { get { return buffer; } }
+        public bool IsVisible { get { return canvas != null && canvas.gameObject.activeSelf; } }
+
+        private void Position()
+        {
+            if (placementAnchor == null) return;
+            canvas.transform.SetParent(placementAnchor, false);
+            canvas.transform.localPosition = localOffset;
+            canvas.transform.localRotation = Quaternion.identity;
+        }
+
+        private void Build()
+        {
+            if (built) return;
+            GameObject root = new GameObject("FoxCraft Keyboard Canvas", typeof(RectTransform),
+                typeof(Canvas), typeof(GraphicRaycaster));
+            root.transform.SetParent(transform, false);
+            canvas = root.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            RectTransform rect = root.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(1120f, 480f);
+            root.transform.localScale = Vector3.one * Mathf.Max(0.0001f, worldScale);
+
+            keyboardPanel = CreatePanel(root.transform, "Keyboard", Background);
+            keyboardPanel.anchorMin = Vector2.zero;
+            keyboardPanel.anchorMax = Vector2.one;
+            keyboardPanel.offsetMin = Vector2.zero;
+            keyboardPanel.offsetMax = Vector2.zero;
+            VerticalLayoutGroup vertical = keyboardPanel.gameObject.AddComponent<VerticalLayoutGroup>();
+            vertical.padding = new RectOffset(22, 22, 22, 22);
+            vertical.spacing = 9;
+            vertical.childControlWidth = true;
+            vertical.childControlHeight = true;
+            vertical.childForceExpandHeight = true;
+
+            built = true;
+            Refresh();
+        }
+
+        private void Refresh()
+        {
+            if (!built) return;
+            for (int i = keyboardPanel.childCount - 1; i >= 0; --i)
+            {
+                GameObject oldRow = keyboardPanel.GetChild(i).gameObject;
+                oldRow.SetActive(false);
+                Destroy(oldRow);
+            }
+
+            CreateRow("Header", new[] {
+                new KeySpec("FOXCRAFT", null, 2f, UtilityColor),
+                new KeySpec(language == Language.Russian ? "РУС" : "ENG", ToggleLanguage, 1f, UtilityColor),
+                new KeySpec(symbols ? "АБВ" : "123", ToggleSymbols, 1f, UtilityColor),
+                new KeySpec("✕", Cancel, 0.7f, UtilityColor)
+            });
+
+            string[][] mapping = symbols ? Symbols : (language == Language.Russian ? Russian : English);
+            foreach (string[] row in mapping)
+            {
+                KeySpec[] keys = new KeySpec[row.Length];
+                for (int i = 0; i < row.Length; ++i)
+                {
+                    string key = row[i];
+                    string character = shift ? key.ToUpperInvariant() : key;
+                    keys[i] = new KeySpec(character, () => Insert(character), 1f, KeyColor);
+                }
+                CreateRow("Letters", keys);
+            }
+
+            CreateRow("Actions", new[] {
+                new KeySpec(shift ? "SHIFT ●" : "SHIFT", ToggleShift, 1.3f, UtilityColor),
+                new KeySpec("←", MoveLeft, 0.9f, UtilityColor),
+                new KeySpec("ПРОБЕЛ / SPACE", () => Insert(" "), 4.2f, KeyColor),
+                new KeySpec("→", MoveRight, 0.9f, UtilityColor),
+                new KeySpec("⌫", Backspace, 1.1f, UtilityColor),
+                new KeySpec("ENTER", Submit, 1.5f, AccentColor)
+            });
+        }
+
+        private struct KeySpec
+        {
+            public string Label;
+            public Action Action;
+            public float Weight;
+            public Color Background;
+            public KeySpec(string label, Action action, float weight, Color background)
+            { Label = label; Action = action; Weight = weight; Background = background; }
+        }
+
+        private void CreateRow(string name, KeySpec[] keys)
+        {
+            GameObject row = new GameObject(name, typeof(RectTransform));
+            row.transform.SetParent(keyboardPanel, false);
+            HorizontalLayoutGroup layout = row.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 7f;
+            layout.childControlHeight = true;
+            layout.childControlWidth = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = true;
+
+            foreach (KeySpec key in keys)
+            {
+                GameObject buttonObject = new GameObject("Key " + key.Label, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+                buttonObject.transform.SetParent(row.transform, false);
+                buttonObject.GetComponent<Image>().color = key.Background;
+                buttonObject.GetComponent<LayoutElement>().flexibleWidth = key.Weight;
+                Button button = buttonObject.GetComponent<Button>();
+                if (key.Action != null)
+                {
+                    Action callback = key.Action;
+                    button.onClick.AddListener(() => callback());
+                }
+                else button.interactable = false;
+
+                GameObject labelObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+                labelObject.transform.SetParent(buttonObject.transform, false);
+                RectTransform labelRect = labelObject.GetComponent<RectTransform>();
+                labelRect.anchorMin = Vector2.zero;
+                labelRect.anchorMax = Vector2.one;
+                labelRect.offsetMin = Vector2.zero;
+                labelRect.offsetMax = Vector2.zero;
+                TextMeshProUGUI label = labelObject.GetComponent<TextMeshProUGUI>();
+                label.text = key.Label;
+                if (font != null) label.font = font;
+                label.fontSize = 25f;
+                label.fontSizeMin = 15f;
+                label.enableAutoSizing = true;
+                label.alignment = TextAlignmentOptions.Center;
+                label.color = Color.white;
+                label.raycastTarget = false;
+            }
+        }
+
+        private static RectTransform CreatePanel(Transform parent, string name, Color color)
+        {
+            GameObject panel = new GameObject(name, typeof(RectTransform), typeof(Image));
+            panel.transform.SetParent(parent, false);
+            panel.GetComponent<Image>().color = color;
+            return panel.GetComponent<RectTransform>();
+        }
+
+        private void Commit()
+        {
+            if (target != null)
+            {
+                target.text = buffer;
+                target.caretPosition = cursor;
+            }
+            OnTextChanged.Invoke(buffer);
+        }
+
+        public void Insert(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return;
+            buffer = buffer.Insert(cursor, value);
+            cursor += value.Length;
+            Commit();
+            if (shift)
+            {
+                shift = false;
+                Refresh();
+            }
+        }
+
+        public void Backspace()
+        {
+            if (cursor == 0) return;
+            // Keep surrogate pairs (emoji and supplementary code points) intact.
+            int length = cursor >= 2 && char.IsLowSurrogate(buffer[cursor - 1]) &&
+                char.IsHighSurrogate(buffer[cursor - 2]) ? 2 : 1;
+            buffer = buffer.Remove(cursor - length, length);
+            cursor -= length;
+            Commit();
+        }
+
+        public void MoveLeft()
+        {
+            if (cursor == 0) return;
+            cursor -= cursor >= 2 && char.IsLowSurrogate(buffer[cursor - 1]) &&
+                char.IsHighSurrogate(buffer[cursor - 2]) ? 2 : 1;
+            Commit();
+        }
+
+        public void MoveRight()
+        {
+            if (cursor >= buffer.Length) return;
+            cursor += cursor + 1 < buffer.Length && char.IsHighSurrogate(buffer[cursor]) &&
+                char.IsLowSurrogate(buffer[cursor + 1]) ? 2 : 1;
+            Commit();
+        }
+
+        public void Submit()
+        {
+            Commit();
+            OnSubmitted.Invoke(buffer);
+            Hide();
+        }
+
+        public void Cancel()
+        {
+            OnCancelled.Invoke();
+            Hide();
+        }
+
+        public void ToggleLanguage()
+        {
+            language = language == Language.English ? Language.Russian : Language.English;
+            Refresh();
+        }
+
+        public void ToggleSymbols()
+        {
+            symbols = !symbols;
+            Refresh();
+        }
+
+        public void ToggleShift()
+        {
+            shift = !shift;
+            Refresh();
+        }
+    }
+}
