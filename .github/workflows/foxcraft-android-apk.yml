@@ -164,6 +164,22 @@ jobs:
           print("APK archive found:", apk, apk.stat().st_size, "bytes")
           print("Device compatibility and system keyboard are NOT verified.")
           PY
+      - name: Verify Android package ID cannot replace QuestCraft
+        shell: bash
+        run: |
+          # Inspect the compiled APK, not just Unity PlayerSettings source.
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          AAPT="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
+          if [[ -z "$AAPT" ]]; then
+            echo "::error::Android SDK aapt not found; refusing to publish an unverified APK"
+            exit 1
+          fi
+          PACKAGE="$("$AAPT" dump badging Builds/FoxCraft-VR-test.apk | sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p" | head -n 1)"
+          if [[ "$PACKAGE" != "com.foxcraftvr.quest" ]]; then
+            echo "::error::Unexpected APK package ID; refusing to publish test APK"
+            exit 1
+          fi
+          echo "Verified separate FoxCraft package identifier."
       - name: Upload experimental APK (not a release)
         uses: actions/upload-artifact@v4
         with:
