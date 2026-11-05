@@ -22,6 +22,7 @@ public final class VirtualKeyboardOverlay {
     private static final int MINI = 0xFFFFBB6D;
 
     private final KeyHoldController hold = new KeyHoldController();
+    private boolean capturedPress;
     private KeyboardLayout.Panel panel;
     private Screen previousScreen;
     private int layoutWidth = -1;
@@ -40,6 +41,7 @@ public final class VirtualKeyboardOverlay {
         if (screen != previousScreen) {
             previousScreen = screen;
             hold.cancel();
+            capturedPress = false;
             collapsed = false;
             panel = null;
         }
@@ -147,6 +149,9 @@ public final class VirtualKeyboardOverlay {
             panel == null || focusedField(screen) == null)
             return false;
         if (!panel.contains(x, y)) return false;
+        // Capture both halves of a pointer gesture, including panel margins:
+        // without this a press on a gap can leak its release into Minecraft UI.
+        capturedPress = true;
         KeyboardLayout.Key key = panel.at(x, y);
         if (key != null && key.command() != KeyboardLayout.Command.NONE)
             hold.press(key, System.nanoTime() / 1_000_000L);
@@ -159,11 +164,14 @@ public final class VirtualKeyboardOverlay {
     public boolean mouseReleased(Screen screen, double x, double y, int button) {
         if (screen != previousScreen) {
             hold.cancel();
+            capturedPress = false;
             return false;
         }
-        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !hold.hasPending()) return false;
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !capturedPress) return false;
+        capturedPress = false;
         KeyboardLayout.Key releasedOn = panel != null ? panel.at(x, y) : null;
-        KeyHoldController.Activation activation = hold.release(releasedOn, System.nanoTime() / 1_000_000L);
+        KeyHoldController.Activation activation = hold.release(
+            releasedOn, System.nanoTime() / 1_000_000L);
         if (activation != null && focusedField(screen) != null)
             activate(screen, activation);
         return true;
