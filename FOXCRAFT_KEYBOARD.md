@@ -60,3 +60,22 @@ Attach `FoxCraftKeyboardFieldBinding` to a `TMP_InputField` and assign the scene
 - Configure the scene XR UI Input Module, XR Ray Interactor and a Cyrillic-capable TMP font.
 - Test launcher field selection, text preview, character deletion, cancel and Enter on Meta Quest hardware.
 - Locate the exact Java-side field/input handler in the upstream QuestCraft/Pojlib code and implement a JNI bridge with a single text-editing authority.
+
+## Integration update: existing launcher scene
+
+`Assets/Scripts/KeyboardHandler.cs` now prefers the custom keyboard and automatically creates a `FoxCraftKeyboard` component when needed. It routes the existing search, RAM and instance-name fields. Clicking a keyboard key does not dismiss the input session; clicking another UI element closes it. Existing prefab button methods remain as a fallback.
+
+**Scene hierarchy caution:** if the old keyboard GameObject contains the `KeyboardHandler` component, it cannot simply be deactivated without disabling the handler. Move the handler to a separate active object before removing the old prefab. A warning is logged in this case. The new keyboard falls back to a tagged `MainCamera` when a placement anchor has not been assigned.
+
+## Editor scene check
+
+Open the scene in Unity and select `Tools → FoxCraft → Validate Keyboard Scene`. The non-mutating check reports the presence of a keyboard handler, EventSystem, XR UI input module, tagged MainCamera and game input coordinator.
+
+The checker does **not** validate Java focus callbacks, sign an APK, compile the project or run on a VR device.
+
+## Known runtime integration status
+
+- Launcher focus routing exists in code but has not been compiled or headset-tested.
+- `FoxCraftGameFocusReceiver` provides optional `UnitySendMessage` entry points for Minecraft-side focus signals. Both its receive toggle and the native GLFW injection toggle are disabled by default.
+- A Minecraft/Vivecraft mod or Pojlib callback must call `OpenTextField` / `CloseTextField` when a genuine game text field gains or loses focus.
+- See `FOXCRAFT_GLFW_BRIDGE.md` for input JNI details and remaining limitations.
