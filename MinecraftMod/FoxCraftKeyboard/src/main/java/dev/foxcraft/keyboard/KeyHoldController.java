@@ -36,6 +36,13 @@ public final class KeyHoldController {
         return pending != null && pending.equals(key) && nowMs - pressedAt >= LONG_PRESS_MS;
     }
 
+    /** Fraction of time elapsed toward the alternate symbol, for visual feedback. */
+    public float progress(KeyboardLayout.Key key, long nowMs) {
+        if (pending == null || !pending.equals(key) || key.alternate().isEmpty())
+            return 0f;
+        return Math.max(0f, Math.min(1f, (nowMs - pressedAt) / (float) LONG_PRESS_MS));
+    }
+
     public boolean hasPending() { return pending != null; }
 
     public void cancel() { pending = null; }
