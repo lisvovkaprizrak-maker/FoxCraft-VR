@@ -112,6 +112,8 @@ namespace FoxCraft.UI
 
         private void Position()
         {
+            if (canvas != null && canvas.worldCamera == null)
+                canvas.worldCamera = placementAnchor != null ? placementAnchor.GetComponent<Camera>() : Camera.main;
             if (placementAnchor == null) return;
             canvas.transform.SetParent(placementAnchor, false);
             canvas.transform.localPosition = localOffset;
@@ -126,6 +128,7 @@ namespace FoxCraft.UI
             root.transform.SetParent(transform, false);
             canvas = root.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.WorldSpace;
+            canvas.worldCamera = placementAnchor != null ? placementAnchor.GetComponent<Camera>() : Camera.main;
             RectTransform rect = root.GetComponent<RectTransform>();
             rect.sizeDelta = new Vector2(1120f, 480f);
             root.transform.localScale = Vector3.one * Mathf.Max(0.0001f, worldScale);
@@ -159,7 +162,7 @@ namespace FoxCraft.UI
             }
 
             CreateRow("Header", new[] {
-                new KeySpec("🦊 FOXCRAFT", null, 2f, UtilityColor),
+                new KeySpec("FOXCRAFT", null, 2f, UtilityColor),
                 new KeySpec(language == Language.Russian ? "РУС" : "ENG", ToggleLanguage, 1f, AccentColor),
                 new KeySpec(symbols ? "АБВ" : "123", ToggleSymbols, 1f, UtilityColor),
                 new KeySpec("✕", Cancel, 0.7f, UtilityColor)
@@ -200,6 +203,7 @@ namespace FoxCraft.UI
             image.sprite = RoundedSprite();
             image.type = Image.Type.Sliced;
             row.GetComponent<LayoutElement>().preferredHeight = 62f;
+            row.GetComponent<LayoutElement>().minHeight = 62f;
 
             GameObject textObject = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
             textObject.transform.SetParent(row.transform, false);
