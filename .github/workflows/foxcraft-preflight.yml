@@ -1,0 +1,26 @@
+name: FoxCraft preflight (no Unity licence required)
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout FoxCraft
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate upstream Unity project
+        run: python3 tools/foxcraft_preflight.py .
+      - name: Run validation unit tests
+        run: python3 -m unittest discover -s tests -p 'test_foxcraft_preflight.py' -v
