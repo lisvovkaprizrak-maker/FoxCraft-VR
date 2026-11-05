@@ -40,6 +40,14 @@ jobs:
           gradle-version: '8.12.1'
       - name: Compile Fabric 1.21.5 mod
         run: gradle build --no-daemon --stacktrace
+      - name: Verify packaging for Unity
+        run: |
+          python3 ../../tools/stage_foxcraft_ingame_keyboard.py \
+            --source build/libs/foxcraft-keyboard-0.1.0-alpha.jar \
+            --dest build/staging/foxcraft-keyboard-0.1.0-alpha.jar
+          python3 ../../tools/stage_foxcraft_ingame_keyboard.py \
+            --source build/libs/foxcraft-keyboard-0.1.0-alpha.jar \
+            --dest build/staging/foxcraft-keyboard-0.1.0-alpha.jar
       - name: Upload mod JAR for testing
         uses: actions/upload-artifact@v4
         with:
