@@ -143,7 +143,8 @@ public class KeyboardHandler : MonoBehaviour
     // These names are referenced by existing prefab button UnityEvents.
     public void KeyPress(string key)
     {
-        if (string.IsNullOrEmpty(key)) return;
+        if (string.IsNullOrEmpty(key) ||
+            (foxCraftKeyboard != null && foxCraftKeyboard.IsGameTextMode)) return;
         if (preferFoxCraftKeyboard && foxCraftKeyboard != null && foxCraftKeyboard.IsVisible)
         {
             foxCraftKeyboard.Insert(key);
@@ -159,6 +160,7 @@ public class KeyboardHandler : MonoBehaviour
 
     public void BackspacePress()
     {
+        if (foxCraftKeyboard != null && foxCraftKeyboard.IsGameTextMode) return;
         if (preferFoxCraftKeyboard && foxCraftKeyboard != null && foxCraftKeyboard.IsVisible)
         {
             foxCraftKeyboard.Backspace();
@@ -174,6 +176,7 @@ public class KeyboardHandler : MonoBehaviour
 
     public void ShiftPress()
     {
+        if (foxCraftKeyboard != null && foxCraftKeyboard.IsGameTextMode) return;
         if (preferFoxCraftKeyboard && foxCraftKeyboard != null && foxCraftKeyboard.IsVisible)
             foxCraftKeyboard.ToggleShift();
         else
@@ -183,6 +186,7 @@ public class KeyboardHandler : MonoBehaviour
 
     public void SpacePress()
     {
+        if (foxCraftKeyboard != null && foxCraftKeyboard.IsGameTextMode) return;
         if (preferFoxCraftKeyboard && foxCraftKeyboard != null && foxCraftKeyboard.IsVisible)
         {
             foxCraftKeyboard.Insert(" ");
