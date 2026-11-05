@@ -403,7 +403,9 @@ namespace FoxCraft.UI
                 target.caretPosition = Mathf.Clamp(cursor, 0, originalText.Length);
             }
             buffer = originalText;
-            OnTextChanged.Invoke(buffer);
+            // The game input handler owns its own edit state: cancellation sends
+            // Escape, not a synthetic text-replacement snapshot.
+            if (!gameTextMode) OnTextChanged.Invoke(buffer);
             OnCancelled.Invoke();
             Hide();
         }
