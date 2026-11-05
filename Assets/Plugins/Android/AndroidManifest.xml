@@ -6,6 +6,7 @@
   <uses-permission android:name="org.khronos.openxr.permission.OPENXR_SYSTEM" />
   <uses-permission android:name="android.permission.VIBRATE" />
   <uses-permission tools:node="remove" android:name="android.permission.READ_PHONE_STATE"/>
+  <uses-feature android:name="oculus.software.overlay_keyboard" android:required="false" />
   <uses-feature android:name="android.hardware.vr.headtracking" android:required="true" android:version="1" />
 
   <queries>
