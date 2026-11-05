@@ -27,6 +27,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Test safe Unity JAR staging
+        run: python3 -m unittest discover -s ../../tests -p 'test_stage_foxcraft_ingame_keyboard.py' -v
       - name: Compile and test keyboard logic
         run: |
           mkdir -p build/smoke
