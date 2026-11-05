@@ -57,6 +57,27 @@ public class KeyboardHandler : MonoBehaviour
             }
 
             TMP_InputField selectedField = GetFocusedField();
+            GameObject selectedObject = EventSystem.current != null
+                ? EventSystem.current.currentSelectedGameObject : null;
+            bool selectedKeyboardKey = foxCraftKeyboard.ContainsUIObject(selectedObject);
+
+            // Clicking a key changes EventSystem selection away from the input
+            // field. Keep editing while the selected button belongs to FoxCraft.
+            if (selectedField == null && selectedKeyboardKey)
+                return;
+
+            // Clicking outside both the keyboard and the input fields closes it.
+            if (selectedField == null && selectedObject != null && !selectedKeyboardKey)
+            {
+                if (activeField != null)
+                {
+                    foxCraftKeyboard.Hide();
+                    dismissedField = activeField;
+                    activeField = null;
+                }
+                return;
+            }
+
             if (selectedField == null)
             {
                 dismissedField = null;
@@ -85,6 +106,11 @@ public class KeyboardHandler : MonoBehaviour
             focused = EventSystem.current.currentSelectedGameObject.GetComponent<TMP_InputField>();
 
         if (IsKnownField(focused)) return focused;
+        // A different selected GameObject takes priority over stale TMP.isFocused
+        // state (which may remain true briefly after a button click).
+        if (EventSystem.current != null &&
+            EventSystem.current.currentSelectedGameObject != null)
+            return null;
         if (searchBox != null && searchBox.isFocused) return searchBox;
         if (ramSetter != null && ramSetter.isFocused) return ramSetter;
         if (instanceEditor != null && instanceEditor.isFocused) return instanceEditor;
