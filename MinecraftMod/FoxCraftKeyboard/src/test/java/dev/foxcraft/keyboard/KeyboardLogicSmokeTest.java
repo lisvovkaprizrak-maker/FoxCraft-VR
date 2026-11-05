@@ -32,20 +32,29 @@ public final class KeyboardLogicSmokeTest {
         require("1234567890".contentEquals(numbers), "Permanent number row: " + numbers);
 
         KeyboardLayout.Key letter = key(ru.keys(), "й");
-        require("1".equals(letter.alternate()), "Russian Й has 1 legend");
+        require("~".equals(letter.alternate()), "Russian Й has ~ legend");
         require("@".equals(key(ru.keys(), "ф").alternate()), "Russian Ф has @ legend");
         require("ё".equals(key(ru.keys(), "е").alternate()),
             "Long press on Russian Е must produce Ё");
         require(key(ru.keys(), "ъ").value().equals("ъ"),
             "Russian hard sign must be available as a normal key");
         KeyboardLayout.Panel en = KeyboardLayout.make(854, 480, true, false, false, false, false);
-        require("1".equals(key(en.keys(), "q").alternate()), "English Q has 1 legend");
+        require("@".equals(key(en.keys(), "q").alternate()), "English Q has @ legend");
+        KeyboardLayout.Panel ruShift = KeyboardLayout.make(854, 480, true, true, false, true, false);
+        require("Ё".equals(key(ruShift.keys(), "Е").alternate()),
+            "Uppercase Е long press must insert uppercase Ё");
+        int enDigits = 0;
+        int enDigitRow = key(en.keys(), "1").y();
+        for (KeyboardLayout.Key key : en.keys())
+            if (key.y() == enDigitRow && key.value().matches("[0-9]"))
+                enDigits++;
+        require(enDigits == 10, "Number row is present in English layout");
 
         KeyHoldController hold = new KeyHoldController();
         hold.press(letter, 1000);
         require("й".equals(hold.release(letter, 1449).text()), "449 ms: letter");
         hold.press(letter, 2000);
-        require("1".equals(hold.release(letter, 2450).text()), "450 ms: alternate symbol");
+        require("~".equals(hold.release(letter, 2450).text()), "450 ms: alternate symbol");
         hold.press(letter, 3000);
         require(hold.isHolding(letter, 3450), "Hold state activates at 450 ms");
         require(hold.progress(letter, 3450) == 1f, "Hold progress reaches 100 percent");
