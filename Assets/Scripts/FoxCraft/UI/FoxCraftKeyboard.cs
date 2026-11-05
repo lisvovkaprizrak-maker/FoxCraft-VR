@@ -3,6 +3,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using UnityEngine.XR.Interaction.Toolkit.UI;
 
 namespace FoxCraft.UI
 {
@@ -34,6 +35,8 @@ namespace FoxCraft.UI
         private TMP_InputField target;
         private Canvas canvas;
         private RectTransform keyboardPanel;
+        private TextMeshProUGUI previewText;
+        private string originalText = "";
         private string buffer = "";
         private int cursor;
         private bool built;
@@ -63,6 +66,8 @@ namespace FoxCraft.UI
         private static readonly Color KeyColor = new Color(0.13f, 0.17f, 0.24f, 1f);
         private static readonly Color UtilityColor = new Color(0.20f, 0.25f, 0.32f, 1f);
         private static readonly Color AccentColor = new Color(1f, 0.48f, 0.17f, 1f);
+        private static readonly Color HoverColor = new Color(1f, 0.63f, 0.32f, 1f);
+        private static Sprite roundedSprite;
 
         private void Awake()
         {
@@ -76,6 +81,7 @@ namespace FoxCraft.UI
             if (!built) Build();
             target = input;
             buffer = input != null ? (input.text ?? "") : "";
+            originalText = buffer;
             cursor = Mathf.Clamp(input != null ? input.caretPosition : buffer.Length, 0, buffer.Length);
             Refresh();
             Position();
@@ -88,6 +94,7 @@ namespace FoxCraft.UI
             if (!built) Build();
             target = null;
             buffer = initialText ?? "";
+            originalText = buffer;
             cursor = buffer.Length;
             Refresh();
             Position();
@@ -115,7 +122,7 @@ namespace FoxCraft.UI
         {
             if (built) return;
             GameObject root = new GameObject("FoxCraft Keyboard Canvas", typeof(RectTransform),
-                typeof(Canvas), typeof(GraphicRaycaster));
+                typeof(Canvas), typeof(TrackedDeviceGraphicRaycaster));
             root.transform.SetParent(transform, false);
             canvas = root.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.WorldSpace;
@@ -133,7 +140,9 @@ namespace FoxCraft.UI
             vertical.spacing = 9;
             vertical.childControlWidth = true;
             vertical.childControlHeight = true;
-            vertical.childForceExpandHeight = true;
+            vertical.childForceExpandHeight = false;
+
+            CreatePreviewRow();
 
             built = true;
             Refresh();
@@ -142,7 +151,7 @@ namespace FoxCraft.UI
         private void Refresh()
         {
             if (!built) return;
-            for (int i = keyboardPanel.childCount - 1; i >= 0; --i)
+            for (int i = keyboardPanel.childCount - 1; i >= 1; --i)
             {
                 GameObject oldRow = keyboardPanel.GetChild(i).gameObject;
                 oldRow.SetActive(false);
@@ -150,8 +159,8 @@ namespace FoxCraft.UI
             }
 
             CreateRow("Header", new[] {
-                new KeySpec("FOXCRAFT", null, 2f, UtilityColor),
-                new KeySpec(language == Language.Russian ? "РУС" : "ENG", ToggleLanguage, 1f, UtilityColor),
+                new KeySpec("🦊 FOXCRAFT", null, 2f, UtilityColor),
+                new KeySpec(language == Language.Russian ? "РУС" : "ENG", ToggleLanguage, 1f, AccentColor),
                 new KeySpec(symbols ? "АБВ" : "123", ToggleSymbols, 1f, UtilityColor),
                 new KeySpec("✕", Cancel, 0.7f, UtilityColor)
             });
@@ -169,14 +178,66 @@ namespace FoxCraft.UI
                 CreateRow("Letters", keys);
             }
 
+            if (previewText != null) previewText.text = string.IsNullOrEmpty(buffer) ? "FoxCraft  •  Введите текст / Type here" : buffer;
+
             CreateRow("Actions", new[] {
                 new KeySpec(shift ? "SHIFT ●" : "SHIFT", ToggleShift, 1.3f, UtilityColor),
                 new KeySpec("←", MoveLeft, 0.9f, UtilityColor),
-                new KeySpec("ПРОБЕЛ / SPACE", () => Insert(" "), 4.2f, KeyColor),
+                new KeySpec(language == Language.Russian ? "ПРОБЕЛ" : "SPACE", () => Insert(" "), 4.2f, KeyColor),
                 new KeySpec("→", MoveRight, 0.9f, UtilityColor),
                 new KeySpec("⌫", Backspace, 1.1f, UtilityColor),
-                new KeySpec("ENTER", Submit, 1.5f, AccentColor)
+                new KeySpec(language == Language.Russian ? "ВВОД" : "ENTER", Submit, 1.5f, AccentColor)
             });
+        }
+
+
+        private void CreatePreviewRow()
+        {
+            GameObject row = new GameObject("Text preview", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            row.transform.SetParent(keyboardPanel, false);
+            Image image = row.GetComponent<Image>();
+            image.color = new Color(0.09f, 0.10f, 0.17f, 1f);
+            image.sprite = RoundedSprite();
+            image.type = Image.Type.Sliced;
+            row.GetComponent<LayoutElement>().preferredHeight = 62f;
+
+            GameObject textObject = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+            textObject.transform.SetParent(row.transform, false);
+            RectTransform rect = textObject.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = new Vector2(18f, 5f);
+            rect.offsetMax = new Vector2(-18f, -5f);
+            previewText = textObject.GetComponent<TextMeshProUGUI>();
+            if (font != null) previewText.font = font;
+            previewText.fontSize = 29f;
+            previewText.alignment = TextAlignmentOptions.MidlineLeft;
+            previewText.overflowMode = TextOverflowModes.Ellipsis;
+            previewText.color = Color.white;
+            previewText.raycastTarget = false;
+        }
+
+        private static Sprite RoundedSprite()
+        {
+            if (roundedSprite != null) return roundedSprite;
+            const int size = 32;
+            const float radius = 9f;
+            Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            texture.filterMode = FilterMode.Bilinear;
+            texture.wrapMode = TextureWrapMode.Clamp;
+            Color32[] pixels = new Color32[size * size];
+            for (int y = 0; y < size; ++y)
+                for (int x = 0; x < size; ++x)
+                {
+                    float dx = Mathf.Max(0f, Mathf.Abs(x + 0.5f - size / 2f) - (size / 2f - radius));
+                    float dy = Mathf.Max(0f, Mathf.Abs(y + 0.5f - size / 2f) - (size / 2f - radius));
+                    float alpha = Mathf.Clamp01(radius - Mathf.Sqrt(dx * dx + dy * dy) + 0.5f);
+                    pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+                }
+            texture.SetPixels32(pixels);
+            texture.Apply();
+            roundedSprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(10, 10, 10, 10));
+            return roundedSprite;
         }
 
         private struct KeySpec
@@ -199,14 +260,26 @@ namespace FoxCraft.UI
             layout.childControlWidth = true;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = true;
+            LayoutElement rowHeight = row.AddComponent<LayoutElement>();
+            rowHeight.flexibleHeight = 1f;
 
             foreach (KeySpec key in keys)
             {
                 GameObject buttonObject = new GameObject("Key " + key.Label, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
                 buttonObject.transform.SetParent(row.transform, false);
-                buttonObject.GetComponent<Image>().color = key.Background;
+                Image keyImage = buttonObject.GetComponent<Image>();
+                keyImage.color = key.Background;
+                keyImage.sprite = RoundedSprite();
+                keyImage.type = Image.Type.Sliced;
                 buttonObject.GetComponent<LayoutElement>().flexibleWidth = key.Weight;
                 Button button = buttonObject.GetComponent<Button>();
+                ColorBlock colors = button.colors;
+                colors.normalColor = Color.white;
+                colors.highlightedColor = HoverColor;
+                colors.pressedColor = AccentColor;
+                colors.selectedColor = HoverColor;
+                colors.fadeDuration = 0.08f;
+                button.colors = colors;
                 if (key.Action != null)
                 {
                     Action callback = key.Action;
@@ -237,7 +310,10 @@ namespace FoxCraft.UI
         {
             GameObject panel = new GameObject(name, typeof(RectTransform), typeof(Image));
             panel.transform.SetParent(parent, false);
-            panel.GetComponent<Image>().color = color;
+            Image image = panel.GetComponent<Image>();
+            image.color = color;
+            image.sprite = RoundedSprite();
+            image.type = Image.Type.Sliced;
             return panel.GetComponent<RectTransform>();
         }
 
@@ -248,6 +324,7 @@ namespace FoxCraft.UI
                 target.text = buffer;
                 target.caretPosition = cursor;
             }
+            if (previewText != null) previewText.text = string.IsNullOrEmpty(buffer) ? "FoxCraft  •  Введите текст / Type here" : buffer;
             OnTextChanged.Invoke(buffer);
         }
 
@@ -300,6 +377,13 @@ namespace FoxCraft.UI
 
         public void Cancel()
         {
+            if (target != null)
+            {
+                target.text = originalText;
+                target.caretPosition = Mathf.Clamp(cursor, 0, originalText.Length);
+            }
+            buffer = originalText;
+            OnTextChanged.Invoke(buffer);
             OnCancelled.Invoke();
             Hide();
         }
