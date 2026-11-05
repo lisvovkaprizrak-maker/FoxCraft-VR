@@ -50,15 +50,17 @@ public final class KeyboardLayout {
 
     // Small legends shown above each letter; hold the key to type the legend.
     // The order matches the letter grid for each layout.
+    private static final String[] DIGITS =
+        {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"};
     private static final String[][] ENGLISH_ALTERNATES = {
-        {"1","2","3","4","5","6","7","8","9","0"},
-        {"@","#","$","%","&","-","+","(",")"},
-        {"*","\\\"","'",":",";","!","?"}
+        {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"},
+        {"@", "#", "$", "%", "&", "-", "+", "(", ")"},
+        {"*", "\"", "'", ":", ";", "!", "?"}
     };
     private static final String[][] RUSSIAN_ALTERNATES = {
-        {"1","2","3","4","5","6","7","8","9","0","№"},
-        {"@","#","$","%","&","-","+","(",")","/","\\\\"},
-        {"*","\\\"","'",":",";","!","?",".",","}
+        {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "№"},
+        {"@", "#", "$", "%", "&", "-", "+", "(", ")", "/", "\\"},
+        {"*", "\"", "'", ":", ";", "!", "?", ".", ","}
     };
 
     private KeyboardLayout() {}
@@ -70,10 +72,10 @@ public final class KeyboardLayout {
         if (screenWidth < 220 || screenHeight < 140) return null;
         int width = Math.min(428, screenWidth - 12);
         int x = (screenWidth - width) / 2;
-        int rowHeight = Math.max(17, Math.min(23, screenHeight / 11));
+        int rowHeight = Math.max(14, Math.min(23, (screenHeight - 36) / 7));
         int gap = 3;
         int headerHeight = rowHeight + 2;
-        int height = collapsed ? headerHeight + 10 : headerHeight + rowHeight * 4 + gap * 4 + 12;
+        int height = collapsed ? headerHeight + 10 : headerHeight + rowHeight * 5 + gap * 5 + 12;
         int y = chat ? 8 : Math.max(8, screenHeight - height - 8);
         int insideX = x + 5;
         int insideWidth = width - 10;
@@ -95,6 +97,10 @@ public final class KeyboardLayout {
             new String[]{"", "", "", ""},
             new int[]{6, 2, 2, 1});
         rowY += headerHeight + gap;
+
+        // Dedicated always-visible number row. Letters retain their own long-press legends.
+        addLetters(keys, insideX, rowY, insideWidth, rowHeight, gap, DIGITS, null, false);
+        rowY += rowHeight + gap;
 
         String[][] layout = symbols ? SYMBOLS : (russian ? RUSSIAN : ENGLISH);
         for (int rowIndex = 0; rowIndex < layout.length; rowIndex++) {
