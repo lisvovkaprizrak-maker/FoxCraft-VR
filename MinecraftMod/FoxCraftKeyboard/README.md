@@ -31,6 +31,18 @@ Install **JDK 21** and **Gradle 8.12+**; network access to Fabric Maven reposito
 
 This directory does not contain a Gradle wrapper. Do not confuse the resulting mod JAR with a FoxCraft Android APK. The mod needs integration with the matching Minecraft 1.21.5 / Fabric / Vivecraft environment and actual testing on a Quest headset.
 
+## Packaging into a FoxCraft Unity APK (experimental)
+
+A Fabric `.jar` is **not** an Android APK. To bundle this mod inside a future FoxCraft Android build:
+
+1. Build the mod with `gradle build` or download its verified GitHub Actions artifact.
+2. From the repository root run `python3 tools/stage_foxcraft_ingame_keyboard.py`. The script verifies the JAR ZIP, `fabric.mod.json`, mod ID and pinned Minecraft **1.21.5** dependency.
+3. The script writes `Assets/StreamingAssets/foxcraft-keyboard-0.1.0-alpha.jar`. It refuses to overwrite a different existing JAR without explicit `--replace`.
+4. Build the Unity project. When the player launches a profile whose `versionName` is `1.21.5`, `InstanceButton` calls `FoxCraftInGameKeyboardInstaller.EnsureInstalled` **before** starting Pojlib. The installer checks the Java profile's `gameDir`, uses Pojlib's `USER_HOME/instances` boundary, copies the JAR into that profile's `mods` folder and never overwrites a keyboard mod already present.
+5. A missing staged JAR or unsupported Pojlib path produces a warning and the game launches **without** the keyboard, avoiding accidental damage to existing profiles.
+
+**Untested on-device:** This does not prove Pojlib's `USER_HOME` path, the Android StreamingAssets URL, controller events or Unity compilation. The existing separate FoxCraft APK pipeline in PR #1 targets Minecraft **1.21.1** and does not automatically become compatible with this **1.21.5** mod. Never install the 1.21.5 JAR into a 1.21.1 profile.
+
 ## Remaining validation
 
 - Confirm Fabric and Yarn compile against pinned dependencies.
