@@ -150,7 +150,13 @@ public final class QuestChatKeyboardBridge implements ClientModInitializer {
             }
             String text = new String(Base64.getDecoder().decode(lines[3]), StandardCharsets.UTF_8);
             text = text.replace('\n', ' ').replace('\r', ' ');
-            if (text.length() > 256) text = text.substring(0, 256);
+            if (text.length() > 256) {
+                int limit = 256;
+                // A Java char is a UTF-16 code unit; keep emoji pairs intact.
+                if (Character.isHighSurrogate(text.charAt(limit - 1)) &&
+                        Character.isLowSurrogate(text.charAt(limit))) limit--;
+                text = text.substring(0, limit);
+            }
             Field input = findField(screen.getClass(), "field_2382", "chatField");
             Object textField = input.get(screen);
             if (textField == null) { log("CHAT_FIELD_NOT_READY"); return; }
