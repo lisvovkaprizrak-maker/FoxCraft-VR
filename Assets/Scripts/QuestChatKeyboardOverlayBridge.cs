@@ -180,7 +180,16 @@ public sealed class QuestChatKeyboardOverlayBridge : MonoBehaviour
         try
         {
             string safeText = (text ?? "").Replace('\n', ' ').Replace('\r', ' ');
-            if (safeText.Length > 256) safeText = safeText.Substring(0, 256);
+            // Keep surrogate pairs intact when limiting UTF-16 chat input.
+            // Splitting an emoji here would introduce a replacement character.
+            if (safeText.Length > 256)
+            {
+                int limit = 256;
+                if (Char.IsHighSurrogate(safeText[limit - 1]) &&
+                    Char.IsLowSurrogate(safeText[limit]))
+                    limit--;
+                safeText = safeText.Substring(0, limit);
+            }
             string encoded = Convert.ToBase64String(Utf8.GetBytes(safeText));
             string payload = Magic + "\n" + action + "\n" + id + "\n" + encoded + "\n";
             string temp = Path.Combine(bridgeDirectory, "response.tmp");
