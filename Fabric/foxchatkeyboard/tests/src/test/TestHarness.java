@@ -56,6 +56,21 @@ public final class TestHarness {
             "UTF-8 Cyrillic COMMIT failed");
         assertTrue(chat1.enterCalls == 0, "COMMIT wrongly triggered Enter");
 
+        // Regression: exactly 256 UTF-16 units may include an entire emoji.
+        String intactEmoji = "y".repeat(254) + "🦊";
+        reply(directory, "COMMIT", session1, intactEmoji);
+        tick(client, 10);
+        assertTrue(chat1.field_2382.get().equals(intactEmoji),
+            "emoji was lost at exact chat length boundary");
+
+        // Regression: an emoji straddling the 256-unit limit must be dropped
+        // as a whole rather than leaving an unpaired high surrogate.
+        reply(directory, "COMMIT", session1, "x".repeat(255) + "🦊" + "tail");
+        tick(client, 10);
+        assertTrue(chat1.field_2382.get().equals("x".repeat(255)),
+            "chat was truncated inside an emoji surrogate pair");
+        assertTrue(chat1.enterCalls == 0, "truncation unexpectedly submitted chat");
+
         client.field_1755 = null;
         tick(client, 1);
         assertTrue("CLOSE".equals(readRequest(directory)[1]), "CLOSE missing");
