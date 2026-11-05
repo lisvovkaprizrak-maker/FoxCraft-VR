@@ -21,6 +21,8 @@ namespace FoxCraft.UI
         [SerializeField] private Transform placementAnchor;
         [SerializeField] private Vector3 localOffset = new Vector3(0f, -0.18f, 0.55f);
         [SerializeField] private float worldScale = 0.0008f;
+        [Tooltip("Leave disabled for a stationary floating keyboard. Enable to follow head movement.")]
+        [SerializeField] private bool followHeadMovement;
         [SerializeField] private bool showOnStart;
 
         [Header("Events (use these for your Minecraft input adapter)")]
@@ -131,13 +133,16 @@ namespace FoxCraft.UI
 
         private void Position()
         {
-            Camera eventCamera = placementAnchor != null ? placementAnchor.GetComponent<Camera>() : Camera.main;
+            Camera eventCamera = Camera.main;
+            if (placementAnchor != null)
+            {
+                Camera anchorCamera = placementAnchor.GetComponent<Camera>();
+                if (anchorCamera != null) eventCamera = anchorCamera;
+            }
+
             if (canvas != null && eventCamera != null)
                 canvas.worldCamera = eventCamera;
 
-            // The launcher does not serialize an explicit placement anchor.
-            // Without this fallback, the generated world-space canvas can be left
-            // at the scene origin and become invisible in a headset.
             Transform anchor = placementAnchor != null ? placementAnchor :
                 (eventCamera != null ? eventCamera.transform : null);
             if (anchor == null)
@@ -146,9 +151,15 @@ namespace FoxCraft.UI
                 return;
             }
 
-            canvas.transform.SetParent(anchor, false);
-            canvas.transform.localPosition = localOffset;
-            canvas.transform.localRotation = Quaternion.identity;
+            // Fixed in world space by default: looking around should not pull a
+            // large UI panel along with the headset. 'followHeadMovement' is opt-in.
+            canvas.transform.SetParent(followHeadMovement ? anchor : transform, false);
+            canvas.transform.position = anchor.TransformPoint(localOffset);
+            Vector3 towardUser = anchor.position - canvas.transform.position;
+            if (towardUser.sqrMagnitude > 0.00001f)
+                canvas.transform.rotation = Quaternion.LookRotation(towardUser, anchor.up);
+            else
+                canvas.transform.rotation = anchor.rotation * Quaternion.Euler(0f, 180f, 0f);
             canvas.transform.localScale = Vector3.one * Mathf.Max(0.0001f, worldScale);
         }
 
@@ -160,7 +171,7 @@ namespace FoxCraft.UI
             root.transform.SetParent(transform, false);
             canvas = root.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.WorldSpace;
-            canvas.worldCamera = placementAnchor != null ? placementAnchor.GetComponent<Camera>() : Camera.main;
+            canvas.worldCamera = Camera.main;
             RectTransform rect = root.GetComponent<RectTransform>();
             rect.sizeDelta = new Vector2(1120f, 480f);
             root.transform.localScale = Vector3.one * Mathf.Max(0.0001f, worldScale);
