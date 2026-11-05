@@ -34,6 +34,10 @@ public final class KeyboardLogicSmokeTest {
         KeyboardLayout.Key letter = key(ru.keys(), "й");
         require("1".equals(letter.alternate()), "Russian Й has 1 legend");
         require("@".equals(key(ru.keys(), "ф").alternate()), "Russian Ф has @ legend");
+        require("ё".equals(key(ru.keys(), "е").alternate()),
+            "Long press on Russian Е must produce Ё");
+        require(key(ru.keys(), "ъ").value().equals("ъ"),
+            "Russian hard sign must be available as a normal key");
         KeyboardLayout.Panel en = KeyboardLayout.make(854, 480, true, false, false, false, false);
         require("1".equals(key(en.keys(), "q").alternate()), "English Q has 1 legend");
 
@@ -44,10 +48,24 @@ public final class KeyboardLogicSmokeTest {
         require("1".equals(hold.release(letter, 2450).text()), "450 ms: alternate symbol");
         hold.press(letter, 3000);
         require(hold.isHolding(letter, 3450), "Hold state activates at 450 ms");
+        require(hold.progress(letter, 3450) == 1f, "Hold progress reaches 100 percent");
+        require(hold.progress(letter, 3200) > 0.4f &&
+            hold.progress(letter, 3200) < 0.5f,
+            "Hold progress reports intermediate fraction");
+        require(hold.progress(key(ru.keys(), "ц"), 3500) == 0f,
+            "Non-pressed keys have no progress");
         require(hold.release(key(ru.keys(), "ц"), 3900) == null, "Drag-away cancels");
         hold.press(letter, 4000);
         hold.cancel();
+        require(hold.progress(letter, 5000) == 0f,
+            "Focus loss resets progress");
         require(hold.release(letter, 5000) == null, "Focus loss cancels");
+
+        KeyboardLayout.Key yo = key(ru.keys(), "е");
+        hold.press(yo, 6000);
+        KeyHoldController.Activation yoResult = hold.release(yo, 6500);
+        require(yoResult != null && yoResult.alternate() && "ё".equals(yoResult.text()),
+            "Long press on Е selects Ё exactly once");
 
         KeyboardLayout.Panel collapsed = KeyboardLayout.make(854, 480, true, true, false, false, true);
         require(collapsed.keys().stream().anyMatch(k -> k.command() == KeyboardLayout.Command.EXPAND),
