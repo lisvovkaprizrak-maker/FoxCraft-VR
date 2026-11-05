@@ -42,13 +42,20 @@ def inspect_jar(path: Path) -> str:
 def stage(source: Path, destination: Path, replace: bool) -> str:
     digest = inspect_jar(source)
     if destination.exists():
-        old_digest = inspect_jar(destination)
-        if old_digest == digest:
-            return f"Already staged: {destination} (SHA256 {digest})"
-        if not replace:
-            raise ValueError(
-                f"Refusing to overwrite a different JAR at {destination}; pass --replace deliberately"
-            )
+        try:
+            old_digest = inspect_jar(destination)
+        except ValueError:
+            if not replace:
+                raise ValueError(
+                    f"Refusing to replace invalid existing JAR at {destination} without --replace"
+                )
+        else:
+            if old_digest == digest:
+                return f"Already staged: {destination} (SHA256 {digest})"
+            if not replace:
+                raise ValueError(
+                    f"Refusing to overwrite a different JAR at {destination}; pass --replace deliberately"
+                )
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_suffix(".jar.pending")
     try:
