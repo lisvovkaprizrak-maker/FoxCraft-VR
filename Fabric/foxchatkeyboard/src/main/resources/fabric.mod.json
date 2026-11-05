@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "questchatkeyboardbridge",
+  "version": "0.6.0",
+  "name": "FoxChat Keyboard — Fabric bridge",
+  "description": "Minecraft-side QCKB1 bridge. A modified QuestCraft Unity APK is required to show Meta's system keyboard.",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.questchatkeyboard.bridge.QuestChatKeyboardBridge"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
