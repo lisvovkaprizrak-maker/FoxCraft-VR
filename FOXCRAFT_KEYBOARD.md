@@ -36,3 +36,27 @@ For an implementation inside Minecraft/Vivecraft, investigate the existing Andro
 - Keys now have rounded 2D styling and hover highlighting; true curved 3D geometry, animated presses, sound and haptics remain future enhancements.
 - The approved illustrative mockup is a design target, not a pixel-perfect screenshot of the current Unity UI.
 - There are no automated Unity play-mode tests or confirmed on-device results.
+
+## Launcher field binding
+
+Attach `FoxCraftKeyboardFieldBinding` to a `TMP_InputField` and assign the scene keyboard in the Inspector. Selecting the field calls `FoxCraftKeyboard.ShowFor(field)`; `Open()` may also be connected to a button.
+
+## Game text input coordinator
+
+`FoxCraftGameTextInputCoordinator` controls one game text session. It is intentionally not a Java/JNI bridge.
+
+1. When Minecraft focuses an editable field, an independently implemented game bridge calls `OpenFromGame(currentText)`.
+2. `OnGameTextChanged(string)` sends complete updated text snapshots to the bridge. It must target the active Minecraft text field, never global gameplay controls.
+3. `OnGameTextSubmitted(string)` signals completed entry and closes the session.
+4. `OnGameTextCancelled` signals cancellation. The bridge must restore its pre-edit text snapshot or discard provisional changes.
+5. `OnGameKeyboardOpened` and `OnGameKeyboardClosed` can be used to pause/resume gameplay controller input while editing.
+6. `CloseFromGame()` dismisses the keyboard if the game loses text focus.
+
+**Important:** This is the Unity-side interface contract only. It will not type into Minecraft until the QuestCraft/Pojlib runtime is explicitly connected, including a consistent text-focus lifecycle. Do not call `OpenFromGame` merely upon launching the game.
+
+## Next verification tasks
+
+- Open the Unity project in its pinned editor version and compile the scripts.
+- Configure the scene XR UI Input Module, XR Ray Interactor and a Cyrillic-capable TMP font.
+- Test launcher field selection, text preview, character deletion, cancel and Enter on Meta Quest hardware.
+- Locate the exact Java-side field/input handler in the upstream QuestCraft/Pojlib code and implement a JNI bridge with a single text-editing authority.
