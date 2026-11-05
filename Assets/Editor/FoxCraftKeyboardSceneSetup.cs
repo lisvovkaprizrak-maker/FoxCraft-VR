@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using FoxCraft.UI;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -41,6 +42,7 @@ public static class FoxCraftKeyboardSceneSetup
         }
 
         FoxCraftKeyboard keyboard = AddIfMissing<FoxCraftKeyboard>(root);
+        EnsureCyrillicFont(keyboard);
         AddIfMissing<FoxCraftGameTextInputCoordinator>(root);
         AddIfMissing<FoxCraftPojlibGlfwInputBridge>(root);
         AddIfMissing<FoxCraftGameFocusReceiver>(root);
@@ -76,6 +78,31 @@ public static class FoxCraftKeyboardSceneSetup
         return component != null ? component : Undo.AddComponent<T>(root);
     }
 
+    private static void EnsureCyrillicFont(FoxCraftKeyboard keyboard)
+    {
+        SerializedObject keyboardSettings = new SerializedObject(keyboard);
+        SerializedProperty fontProperty = keyboardSettings.FindProperty("font");
+        if (fontProperty == null || fontProperty.objectReferenceValue != null)
+            return;
+
+        string[] fontGuids = AssetDatabase.FindAssets("t:TMP_FontAsset");
+        foreach (string guid in fontGuids)
+        {
+            string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+            TMP_FontAsset candidate = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(assetPath);
+            if (candidate == null || !candidate.HasCharacter('Ж', true) ||
+                !candidate.HasCharacter('я', true))
+                continue;
+            fontProperty.objectReferenceValue = candidate;
+            keyboardSettings.ApplyModifiedProperties();
+            EditorUtility.SetDirty(keyboard);
+            Debug.Log("FoxCraft: using Cyrillic-compatible TMP font: " + assetPath, keyboard);
+            return;
+        }
+        Debug.LogWarning("FoxCraft: no installed TMP font exposes Russian glyphs. " +
+            "Assign a Cyrillic-enabled TMP font asset to FoxCraftKeyboard in the Inspector.", keyboard);
+    }
+
     [MenuItem("FoxCraft/Validate Keyboard Setup")]
     public static void Validate()
     {
@@ -97,6 +124,11 @@ public static class FoxCraftKeyboardSceneSetup
 
         if (Camera.main == null)
             Debug.LogWarning("FoxCraft: no MainCamera-tagged camera found. Assign a placement anchor.", root);
+
+        SerializedObject keyboardSettings = new SerializedObject(root.GetComponent<FoxCraftKeyboard>());
+        SerializedProperty fontProperty = keyboardSettings.FindProperty("font");
+        if (fontProperty == null || fontProperty.objectReferenceValue == null)
+            Debug.LogWarning("FoxCraft: no custom TMP font assigned; Russian characters may render as squares.", root);
 
         EventSystem eventSystem = Object.FindObjectOfType<EventSystem>();
         if (eventSystem == null)
