@@ -65,6 +65,36 @@ namespace FoxCraft.UI
             }
         }
 
+        /// <summary>
+        /// Non-injecting check that the shipped Pojlib AAR exposes the Java methods
+        /// expected by FoxCraft. Run in an Android development build before enabling
+        /// native input; this does not establish Minecraft GUI focus.
+        /// </summary>
+        [ContextMenu("Probe Pojlib GLFW API (no input)")]
+        public void ProbePojlibApi()
+        {
+            if (Application.platform != RuntimePlatform.Android)
+            {
+                Debug.LogWarning("FoxCraft: Pojlib GLFW probe requires an Android device.", this);
+                return;
+            }
+
+            try
+            {
+                using (AndroidJavaClass probe = new AndroidJavaClass("org.lwjgl.glfw.CallbackBridge"))
+                {
+                    var cls = probe.GetRawClass();
+                    AndroidJNI.GetStaticMethodID(cls, "sendChar", "(CI)V");
+                    AndroidJNI.GetStaticMethodID(cls, "sendKeyPress", "(I)V");
+                }
+                Debug.Log("FoxCraft: required Pojlib GLFW Java method signatures found. Input not sent.", this);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("FoxCraft: required Pojlib GLFW Java API is unavailable: " + ex, this);
+            }
+        }
+
         private bool EnsureReady()
         {
             if (!enableNativeInput || Application.platform != RuntimePlatform.Android ||
