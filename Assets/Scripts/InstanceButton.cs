@@ -85,31 +85,52 @@ public class InstanceButton : MonoBehaviour
         uiHandler.PlaySetter();
         ProgressBarManager.started = true;
 
+        // Pojlib Java work runs on a dedicated thread, but Unity UI updates
+        // must be posted back to the scene's synchronization context.
+        SynchronizationContext sceneContext = SynchronizationContext.Current;
         new Thread(() =>
         {
-            AndroidJNI.AttachCurrentThread();
+            bool attached = false;
+            string failure = null;
             try
             {
+                attached = AndroidJNI.AttachCurrentThread() >= 0;
+                if (!attached)
+                    throw new InvalidOperationException("Unable to attach to Android JVM");
+
                 if (!JNIStorage.apiClass.CallStatic<bool>("prelaunch",
                     JNIStorage.activity, JNIStorage.instancesObj, instance.raw))
-                {
-                    Debug.LogWarning("[FoxCraft] Pojlib prelaunch checks failed.");
-                    launchInProgress = false;
-                }
+                    failure = "Prelaunch checks failed!";
                 else
-                {
                     JNIStorage.apiClass.CallStatic("launchInstance",
                         JNIStorage.activity, JNIStorage.accountObj, instance.raw);
-                }
             }
             catch (Exception ex)
             {
-                Debug.LogError("[FoxCraft] Minecraft launch failed: " + ex.GetType().Name);
-                launchInProgress = false;
+                failure = "Minecraft launch failed: " + ex.GetType().Name;
             }
             finally
             {
-                AndroidJNI.DetachCurrentThread();
+                if (attached)
+                    AndroidJNI.DetachCurrentThread();
+            }
+
+            if (failure != null)
+            {
+                string message = failure;
+                if (sceneContext != null)
+                {
+                    sceneContext.Post(_ =>
+                    {
+                        launchInProgress = false;
+                        if (uiHandler != null) uiHandler.SetAndShowError(message);
+                    }, null);
+                }
+                else
+                {
+                    launchInProgress = false;
+                    Debug.LogError("[FoxCraft] " + message);
+                }
             }
         }).Start();
     }
