@@ -6,7 +6,7 @@ This folder contains the **Minecraft-side** keyboard, separate from the Unity la
 
 - RU / EN letter layouts, Shift, symbols, space, cursor arrows, backspace and Enter.
 - A dedicated top number row **1 2 3 4 5 6 7 8 9 0** on every layout.
-- Small alternate characters on letter keys; tap for the letter, hold for **450 ms** to type the alternate into the focused Minecraft text field. Dragging away cancels the pending character.
+- Small alternate characters on letter keys; tap for the letter, hold for **450 ms** to type a punctuation symbol into the focused Minecraft text field. Long-press `Е` types `ё` (or `Ё` with Shift). The upper number row is separate from these alternates. Dragging away cancels the pending character.
 - Dark background, orange shimmering border and hover/long-press feedback.
 - Minecraft-screen GUI rendering rather than Unity's launcher canvas.
 
@@ -19,11 +19,12 @@ mkdir -p build/smoke
 javac -encoding UTF-8 -d build/smoke \
   src/main/java/dev/foxcraft/keyboard/KeyboardLayout.java \
   src/main/java/dev/foxcraft/keyboard/KeyHoldController.java \
+  src/main/java/dev/foxcraft/keyboard/KeyboardPointerInput.java \
   src/test/java/dev/foxcraft/keyboard/KeyboardLogicSmokeTest.java
 java -cp build/smoke dev.foxcraft.keyboard.KeyboardLogicSmokeTest
 ```
 
-These tests verify the number row, Russian and English alternate symbols, panel geometry, ordinary press, 450 ms hold, pointer drag-away cancellation and focus-loss cancellation.
+These tests verify the number row, Russian/English punctuation alternates, uppercase `Ё`, panel geometry, the 450 ms hold threshold, and VR pointer capture including key gaps, drag-away and focus-loss cancellation.
 
 ## Build the Minecraft mod
 
@@ -46,7 +47,7 @@ A Fabric `.jar` is **not** an Android APK. To bundle this mod inside a future Fo
 ## Remaining validation
 
 - Confirm Fabric and Yarn compile against pinned dependencies.
-- Confirm Vivecraft VR-controller pointer clicks trigger Minecraft screen mouse press/release.
+- Confirm Vivecraft VR-controller pointer clicks trigger Minecraft screen mouse press/release. The pointer state machine has automated Java tests, but actual Quest controller event wiring still requires hardware validation.
 - Confirm focused fields in chat, slash commands and the multiplayer-server UI.
 - Test Cyrillic font support, Enter and Escape behavior, long-press duration and responsive size on the headset.
 - Package and activate the compiled mod as a core mod in the correct QuestCraft instance.
