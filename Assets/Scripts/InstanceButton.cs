@@ -1,3 +1,5 @@
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -15,6 +17,7 @@ public class InstanceButton : MonoBehaviour
     public UIHandler uiHandler;
     public CanvasGroup ScreenFade;
     bool gameReady = false;
+    private bool launchInProgress;
 
     public void Update()
     {
@@ -50,30 +53,63 @@ public class InstanceButton : MonoBehaviour
 
     public void LaunchCurrentInstance()
     {
-        if (JNIStorage.GetInstance(currInstName) == null)
+        if (Application.platform != RuntimePlatform.Android || launchInProgress)
+            return;
+
+        PojlibInstance instance = JNIStorage.GetInstance(currInstName);
+        if (instance == null)
         {
             Debug.Log("Instance is null!");
-            
             CreateDefaultInstance(currInstName);
             return;
         }
-        
-        
-        PojlibInstance instance = JNIStorage.GetInstance(currInstName);
+
+        launchInProgress = true;
+        StartCoroutine(LaunchAfterKeyboardInstall(instance));
+    }
+
+    private IEnumerator LaunchAfterKeyboardInstall(PojlibInstance instance)
+    {
+        // Install the matching in-game keyboard before Pojlib creates the
+        // Minecraft JVM. Only the Fabric 1.21.5 profile can use this JAR.
+        if (String.Equals(instance.versionName, "1.21.5", StringComparison.Ordinal))
+        {
+            bool keyboardInstalled = false;
+            yield return FoxCraftInGameKeyboardInstaller.EnsureInstalled(
+                instance.raw, result => keyboardInstalled = result);
+            if (!keyboardInstalled)
+                Debug.LogWarning("[FoxCraft] Minecraft will launch without the optional " +
+                    "in-game keyboard. Check the staged Fabric JAR and instance version.");
+        }
+
         uiHandler.PlaySetter();
         ProgressBarManager.started = true;
+
         new Thread(() =>
         {
             AndroidJNI.AttachCurrentThread();
-            if (!JNIStorage.apiClass.CallStatic<bool>("prelaunch", JNIStorage.activity, JNIStorage.instancesObj,
-                    instance.raw))
+            try
             {
-                JNIStorage.instance.uiHandler.SetAndShowError("Prelaunch checks failed!");
+                if (!JNIStorage.apiClass.CallStatic<bool>("prelaunch",
+                    JNIStorage.activity, JNIStorage.instancesObj, instance.raw))
+                {
+                    Debug.LogWarning("[FoxCraft] Pojlib prelaunch checks failed.");
+                    launchInProgress = false;
+                }
+                else
+                {
+                    JNIStorage.apiClass.CallStatic("launchInstance",
+                        JNIStorage.activity, JNIStorage.accountObj, instance.raw);
+                }
             }
-            else
+            catch (Exception ex)
             {
-                JNIStorage.apiClass.CallStatic("launchInstance", JNIStorage.activity, JNIStorage.accountObj,
-                    instance.raw);
+                Debug.LogError("[FoxCraft] Minecraft launch failed: " + ex.GetType().Name);
+                launchInProgress = false;
+            }
+            finally
+            {
+                AndroidJNI.DetachCurrentThread();
             }
         }).Start();
     }
