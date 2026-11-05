@@ -1,0 +1,61 @@
+name: FoxCraft Pojlib AAR (experimental Android build)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/foxcraft-pojlib-aar.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-pojlib:
+    # Pojlib upstream's own CI uses Windows and Android NDK r26b.
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - name: Checkout Pojlib for QuestCraft 6.0.0
+        uses: actions/checkout@v4
+        with:
+          repository: QuestCraftPlusPlus/Pojlib
+          ref: QuestCraft-6.0.0
+          path: pojlib
+          submodules: recursive
+          lfs: true
+          persist-credentials: false
+      - name: Prepare Java 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+      - name: Install Android NDK r26b
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
+          local-cache: true
+          link-to-sdk: true
+      - name: Download LFS files in submodules
+        shell: bash
+        working-directory: pojlib
+        run: |
+          git lfs pull
+          git submodule foreach --recursive 'git lfs pull || true'
+      - name: Assemble Android release AAR (no Unity)
+        shell: bash
+        working-directory: pojlib
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+      - name: Verify AAR exists
+        shell: bash
+        run: |
+          ls -lah pojlib/build/outputs/aar/
+          test -s pojlib/build/outputs/aar/Pojlib-release.aar
+      - name: Upload AAR build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoxCraft-Pojlib-QuestCraft-6.0.0-AAR
+          path: pojlib/build/outputs/aar/Pojlib-release.aar
+          if-no-files-found: error
+          retention-days: 7
