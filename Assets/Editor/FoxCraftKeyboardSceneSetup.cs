@@ -125,10 +125,14 @@ public static class FoxCraftKeyboardSceneSetup
         if (Camera.main == null)
             Debug.LogWarning("FoxCraft: no MainCamera-tagged camera found. Assign a placement anchor.", root);
 
-        SerializedObject keyboardSettings = new SerializedObject(root.GetComponent<FoxCraftKeyboard>());
-        SerializedProperty fontProperty = keyboardSettings.FindProperty("font");
-        if (fontProperty == null || fontProperty.objectReferenceValue == null)
-            Debug.LogWarning("FoxCraft: no custom TMP font assigned; Russian characters may render as squares.", root);
+        FoxCraftKeyboard keyboard = root.GetComponent<FoxCraftKeyboard>();
+        if (keyboard != null)
+        {
+            SerializedObject keyboardSettings = new SerializedObject(keyboard);
+            SerializedProperty fontProperty = keyboardSettings.FindProperty("font");
+            if (fontProperty == null || fontProperty.objectReferenceValue == null)
+                Debug.LogWarning("FoxCraft: no custom TMP font assigned; Russian characters may render as squares.", root);
+        }
 
         EventSystem eventSystem = Object.FindObjectOfType<EventSystem>();
         if (eventSystem == null)
