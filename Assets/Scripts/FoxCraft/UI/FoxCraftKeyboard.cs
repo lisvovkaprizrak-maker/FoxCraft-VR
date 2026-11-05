@@ -28,6 +28,13 @@ namespace FoxCraft.UI
         public TextEvent OnSubmitted = new TextEvent();
         public UnityEvent OnCancelled = new UnityEvent();
 
+        // Discrete edit operations are required for GLFW input. Text snapshots alone
+        // cannot accurately describe edits at the cursor or duplicated characters.
+        public TextEvent OnCharacterInserted = new TextEvent();
+        public UnityEvent OnBackspacePressed = new UnityEvent();
+        public UnityEvent OnCursorLeft = new UnityEvent();
+        public UnityEvent OnCursorRight = new UnityEvent();
+
         private enum Language { English, Russian }
         private Language language = Language.English;
         private bool shift;
@@ -337,6 +344,7 @@ namespace FoxCraft.UI
             if (string.IsNullOrEmpty(value)) return;
             buffer = buffer.Insert(cursor, value);
             cursor += value.Length;
+            OnCharacterInserted.Invoke(value);
             Commit();
             if (shift)
             {
@@ -353,6 +361,7 @@ namespace FoxCraft.UI
                 char.IsHighSurrogate(buffer[cursor - 2]) ? 2 : 1;
             buffer = buffer.Remove(cursor - length, length);
             cursor -= length;
+            OnBackspacePressed.Invoke();
             Commit();
         }
 
@@ -361,6 +370,7 @@ namespace FoxCraft.UI
             if (cursor == 0) return;
             cursor -= cursor >= 2 && char.IsLowSurrogate(buffer[cursor - 1]) &&
                 char.IsHighSurrogate(buffer[cursor - 2]) ? 2 : 1;
+            OnCursorLeft.Invoke();
             Commit();
         }
 
@@ -369,6 +379,7 @@ namespace FoxCraft.UI
             if (cursor >= buffer.Length) return;
             cursor += cursor + 1 < buffer.Length && char.IsHighSurrogate(buffer[cursor]) &&
                 char.IsLowSurrogate(buffer[cursor + 1]) ? 2 : 1;
+            OnCursorRight.Invoke();
             Commit();
         }
 
