@@ -79,3 +79,23 @@ The checker does **not** validate Java focus callbacks, sign an APK, compile the
 - `FoxCraftGameFocusReceiver` provides optional `UnitySendMessage` entry points for Minecraft-side focus signals. Both its receive toggle and the native GLFW injection toggle are disabled by default.
 - A Minecraft/Vivecraft mod or Pojlib callback must call `OpenTextField` / `CloseTextField` when a genuine game text field gains or loses focus.
 - See `FOXCRAFT_GLFW_BRIDGE.md` for input JNI details and remaining limitations.
+
+
+## Current Unity editor workflow (2026-11)
+
+1. Open the project using the editor version from `ProjectSettings/ProjectVersion.txt`.
+2. Open the launcher's main scene. In the menu, choose **FoxCraft → Install Keyboard In Open Scene**.
+3. The installer creates/reuses the `FoxCraftGameTextBridge` object, adds keyboard/coordinator/focus/JNI components, and connects existing `KeyboardHandler` components to the new keyboard.
+4. Save the modified scene **only after inspecting** the new object and assigned input fields. This guide and installer have not themselves saved or verified a working scene.
+5. Run **FoxCraft → Validate Keyboard Setup**. Review warnings for the XR UI module, main camera and a TextMeshPro font with Cyrillic glyphs.
+6. Enter Play Mode, then choose **FoxCraft → Run Keyboard Smoke Checks**. This checks local keyboard editing and event lifecycle, **not** Android JNI, headsets or a Minecraft world.
+7. In a Quest development build, use the **Probe Pojlib GLFW API (no input)** context menu on `FoxCraftPojlibGlfwInputBridge` to check whether the embedded AAR exposes the required Java signatures. This does not inject input.
+8. Leave `acceptGameFocusMessages` and `enableNativeInput` **disabled** until Minecraft's focused-field events are integrated and tested.
+
+### VR positioning and focus constraints
+
+- The keyboard defaults to a stationary world-space panel, positioned in front of `placementAnchor` or `MainCamera`. Toggle `followHeadMovement` only for a head-following interface.
+- Its front is oriented toward the user. Real controller interaction additionally requires an XR UI Input Module and a UI-capable ray interactor in the scene.
+- The old launcher keyboard's button callbacks are kept for compatibility, but the legacy input handler must not forward text while a game text session owns the keyboard.
+- The game text bridge is intentionally not an automatic keyboard: it requires a trusted Minecraft-side open/close callback.
+- `ShowFor` refuses to replace an active game text session; hidden keyboard edits are ignored.
