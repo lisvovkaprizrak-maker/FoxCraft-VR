@@ -20,7 +20,7 @@ public final class KeyHoldController {
     public Activation release(KeyboardLayout.Key releasedOver, long nowMs) {
         KeyboardLayout.Key pressed = pending;
         pending = null;
-        if (pressed == null || releasedOver != pressed)
+        if (pressed == null || !pressed.equals(releasedOver))
             return null; // Cancel when the pointer leaves the key or screen.
 
         boolean alternate = pressed.command() == KeyboardLayout.Command.TYPE &&
@@ -33,7 +33,7 @@ public final class KeyHoldController {
     }
 
     public boolean isHolding(KeyboardLayout.Key key, long nowMs) {
-        return pending == key && pending != null && nowMs - pressedAt >= LONG_PRESS_MS;
+        return pending != null && pending.equals(key) && nowMs - pressedAt >= LONG_PRESS_MS;
     }
 
     public boolean hasPending() { return pending != null; }
