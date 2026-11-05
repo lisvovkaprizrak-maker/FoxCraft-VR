@@ -24,6 +24,13 @@ public final class VirtualKeyboardOverlay {
     private final KeyHoldController hold = new KeyHoldController();
     private KeyboardLayout.Panel panel;
     private Screen previousScreen;
+    private int layoutWidth = -1;
+    private int layoutHeight = -1;
+    private boolean layoutChat;
+    private boolean layoutRussian;
+    private boolean layoutSymbols;
+    private boolean layoutShift;
+    private boolean layoutCollapsed;
     private boolean russian = true;
     private boolean symbols;
     private boolean shift;
@@ -34,6 +41,7 @@ public final class VirtualKeyboardOverlay {
             previousScreen = screen;
             hold.cancel();
             collapsed = false;
+            panel = null;
         }
 
         if (focusedField(screen) == null) {
@@ -41,8 +49,20 @@ public final class VirtualKeyboardOverlay {
             hold.cancel();
             return;
         }
-        panel = KeyboardLayout.make(screen.width, screen.height,
-            screen instanceof ChatScreen, russian, symbols, shift, collapsed);
+        boolean chat = screen instanceof ChatScreen;
+        if (panel == null || layoutWidth != screen.width || layoutHeight != screen.height ||
+            layoutChat != chat || layoutRussian != russian || layoutSymbols != symbols ||
+            layoutShift != shift || layoutCollapsed != collapsed) {
+            panel = KeyboardLayout.make(screen.width, screen.height,
+                chat, russian, symbols, shift, collapsed);
+            layoutWidth = screen.width;
+            layoutHeight = screen.height;
+            layoutChat = chat;
+            layoutRussian = russian;
+            layoutSymbols = symbols;
+            layoutShift = shift;
+            layoutCollapsed = collapsed;
+        }
         if (panel == null) return;
 
         long now = System.nanoTime() / 1_000_000L;
@@ -50,12 +70,18 @@ public final class VirtualKeyboardOverlay {
         int border = 0xFF000000 | (Math.min(255, 180 + pulse) << 16) |
             (Math.min(255, 85 + pulse / 3) << 8) | 16;
 
+        // Two translucent rings and a warm animated inner border.
+        context.fill(panel.x() - 4, panel.y() - 4,
+            panel.x() + panel.width() + 4, panel.y() + panel.height() + 4,
+            0x44FF7400);
         context.fill(panel.x() - 2, panel.y() - 2,
             panel.x() + panel.width() + 2, panel.y() + panel.height() + 2,
             border);
         context.fill(panel.x(), panel.y(),
             panel.x() + panel.width(), panel.y() + panel.height(), PANEL_BG);
 
+        var font = MinecraftClient.getInstance().textRenderer;
+        KeyboardLayout.Key heldAlternate = null;
         for (KeyboardLayout.Key key : panel.keys()) {
             boolean hovered = key.contains(mouseX, mouseY);
             boolean longHeld = hold.isHolding(key, now);
@@ -63,30 +89,53 @@ public final class VirtualKeyboardOverlay {
             context.fill(key.x(), key.y(), key.x() + key.width(),
                 key.y() + key.height(), bg);
 
+            float progress = hold.progress(key, now);
+            if (progress > 0f) {
+                int bar = Math.max(1, Math.round(key.width() * progress));
+                context.fill(key.x(), key.y() + key.height() - 2,
+                    Math.min(key.x() + key.width(), key.x() + bar),
+                    key.y() + key.height(), ORANGE);
+            }
             if (longHeld) {
                 context.fill(key.x(), key.y(), key.x() + key.width(),
                     key.y() + 2, ORANGE);
+                heldAlternate = key;
             }
 
             // Miniature legends make alternative long-press characters discoverable.
             if (!key.alternate().isEmpty() && key.height() >= 18) {
-                int glyphWidth = MinecraftClient.getInstance().textRenderer.getWidth(key.alternate());
-                context.drawText(MinecraftClient.getInstance().textRenderer,
+                int glyphWidth = font.getWidth(key.alternate());
+                context.drawText(font,
                     key.alternate(), key.x() + key.width() - glyphWidth - 2,
                     key.y() + 1, MINI, false);
             }
 
             String caption = longHeld ? key.alternate() : key.label();
             if (caption.isEmpty()) caption = key.label();
-            int captionWidth = MinecraftClient.getInstance().textRenderer.getWidth(caption);
+            int captionWidth = font.getWidth(caption);
             int tx = key.x() + Math.max(1, (key.width() - captionWidth) / 2);
             int ty = key.y() + Math.max(1, (key.height() - 8) / 2) +
                 (!key.alternate().isEmpty() && key.height() >= 18 ? 3 : 0);
-            context.drawText(MinecraftClient.getInstance().textRenderer,
+            context.drawText(font,
                 caption, tx, ty, TEXT, false);
         }
 
-        // Gentle orange flow on the outer edge, advanced with wall-clock time.
+        // The symbol is displayed above the held key before release; the game
+        // receives exactly one character after the controller trigger is released.
+        if (heldAlternate != null && !heldAlternate.alternate().isEmpty()) {
+            String symbol = heldAlternate.alternate();
+            int width = Math.max(23, font.getWidth(symbol) + 12);
+            int popupX = heldAlternate.x() + (heldAlternate.width() - width) / 2;
+            int popupY = Math.max(1, heldAlternate.y() - 24);
+            context.fill(popupX - 2, popupY - 2,
+                popupX + width + 2, popupY + 20, ORANGE);
+            context.fill(popupX, popupY, popupX + width, popupY + 18, KEY_BG);
+            context.drawText(font, symbol,
+                popupX + (width - font.getWidth(symbol)) / 2,
+                popupY + 5, TEXT, false);
+        }
+
+        // Gentle orange flow on the outer edge, advanced with monotonic time.
         int sweep = panel.x() + (int) ((now / 12L) % Math.max(1, panel.width()));
         context.fill(sweep, panel.y() - 2, Math.min(panel.x() + panel.width(), sweep + 20),
             panel.y(), ORANGE);
