@@ -6,10 +6,18 @@ on:
       - feature/foxcraft-fabric-ingame-keyboard-1215
     paths:
       - 'MinecraftMod/FoxCraftKeyboard/**'
+      - 'Assets/Scripts/FoxCraftInGameKeyboardInstaller.cs'
+      - 'Assets/Scripts/InstanceButton.cs'
+      - 'tools/stage_foxcraft_ingame_keyboard.py'
+      - 'tests/test_stage_foxcraft_ingame_keyboard.py'
       - '.github/workflows/foxcraft-fabric-keyboard.yml'
   pull_request:
     paths:
       - 'MinecraftMod/FoxCraftKeyboard/**'
+      - 'Assets/Scripts/FoxCraftInGameKeyboardInstaller.cs'
+      - 'Assets/Scripts/InstanceButton.cs'
+      - 'tools/stage_foxcraft_ingame_keyboard.py'
+      - 'tests/test_stage_foxcraft_ingame_keyboard.py'
       - '.github/workflows/foxcraft-fabric-keyboard.yml'
 
 permissions:
