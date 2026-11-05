@@ -20,6 +20,10 @@ namespace FoxCraft.UI
         [Header("Forward to a verified Java/game bridge")]
         public StringEvent OnGameTextChanged = new StringEvent();
         public StringEvent OnGameTextSubmitted = new StringEvent();
+        public StringEvent OnGameCharacterInserted = new StringEvent();
+        public UnityEvent OnGameBackspacePressed = new UnityEvent();
+        public UnityEvent OnGameCursorLeft = new UnityEvent();
+        public UnityEvent OnGameCursorRight = new UnityEvent();
         public UnityEvent OnGameTextCancelled = new UnityEvent();
         public UnityEvent OnGameKeyboardOpened = new UnityEvent();
         public UnityEvent OnGameKeyboardClosed = new UnityEvent();
@@ -48,6 +52,10 @@ namespace FoxCraft.UI
             keyboard.OnTextChanged.AddListener(HandleTextChanged);
             keyboard.OnSubmitted.AddListener(HandleSubmit);
             keyboard.OnCancelled.AddListener(HandleCancel);
+            keyboard.OnCharacterInserted.AddListener(HandleCharacterInserted);
+            keyboard.OnBackspacePressed.AddListener(HandleBackspace);
+            keyboard.OnCursorLeft.AddListener(HandleCursorLeft);
+            keyboard.OnCursorRight.AddListener(HandleCursorRight);
         }
 
         private void OnDisable()
@@ -57,6 +65,10 @@ namespace FoxCraft.UI
                 keyboard.OnTextChanged.RemoveListener(HandleTextChanged);
                 keyboard.OnSubmitted.RemoveListener(HandleSubmit);
                 keyboard.OnCancelled.RemoveListener(HandleCancel);
+                keyboard.OnCharacterInserted.RemoveListener(HandleCharacterInserted);
+                keyboard.OnBackspacePressed.RemoveListener(HandleBackspace);
+                keyboard.OnCursorLeft.RemoveListener(HandleCursorLeft);
+                keyboard.OnCursorRight.RemoveListener(HandleCursorRight);
                 keyboard.Hide();
             }
             sessionOpen = false;
@@ -84,6 +96,27 @@ namespace FoxCraft.UI
         {
             if (!sessionOpen) return;
             CloseInternal();
+        }
+
+        private void HandleCharacterInserted(string value)
+        {
+            if (sessionOpen && !isClosing && !string.IsNullOrEmpty(value))
+                OnGameCharacterInserted.Invoke(value);
+        }
+
+        private void HandleBackspace()
+        {
+            if (sessionOpen && !isClosing) OnGameBackspacePressed.Invoke();
+        }
+
+        private void HandleCursorLeft()
+        {
+            if (sessionOpen && !isClosing) OnGameCursorLeft.Invoke();
+        }
+
+        private void HandleCursorRight()
+        {
+            if (sessionOpen && !isClosing) OnGameCursorRight.Invoke();
         }
 
         private void HandleTextChanged(string value)
@@ -114,8 +147,8 @@ namespace FoxCraft.UI
         {
             if (!sessionOpen || isClosing) return;
 
-            // Keyboard.Cancel restores the original value. Explicitly signal cancellation
-            // so a bridge can discard any provisional text edits.
+            // Keyboard.Cancel restores its local preview. The Minecraft field has already
+            // received edits; Escape normally dismisses the game input screen.
             lastText = initialText;
             CloseInternal();
             OnGameTextCancelled.Invoke();
