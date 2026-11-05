@@ -88,6 +88,7 @@ namespace FoxCraft.UI
         /// <summary>Open the keyboard for a TextMeshPro input field in the Unity launcher.</summary>
         public void ShowFor(TMP_InputField input)
         {
+            if (input == null || gameTextMode) return;
             if (!built) Build();
             target = input;
             gameTextMode = false;
@@ -121,7 +122,7 @@ namespace FoxCraft.UI
         }
 
         public string CurrentText { get { return buffer; } }
-        public bool IsVisible { get { return canvas != null && canvas.gameObject.activeSelf; } }
+        public bool IsVisible { get { return canvas != null && canvas.gameObject.activeInHierarchy; } }
         public bool IsGameTextMode { get { return gameTextMode && IsVisible; } }
 
         /// <summary>Whether an EventSystem selection belongs to the generated keyboard.</summary>
@@ -381,7 +382,7 @@ namespace FoxCraft.UI
 
         public void Insert(string value)
         {
-            if (string.IsNullOrEmpty(value)) return;
+            if (!IsVisible || string.IsNullOrEmpty(value)) return;
             // The present Pojlib GLFW callback accepts only UTF-16 char units.
             // Reject unsupported supplementary characters before updating the
             // local preview, rather than showing text the game never received.
@@ -409,7 +410,7 @@ namespace FoxCraft.UI
 
         public void Backspace()
         {
-            if (cursor == 0) return;
+            if (!IsVisible || cursor == 0) return;
             // Keep surrogate pairs (emoji and supplementary code points) intact.
             int length = cursor >= 2 && char.IsLowSurrogate(buffer[cursor - 1]) &&
                 char.IsHighSurrogate(buffer[cursor - 2]) ? 2 : 1;
@@ -421,7 +422,7 @@ namespace FoxCraft.UI
 
         public void MoveLeft()
         {
-            if (cursor == 0) return;
+            if (!IsVisible || cursor == 0) return;
             cursor -= cursor >= 2 && char.IsLowSurrogate(buffer[cursor - 1]) &&
                 char.IsHighSurrogate(buffer[cursor - 2]) ? 2 : 1;
             OnCursorLeft.Invoke();
@@ -430,7 +431,7 @@ namespace FoxCraft.UI
 
         public void MoveRight()
         {
-            if (cursor >= buffer.Length) return;
+            if (!IsVisible || cursor >= buffer.Length) return;
             cursor += cursor + 1 < buffer.Length && char.IsHighSurrogate(buffer[cursor]) &&
                 char.IsLowSurrogate(buffer[cursor + 1]) ? 2 : 1;
             OnCursorRight.Invoke();
@@ -439,6 +440,7 @@ namespace FoxCraft.UI
 
         public void Submit()
         {
+            if (!IsVisible) return;
             Commit();
             OnSubmitted.Invoke(buffer);
             Hide();
@@ -446,6 +448,7 @@ namespace FoxCraft.UI
 
         public void Cancel()
         {
+            if (!IsVisible) return;
             if (target != null)
             {
                 target.text = originalText;
