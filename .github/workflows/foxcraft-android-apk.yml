@@ -1,0 +1,163 @@
+name: FoxCraft VR Android test APK (manual, Unity licence required)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: foxcraft-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Require configured Unity licence
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        shell: bash
+        run: |
+          if [[ -z "$UNITY_LICENSE" && ( -z "$UNITY_EMAIL" || -z "$UNITY_PASSWORD" || -z "$UNITY_SERIAL" ) ]]; then
+            echo "::error::Configure UNITY_LICENSE or UNITY_EMAIL + UNITY_PASSWORD + UNITY_SERIAL as GitHub Actions secrets before dispatching the APK workflow."
+            exit 1
+          fi
+      - name: Verify Unity project and Python tests
+        run: |
+          python3 tools/foxcraft_preflight.py .
+          python3 -m unittest discover -s tests -p 'test_foxcraft_*.py' -v
+
+  fabric-jar:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile and test QCKB1 Minecraft bridge
+        run: |
+          bash Fabric/foxchatkeyboard/build.sh
+          bash Fabric/foxchatkeyboard/tests/run-tests.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: foxcraft-fabric-for-apk
+          path: Fabric/foxchatkeyboard/FoxChatKeyboard-bridge-0.6.0-fabric-1.21.1.jar
+          if-no-files-found: error
+          retention-days: 7
+
+  pojlib-aar:
+    needs: preflight
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - name: Checkout QuestCraft Pojlib release branch
+        uses: actions/checkout@v4
+        with:
+          repository: QuestCraftPlusPlus/Pojlib
+          ref: QuestCraft-6.0.0
+          path: pojlib
+          submodules: recursive
+          lfs: true
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+      - uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
+          local-cache: true
+          link-to-sdk: true
+      - name: Download LFS files in Pojlib submodules
+        shell: bash
+        working-directory: pojlib
+        run: |
+          git lfs pull
+          git submodule foreach --recursive 'git lfs pull || true'
+      - name: Build Pojlib AAR
+        shell: bash
+        working-directory: pojlib
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          test -s build/outputs/aar/Pojlib-release.aar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: foxcraft-pojlib-for-apk
+          path: pojlib/build/outputs/aar/Pojlib-release.aar
+          if-no-files-found: error
+          retention-days: 7
+
+  unity-apk:
+    needs: [preflight, fabric-jar, pojlib-aar]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout Unity sources and LFS assets
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: foxcraft-fabric-for-apk
+          path: incoming/fabric
+      - uses: actions/download-artifact@v4
+        with:
+          name: foxcraft-pojlib-for-apk
+          path: incoming/pojlib
+      - name: Validate and stage both Android dependencies
+        run: |
+          python3 tools/foxcraft_stage_fabric.py --source incoming/fabric/FoxChatKeyboard-bridge-0.6.0-fabric-1.21.1.jar --replace
+          python3 tools/foxcraft_stage_pojlib.py --source incoming/pojlib/Pojlib-release.aar --replace
+          test -s Assets/StreamingAssets/FoxChatKeyboard-bridge-0.6.0.jar
+          test -s Assets/Plugins/Android/Pojlib-release.aar
+      - name: Build separate FoxCraft Android test APK with Unity
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          unityVersion: 2022.3.62f3
+          targetPlatform: Android
+          versioning: None
+          buildMethod: FoxCraftAndroidBuild.BuildTestApk
+      - name: Verify APK archive exists
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import Path
+          apk = Path("Builds/FoxCraft-VR-test.apk")
+          if not apk.is_file() or apk.stat().st_size < 100000:
+              raise SystemExit("No valid-sized Unity APK produced: " + str(apk))
+          with zipfile.ZipFile(apk) as archive:
+              if "AndroidManifest.xml" not in archive.namelist():
+                  raise SystemExit("APK missing compiled AndroidManifest.xml")
+          print("APK archive found:", apk, apk.stat().st_size, "bytes")
+          print("Device compatibility and system keyboard are NOT verified.")
+          PY
+      - name: Upload experimental APK (not a release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoxCraft-VR-Quest3-UNTESTED-APK
+          path: Builds/FoxCraft-VR-test.apk
+          if-no-files-found: error
+          retention-days: 7
