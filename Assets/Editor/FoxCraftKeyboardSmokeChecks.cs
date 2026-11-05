@@ -46,18 +46,36 @@ public static class FoxCraftKeyboardSmokeChecks
             keyboard.Cancel();
             Assert(cancels == 1 && keyboard.CurrentText == "start", "Cancel restores buffer.");
 
+            // Java GLFW char callback cannot encode supplementary characters.
+            keyboard.ShowWithText("abc");
+            keyboard.Insert("🙂");
+            Assert(keyboard.CurrentText == "abc", "Unsupported game emoji must not desync preview.");
+            keyboard.Hide();
+
             FoxCraftGameTextInputCoordinator coordinator =
                 root.AddComponent<FoxCraftGameTextInputCoordinator>();
             string gameCharacter = null;
             string gameSubmit = null;
             coordinator.OnGameCharacterInserted.AddListener(s => gameCharacter = s);
             coordinator.OnGameTextSubmitted.AddListener(s => gameSubmit = s);
+            int gameCancels = 0;
+            int gameChanges = 0;
+            coordinator.OnGameTextCancelled.AddListener(() => gameCancels++);
+            coordinator.OnGameTextChanged.AddListener(s => gameChanges++);
             coordinator.OpenFromGame("");
             keyboard.Insert("Привет");
             Assert(gameCharacter == "Привет", "Coordinator forwards character edits.");
             keyboard.Submit();
             Assert(gameSubmit == "Привет" && !coordinator.IsSessionOpen,
                 "Coordinator submits and closes session.");
+            Assert(gameChanges == 1, "Game edits must not be duplicated on submit.");
+
+            coordinator.OpenFromGame("hello");
+            keyboard.Insert("!");
+            keyboard.Cancel();
+            Assert(gameCancels == 1 && !coordinator.IsSessionOpen,
+                "Game cancel fires once and closes focused session.");
+            Assert(gameChanges == 2, "Cancel must not emit an extra game text snapshot.");
 
             Debug.Log("FoxCraft: keyboard smoke checks passed (Unity only; JNI and XR hardware not tested).");
         }
