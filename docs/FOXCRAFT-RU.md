@@ -7,6 +7,9 @@ FoxCraft VR — экспериментальная сборка на базе QC
 - В форке исходный Unity-проект с Unity **2022.3.62f3** и OpenXR **1.14.3**.
 - На реальном Quest 3 прежняя Fabric-часть смогла обнаружить чат и вставить тестовый русский текст. **Meta Keyboard этим не проверена.**
 - В этой ветке есть Unity-мост: `Assets/Scripts/QuestChatKeyboardOverlayBridge.cs`.
+- Добавлен сам Fabric-мод 0.6.0: `Fabric/foxchatkeyboard/`. Он компилируется на Java 21 без локальной установки Minecraft, а Java-тесты моделируют Fabric/Minecraft API.
+- GitHub Actions **FoxCraft Fabric JAR (Java 21)** собирает JAR, выполняет тесты и публикует его как артефакт GitHub, не требуя Unity-лицензии.
+- Новый `FoxCraftFabricModInstaller.cs` предназначен для копирования JAR в `mods` **собственного профиля FoxCraft** из Unity `StreamingAssets` при первом запуске. Его работа на Quest 3 пока не проверена.
 - В исходный AndroidManifest.xml добавлена необязательная функция `oculus.software.overlay_keyboard`. Существующие Activity и запись `com.oculus.vr.focusaware` сохранены.
 - Workflow **FoxCraft preflight** проверяет структуру проекта, манифест и части протокола без Unity-лицензии. Эти проверки **не компилируют Unity**.
 
@@ -36,14 +39,26 @@ COMMIT
 
 ## Оставшиеся препятствия
 
-1. Добавить и подтвердить совместимую Fabric-часть QCKB1, затем положить её JAR в тестовую сборку. Сейчас JAR не присутствует в репозитории.
+1. Связать артефакт Fabric JAR с будущей Unity-сборкой. Java-код и автоматическая сборка JAR уже в репозитории; скрипт `tools/foxcraft_stage_fabric.py` копирует проверенный JAR в `Assets/StreamingAssets/FoxChatKeyboard-bridge-0.6.0.jar`. **JAR не сохраняется в Git после каждой сборки; он доступен в GitHub Actions Artifacts.**
 2. Собрать Pojlib AAR для QuestCraft 6.0.0 и интегрировать его в Unity-проект. Проверить существующие зависимости.
 3. Подготовить отдельный идентификатор приложения `com.foxcraftvr.quest`, название/иконку FoxCraft и подпись тестового APK, не затронув оригинальную QuestCraft.
 4. Обеспечить Unity-лицензию для облачной Android-сборки и проверить конкретные версии Unity/Android SDK.
 5. Проверить совместимость системной клавиатуры с OpenXR **1.14.3**. Специальный флаг Enable System Keyboard появился в OpenXR **1.17.0**; обновлять пакет вслепую нельзя.
 6. Установить APK на Quest 3 и проверить открытие оверлея, русский/английский, руки, Enter, удаление текста и закрытие.
 
-**Сейчас работоспособного APK FoxCraft нет.** Совпадение протокола и успешные Python-тесты не подтверждают, что Meta-оверлей откроется.
+**Сейчас работоспособного APK FoxCraft нет.** Успешная GitHub-сборка Fabric JAR и Python/Java-тесты не доказывают работу Meta-оверлея или Unity-моста на Quest 3.
+
+## Автоматическая сборка Fabric-мода
+
+- Workflow: `.github/workflows/foxcraft-fabric-build.yml`.
+- Выходной JAR: `FoxChatKeyboard-bridge-0.6.0-fabric-1.21.1.jar` внутри артефакта `FoxChatKeyboard-Fabric-0.6.0-1.21.1`.
+- Для локальной сборки: `bash Fabric/foxchatkeyboard/build.sh`, затем `bash Fabric/foxchatkeyboard/tests/run-tests.sh`.
+- Для помещения JAR в Unity: `python3 tools/foxcraft_stage_fabric.py` (из корня репозитория после сборки).
+- Идентификатор Fabric-мода остаётся `questchatkeyboardbridge`. **Не устанавливайте его одновременно с тестовой версией 0.5.1 в один профиль Minecraft.**
+- Fabric-мод 0.6.0 **не** заполняет чат тестовым русским текстом автоматически; это сделано только в диагностической версии 0.5.1.
+- В установленной FoxCraft потребуется перезапустить Minecraft, если его запуск опередил копирование Fabric JAR.
+
+**Автоматическая сборка JAR не означает готовый APK.**
 
 ## Безопасность
 
