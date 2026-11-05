@@ -100,28 +100,28 @@ namespace FoxCraft.UI
 
         private void HandleCharacterInserted(string value)
         {
-            if (sessionOpen && !isClosing && !string.IsNullOrEmpty(value))
+            if (sessionOpen && !isClosing && keyboard.IsGameTextMode && !string.IsNullOrEmpty(value))
                 OnGameCharacterInserted.Invoke(value);
         }
 
         private void HandleBackspace()
         {
-            if (sessionOpen && !isClosing) OnGameBackspacePressed.Invoke();
+            if (sessionOpen && !isClosing && keyboard.IsGameTextMode) OnGameBackspacePressed.Invoke();
         }
 
         private void HandleCursorLeft()
         {
-            if (sessionOpen && !isClosing) OnGameCursorLeft.Invoke();
+            if (sessionOpen && !isClosing && keyboard.IsGameTextMode) OnGameCursorLeft.Invoke();
         }
 
         private void HandleCursorRight()
         {
-            if (sessionOpen && !isClosing) OnGameCursorRight.Invoke();
+            if (sessionOpen && !isClosing && keyboard.IsGameTextMode) OnGameCursorRight.Invoke();
         }
 
         private void HandleTextChanged(string value)
         {
-            if (!sessionOpen || isClosing) return;
+            if (!sessionOpen || isClosing || !keyboard.IsGameTextMode) return;
             value = value ?? "";
             if (value == lastText) return; // Avoid duplicate snapshots on submit/cancel.
             lastText = value;
@@ -130,7 +130,7 @@ namespace FoxCraft.UI
 
         private void HandleSubmit(string value)
         {
-            if (!sessionOpen || isClosing) return;
+            if (!sessionOpen || isClosing || !keyboard.IsGameTextMode) return;
             value = value ?? "";
             if (value != lastText)
             {
@@ -145,7 +145,7 @@ namespace FoxCraft.UI
 
         private void HandleCancel()
         {
-            if (!sessionOpen || isClosing) return;
+            if (!sessionOpen || isClosing || !keyboard.IsGameTextMode) return;
 
             // Keyboard.Cancel restores its local preview. The Minecraft field has already
             // received edits; Escape normally dismisses the game input screen.
