@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")"
+# Remove stale compiled artifacts before packaging a new JAR.
+rm -rf build/classes build/package
 mkdir -p build/stubs/net/fabricmc/api build/classes build/package
 cat > build/stubs/net/fabricmc/api/ClientModInitializer.java <<'JAVA'
 package net.fabricmc.api;
