@@ -33,16 +33,22 @@ public class KeyboardHandler : MonoBehaviour
         if (foxCraftKeyboard == null)
             foxCraftKeyboard = gameObject.AddComponent<FoxCraftKeyboard>();
 
-        // Hide the old prefab, NOT its containing controller GameObject.
-        if (keyboard != null && keyboard != gameObject)
+        // Never deactivate our own controller or any parent containing it.
+        // Old scenes sometimes put KeyboardHandler inside the legacy keyboard.
+        if (keyboard != null && keyboard != gameObject &&
+            !transform.IsChildOf(keyboard.transform))
             keyboard.SetActive(false);
+        else if (keyboard != null)
+            Debug.LogWarning("FoxCraft: the legacy keyboard contains KeyboardHandler. " +
+                             "Move the handler to a separate active controller object before hiding the old prefab.", this);
     }
 
     private void Update()
     {
         if (preferFoxCraftKeyboard && foxCraftKeyboard != null)
         {
-            if (keyboard != null && keyboard != gameObject && keyboard.activeSelf)
+            if (keyboard != null && keyboard != gameObject &&
+                !transform.IsChildOf(keyboard.transform) && keyboard.activeSelf)
                 keyboard.SetActive(false);
 
             if (foxCraftKeyboard.IsGameTextMode)
