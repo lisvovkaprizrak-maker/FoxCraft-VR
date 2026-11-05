@@ -50,6 +50,18 @@ jobs:
           python3 ../../tools/stage_foxcraft_ingame_keyboard.py \
             --source build/libs/foxcraft-keyboard-0.1.0-alpha.jar \
             --dest build/staging/foxcraft-keyboard-0.1.0-alpha.jar
+      - name: Stage verified JAR for a future Unity Android build
+        run: |
+          python3 ../../tools/stage_foxcraft_ingame_keyboard.py \
+            --source build/libs/foxcraft-keyboard-0.1.0-alpha.jar \
+            --dest ../../Assets/StreamingAssets/foxcraft-keyboard-0.1.0-alpha.jar
+      - name: Upload Unity StreamingAssets keyboard bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: foxcraft-keyboard-unity-staging-1.21.5
+          path: Assets/StreamingAssets/foxcraft-keyboard-0.1.0-alpha.jar
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload mod JAR for testing
         uses: actions/upload-artifact@v4
         with:
