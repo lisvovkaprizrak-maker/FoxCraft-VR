@@ -31,6 +31,9 @@ public static class FoxCraftKeyboardSmokeChecks
 
             keyboard.ShowWithText("a");
             Assert(keyboard.IsGameTextMode && keyboard.IsVisible, "Game keyboard should be visible.");
+            keyboard.ShowFor(null);
+            Assert(keyboard.IsGameTextMode && keyboard.CurrentText == "a",
+                "Launcher input cannot steal an active game session.");
             keyboard.Insert("б");
             Assert(keyboard.CurrentText == "aб" && emittedCharacter == "б", "Cyrillic insert.");
             keyboard.MoveLeft();
@@ -51,6 +54,10 @@ public static class FoxCraftKeyboardSmokeChecks
             keyboard.Insert("🙂");
             Assert(keyboard.CurrentText == "abc", "Unsupported game emoji must not desync preview.");
             keyboard.Hide();
+            keyboard.Insert("!");
+            keyboard.Backspace();
+            keyboard.Submit();
+            Assert(keyboard.CurrentText == "abc", "Hidden keyboard must ignore edit operations.");
 
             FoxCraftGameTextInputCoordinator coordinator =
                 root.AddComponent<FoxCraftGameTextInputCoordinator>();
