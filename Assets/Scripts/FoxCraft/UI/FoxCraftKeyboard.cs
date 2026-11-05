@@ -47,6 +47,7 @@ namespace FoxCraft.UI
         private string buffer = "";
         private int cursor;
         private bool built;
+        private bool gameTextMode;
 
         private static readonly string[][] English =
         {
@@ -87,6 +88,7 @@ namespace FoxCraft.UI
         {
             if (!built) Build();
             target = input;
+            gameTextMode = false;
             buffer = input != null ? (input.text ?? "") : "";
             originalText = buffer;
             cursor = Mathf.Clamp(input != null ? input.caretPosition : buffer.Length, 0, buffer.Length);
@@ -100,6 +102,7 @@ namespace FoxCraft.UI
         {
             if (!built) Build();
             target = null;
+            gameTextMode = true;
             buffer = initialText ?? "";
             originalText = buffer;
             cursor = buffer.Length;
@@ -111,11 +114,13 @@ namespace FoxCraft.UI
         public void Hide()
         {
             if (canvas != null) canvas.gameObject.SetActive(false);
+            gameTextMode = false;
             target = null;
         }
 
         public string CurrentText { get { return buffer; } }
         public bool IsVisible { get { return canvas != null && canvas.gameObject.activeSelf; } }
+        public bool IsGameTextMode { get { return gameTextMode && IsVisible; } }
 
         private void Position()
         {
