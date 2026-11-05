@@ -1,6 +1,12 @@
 name: FoxCraft VR Android test APK (manual, Unity licence required)
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/foxcraft-android-apk.yml'
+      - 'tools/foxcraft_stage_pojlib.py'
+      - 'tests/test_foxcraft_pojlib.py'
+      - 'Assets/Editor/FoxCraftAndroidBuild.cs'
   workflow_dispatch:
 
 permissions:
@@ -20,6 +26,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Require configured Unity licence
+        if: github.event_name == 'workflow_dispatch'
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
@@ -37,6 +44,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_foxcraft_*.py' -v
 
   fabric-jar:
+    if: github.event_name == 'workflow_dispatch'
     needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -58,6 +66,7 @@ jobs:
           retention-days: 7
 
   pojlib-aar:
+    if: github.event_name == 'workflow_dispatch'
     needs: preflight
     runs-on: windows-2022
     timeout-minutes: 60
@@ -101,6 +110,7 @@ jobs:
           retention-days: 7
 
   unity-apk:
+    if: github.event_name == 'workflow_dispatch'
     needs: [preflight, fabric-jar, pojlib-aar]
     runs-on: ubuntu-latest
     timeout-minutes: 120
