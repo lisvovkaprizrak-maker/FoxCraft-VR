@@ -371,6 +371,20 @@ namespace FoxCraft.UI
         public void Insert(string value)
         {
             if (string.IsNullOrEmpty(value)) return;
+            // The present Pojlib GLFW callback accepts only UTF-16 char units.
+            // Reject unsupported supplementary characters before updating the
+            // local preview, rather than showing text the game never received.
+            if (gameTextMode)
+            {
+                foreach (char unit in value)
+                {
+                    if (char.IsSurrogate(unit))
+                    {
+                        Debug.LogWarning("FoxCraft: supplementary Unicode is not supported by the active game input bridge.", this);
+                        return;
+                    }
+                }
+            }
             buffer = buffer.Insert(cursor, value);
             cursor += value.Length;
             OnCharacterInserted.Invoke(value);
