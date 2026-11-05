@@ -24,6 +24,8 @@ class AndroidApkWorkflowTests(unittest.TestCase):
         self.assertIn("tools/foxcraft_stage_pojlib.py --source", workflow)
         self.assertIn("FoxCraft-VR-Quest3-UNTESTED-APK", workflow)
         self.assertIn("if-no-files-found: error", workflow)
+        self.assertIn("Verify Android package ID cannot replace QuestCraft", workflow)
+        self.assertIn('PACKAGE" != "com.foxcraftvr.quest"', workflow)
         self.assertLess(
             workflow.index("Validate and stage both Android dependencies"),
             workflow.index("Build separate FoxCraft Android test APK with Unity"),
