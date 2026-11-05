@@ -124,12 +124,25 @@ namespace FoxCraft.UI
 
         private void Position()
         {
-            if (canvas != null && canvas.worldCamera == null)
-                canvas.worldCamera = placementAnchor != null ? placementAnchor.GetComponent<Camera>() : Camera.main;
-            if (placementAnchor == null) return;
-            canvas.transform.SetParent(placementAnchor, false);
+            Camera eventCamera = placementAnchor != null ? placementAnchor.GetComponent<Camera>() : Camera.main;
+            if (canvas != null && eventCamera != null)
+                canvas.worldCamera = eventCamera;
+
+            // The launcher does not serialize an explicit placement anchor.
+            // Without this fallback, the generated world-space canvas can be left
+            // at the scene origin and become invisible in a headset.
+            Transform anchor = placementAnchor != null ? placementAnchor :
+                (eventCamera != null ? eventCamera.transform : null);
+            if (anchor == null)
+            {
+                Debug.LogWarning("FoxCraft keyboard: no placement anchor or MainCamera. Assign one to show the panel in VR.", this);
+                return;
+            }
+
+            canvas.transform.SetParent(anchor, false);
             canvas.transform.localPosition = localOffset;
             canvas.transform.localRotation = Quaternion.identity;
+            canvas.transform.localScale = Vector3.one * Mathf.Max(0.0001f, worldScale);
         }
 
         private void Build()
@@ -284,17 +297,21 @@ namespace FoxCraft.UI
                 GameObject buttonObject = new GameObject("Key " + key.Label, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
                 buttonObject.transform.SetParent(row.transform, false);
                 Image keyImage = buttonObject.GetComponent<Image>();
-                keyImage.color = key.Background;
+                // ColorTint multiplies Image.color. Keep the base white so the
+                // normal/hover/pressed palette has the intended appearance.
+                keyImage.color = Color.white;
                 keyImage.sprite = RoundedSprite();
                 keyImage.type = Image.Type.Sliced;
                 buttonObject.GetComponent<LayoutElement>().flexibleWidth = key.Weight;
                 Button button = buttonObject.GetComponent<Button>();
                 ColorBlock colors = button.colors;
-                colors.normalColor = Color.white;
-                colors.highlightedColor = HoverColor;
+                colors.normalColor = key.Background;
+                colors.highlightedColor = Color.Lerp(key.Background, HoverColor, 0.65f);
                 colors.pressedColor = AccentColor;
-                colors.selectedColor = HoverColor;
+                colors.selectedColor = Color.Lerp(key.Background, HoverColor, 0.65f);
+                colors.disabledColor = key.Background;
                 colors.fadeDuration = 0.08f;
+                button.transition = Selectable.Transition.ColorTint;
                 button.colors = colors;
                 if (key.Action != null)
                 {
