@@ -53,12 +53,12 @@ public final class KeyboardLayout {
     private static final String[] DIGITS =
         {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"};
     private static final String[][] ENGLISH_ALTERNATES = {
-        {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"},
-        {"@", "#", "$", "%", "&", "-", "+", "(", ")"},
-        {"*", "\"", "'", ":", ";", "!", "?"}
+        {"@", "#", "$", "%", "^", "&", "*", "(", ")", "_"},
+        {"{", "}", "[", "]", "|", "\\", ";", ":", "'"},
+        {"~", "`", "<", ">", "/", "?", "+"}
     };
     private static final String[][] RUSSIAN_ALTERNATES = {
-        {"1", "2", "3", "4", "ё", "6", "7", "8", "9", "0", "№", "="},
+        {"~", "`", "{", "}", "ё", "[", "]", "<", ">", "№", "?", "="},
         {"@", "#", "$", "%", "&", "-", "+", "(", ")", "/", "\\"},
         {"*", "\"", "'", ":", ";", "!", "?", ".", ","}
     };
@@ -133,7 +133,8 @@ public final class KeyboardLayout {
             int left = (int) ((long) innerWidth * i / total);
             String character = upper ? row[i].toUpperCase(Locale.ROOT) : row[i];
             keys.add(new Key(character, Command.TYPE, character,
-                legends != null && i < legends.length ? legends[i] : "",
+                legends != null && i < legends.length
+                    ? (upper ? legends[i].toUpperCase(Locale.ROOT) : legends[i]) : "",
                 x + used + gap * i, y, right - left, height));
             used += right - left;
         }
