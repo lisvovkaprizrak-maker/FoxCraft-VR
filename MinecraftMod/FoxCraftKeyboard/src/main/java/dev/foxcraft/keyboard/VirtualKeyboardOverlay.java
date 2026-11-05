@@ -45,7 +45,7 @@ public final class VirtualKeyboardOverlay {
             screen instanceof ChatScreen, russian, symbols, shift, collapsed);
         if (panel == null) return;
 
-        long now = System.currentTimeMillis();
+        long now = System.nanoTime() / 1_000_000L;
         int pulse = (int) (50 + 38 * Math.sin(now / 320.0));
         int border = 0xFF000000 | (Math.min(255, 180 + pulse) << 16) |
             (Math.min(255, 85 + pulse / 3) << 8) | 16;
@@ -94,13 +94,13 @@ public final class VirtualKeyboardOverlay {
 
     /** Returns true if the key press was captured, preventing screen click-through. */
     public boolean mousePressed(Screen screen, double x, double y, int button) {
-        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || panel == null ||
-            focusedField(screen) == null)
+        if (screen != previousScreen || button != GLFW.GLFW_MOUSE_BUTTON_LEFT ||
+            panel == null || focusedField(screen) == null)
             return false;
         if (!panel.contains(x, y)) return false;
         KeyboardLayout.Key key = panel.at(x, y);
         if (key != null && key.command() != KeyboardLayout.Command.NONE)
-            hold.press(key, System.currentTimeMillis());
+            hold.press(key, System.nanoTime() / 1_000_000L);
         else
             hold.cancel();
         return true; // Also swallow clicks on panel gaps.
@@ -108,9 +108,13 @@ public final class VirtualKeyboardOverlay {
 
     /** Returns true if captured; letters are committed only when released. */
     public boolean mouseReleased(Screen screen, double x, double y, int button) {
+        if (screen != previousScreen) {
+            hold.cancel();
+            return false;
+        }
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !hold.hasPending()) return false;
         KeyboardLayout.Key releasedOn = panel != null ? panel.at(x, y) : null;
-        KeyHoldController.Activation activation = hold.release(releasedOn, System.currentTimeMillis());
+        KeyHoldController.Activation activation = hold.release(releasedOn, System.nanoTime() / 1_000_000L);
         if (activation != null && focusedField(screen) != null)
             activate(screen, activation);
         return true;
