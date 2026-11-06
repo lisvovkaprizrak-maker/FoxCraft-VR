@@ -66,6 +66,15 @@ public final class VirtualKeyboardOverlay {
     private boolean collapsed;
     private boolean settingsOpen;
     private boolean layoutSettingsOpen;
+    private String menuPage = "KEYBOARD";
+    private String layoutMenuPage = "";
+    private String voiceStatus = "";
+    private long voiceStatusAt;
+    private final FoxCraftFeatureSettings featurePrefs =
+        new FoxCraftFeatureSettings(FabricLoader.getInstance().getConfigDir()
+            .resolve("foxcraft-vr-features.properties"));
+
+    public FoxCraftFeatureSettings features() { return featurePrefs; }
     private final KeyboardThemePreferences themePrefs =
         new KeyboardThemePreferences(FabricLoader.getInstance().getConfigDir()
             .resolve("foxcraft-keyboard-theme.txt"));
@@ -122,6 +131,7 @@ public final class VirtualKeyboardOverlay {
             suppressMinecraftGuiClick = false;
             collapsed = false;
             settingsOpen = false;
+            menuPage = "KEYBOARD";
             panel = null;
         }
 
@@ -163,12 +173,78 @@ public final class VirtualKeyboardOverlay {
             layoutPreferredWidth != preferredWidth ||
             layoutRussian != russian || layoutSymbols != symbols ||
             layoutShift != shift || layoutCollapsed != collapsed ||
-            layoutSettingsOpen != settingsOpen) {
+            layoutSettingsOpen != settingsOpen ||
+            !layoutMenuPage.equals(menuPage)) {
             panel = KeyboardLayout.make(width, height,
                 chat && !detached, russian, symbols, shift, collapsed,
                 preferredWidth, suggestions, chatInputBottomY, detached);
             if (settingsOpen && panel != null) {
-                panel = KeyboardLayout.themeMenu(panel, theme.name());
+                panel = switch (menuPage) {
+                    case "THEMES" -> KeyboardLayout.themeMenu(panel, theme.name());
+                    case "SETTINGS" -> KeyboardLayout.toolMenu(panel,
+                        new String[]{"ТЕМЫ", "МИКРОФОН", "БЫСТРЫЕ ФРАЗЫ",
+                            "БУФЕР ОБМЕНА", "ПЕРЕМЕЩЕНИЕ", "КОНТРОЛЛЕРЫ",
+                            "← К клавиатуре"},
+                        new KeyboardLayout.Command[]{KeyboardLayout.Command.THEMES_PAGE,
+                            KeyboardLayout.Command.MICROPHONE,
+                            KeyboardLayout.Command.QUICK_MESSAGES,
+                            KeyboardLayout.Command.CLIPBOARD,
+                            KeyboardLayout.Command.MOVE_MENU,
+                            KeyboardLayout.Command.CONTROLLER_MENU,
+                            KeyboardLayout.Command.BACK_TO_KEYS},
+                        new String[]{"", "", "", "", "", "", ""});
+                    case "QUICK" -> KeyboardLayout.toolMenu(panel,
+                        new String[]{"Привет!", "Где ты?", "Иду к тебе!",
+                            "Помоги, пожалуйста!", "Спасибо!", "Сейчас буду.",
+                            "← Назад"},
+                        new KeyboardLayout.Command[]{KeyboardLayout.Command.QUICK_MESSAGE,
+                            KeyboardLayout.Command.QUICK_MESSAGE,
+                            KeyboardLayout.Command.QUICK_MESSAGE,
+                            KeyboardLayout.Command.QUICK_MESSAGE,
+                            KeyboardLayout.Command.QUICK_MESSAGE,
+                            KeyboardLayout.Command.QUICK_MESSAGE,
+                            KeyboardLayout.Command.SETTINGS_HOME},
+                        new String[]{"Привет!", "Где ты?", "Иду к тебе!",
+                            "Помоги, пожалуйста!", "Спасибо!", "Сейчас буду.", ""});
+                    case "CLIPBOARD" -> KeyboardLayout.toolMenu(panel,
+                        new String[]{"КОПИРОВАТЬ", "ВСТАВИТЬ",
+                            "ВЫДЕЛИТЬ ВСЁ", "← Назад"},
+                        new KeyboardLayout.Command[]{KeyboardLayout.Command.COPY,
+                            KeyboardLayout.Command.PASTE,
+                            KeyboardLayout.Command.SELECT_ALL,
+                            KeyboardLayout.Command.SETTINGS_HOME},
+                        new String[]{"", "", "", ""});
+                    case "MOVE" -> KeyboardLayout.toolMenu(panel,
+                        new String[]{"ЗАЖМИ И ПЕРЕТАЩИ", "← Левее",
+                            "Правее →", "↑ Выше", "↓ Ниже",
+                            "БЛИЖЕ", "ДАЛЬШЕ", "СБРОС", "← Назад"},
+                        new KeyboardLayout.Command[]{KeyboardLayout.Command.MOVE_GRAB,
+                            KeyboardLayout.Command.MOVE_STEP, KeyboardLayout.Command.MOVE_STEP,
+                            KeyboardLayout.Command.MOVE_STEP, KeyboardLayout.Command.MOVE_STEP,
+                            KeyboardLayout.Command.MOVE_STEP, KeyboardLayout.Command.MOVE_STEP,
+                            KeyboardLayout.Command.MOVE_RESET,
+                            KeyboardLayout.Command.SETTINGS_HOME},
+                        new String[]{"", "LEFT", "RIGHT", "UP", "DOWN",
+                            "NEAR", "FAR", "", ""});
+                    case "CONTROLLERS" -> KeyboardLayout.toolMenu(panel,
+                        new String[]{featurePrefs.haptics() ? "ВИБРАЦИЯ: ВКЛ" : "ВИБРАЦИЯ: ВЫКЛ",
+                            "СИЛА: " + featurePrefs.hapticStrength(),
+                            featurePrefs.leftHand() ? "ЛЕВАЯ: ВКЛ" : "ЛЕВАЯ: ВЫКЛ",
+                            featurePrefs.rightHand() ? "ПРАВАЯ: ВКЛ" : "ПРАВАЯ: ВЫКЛ",
+                            "ЛУЧ КОРОЧЕ", "ЛУЧ ДЛИННЕЕ",
+                            "ТОЧКА МЕНЬШЕ", "ТОЧКА БОЛЬШЕ", "← Назад"},
+                        new KeyboardLayout.Command[]{KeyboardLayout.Command.HAPTIC_TOGGLE,
+                            KeyboardLayout.Command.HAPTIC_STRENGTH,
+                            KeyboardLayout.Command.CONTROLLER_LEFT_TOGGLE,
+                            KeyboardLayout.Command.CONTROLLER_RIGHT_TOGGLE,
+                            KeyboardLayout.Command.BEAM_SHORTER,
+                            KeyboardLayout.Command.BEAM_LONGER,
+                            KeyboardLayout.Command.DOT_SMALLER,
+                            KeyboardLayout.Command.DOT_LARGER,
+                            KeyboardLayout.Command.SETTINGS_HOME},
+                        new String[]{"", "", "", "", "", "", "", "", ""});
+                    default -> panel;
+                };
             }
             if (!chat && !detached && panel != null) {
                 panel = KeyboardLayout.dockForMenu(panel, width, height,
@@ -191,6 +267,7 @@ public final class VirtualKeyboardOverlay {
             layoutShift = shift;
             layoutCollapsed = collapsed;
             layoutSettingsOpen = settingsOpen;
+            layoutMenuPage = menuPage;
         }
         if (panel == null) return;
         int panelBg = theme.panel();
@@ -408,6 +485,7 @@ public final class VirtualKeyboardOverlay {
         // Explicit left-hand marker helps verify that the second controller
         // ray tracks independently from Vivecraft's right-hand mouse cursor.
         if (leftSample != null && leftSample.valid() &&
+            featurePrefs.leftHand() &&
             panel.contains(leftSample.x(), leftSample.y())) {
             int lx = (int) leftSample.x();
             int ly = (int) leftSample.y();
@@ -418,7 +496,7 @@ public final class VirtualKeyboardOverlay {
         // The right controller is the primary GUI pointer. In detached VR
         // mode its position is projected independently of the left marker.
         // Draw both so missing native QuestCraft rays are immediately obvious.
-        if (panel.contains(mouseX, mouseY)) {
+        if (panel.contains(mouseX, mouseY) && featurePrefs.rightHand()) {
             // Both controllers use simple circles, never L / R labels.
             drawAimCircle(context, mouseX, mouseY);
         }
@@ -435,6 +513,18 @@ public final class VirtualKeyboardOverlay {
             context.fill(previewX, previewY, previewX + previewWidth, previewY + 20, keyBg);
             context.drawText(font, (visible),
                 previewX + 8, previewY + 5, accent, false);
+        }
+
+        // Brief, truthful microphone/clipboard feedback; never a text input.
+        if (!voiceStatus.isEmpty() && now - voiceStatusAt < 4100) {
+            String shown = voiceStatus;
+            while (shown.length() > 1 &&
+                font.getWidth(shown) > Math.max(40, panel.width() - 20))
+                shown = shown.substring(0, shown.length() - 1);
+            int sx = panel.x() + (panel.width() - font.getWidth(shown)) / 2;
+            context.fill(sx - 5, panel.y() + 3,
+                sx + font.getWidth(shown) + 5, panel.y() + 16, keyBg);
+            context.drawText(font, shown, sx, panel.y() + 5, accent, false);
         }
 
         // Light stays on the chassis edge; no moving bar crossing the logo.
@@ -592,12 +682,20 @@ public final class VirtualKeyboardOverlay {
     }
 
     /** Quest-style small white circular contact point with a faint cool glow. */
-    private static void drawAimCircle(DrawContext context, int x, int y) {
-        // Anti-aliased-looking fringe within a small 7px footprint.
-        context.fill(x - 2, y - 2, x + 3, y + 3, 0x448CD9FF);
-        context.fill(x - 2, y - 1, x + 3, y + 2, 0xC6DDF7FF);
-        context.fill(x - 1, y - 2, x + 2, y + 3, 0xC6DDF7FF);
-        context.fill(x - 1, y - 1, x + 2, y + 2, 0xFFFFFFFF);
+    private void drawAimCircle(DrawContext context, int x, int y) {
+        int radius = featurePrefs.dotRadius();
+        // Small white circular spot with a cool-blue translucent outline.
+        for (int dy = -radius - 1; dy <= radius + 1; dy++) {
+            int outer = (int) Math.floor(Math.sqrt(Math.max(0,
+                (radius + 1) * (radius + 1) - dy * dy)));
+            int inner = (int) Math.floor(Math.sqrt(Math.max(0,
+                radius * radius - dy * dy)));
+            context.fill(x - outer, y + dy, x + outer + 1, y + dy + 1,
+                0x668CD9FF);
+            if (Math.abs(dy) <= radius)
+                context.fill(x - inner, y + dy, x + inner + 1, y + dy + 1,
+                    0xFFF8FCFF);
+        }
     }
 
     private static void rounded(DrawContext c, int x, int y, int w, int h,
