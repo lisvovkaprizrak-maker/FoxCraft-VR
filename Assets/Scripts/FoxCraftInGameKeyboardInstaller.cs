@@ -73,6 +73,7 @@ public static class FoxCraftInGameKeyboardInstaller
         string assetUrl = Application.streamingAssetsPath.TrimEnd('/') + "/" + ModJarName;
         using (UnityWebRequest request = UnityWebRequest.Get(assetUrl))
         {
+            request.timeout = 30;
             yield return request.SendWebRequest();
             if (request.result != UnityWebRequest.Result.Success ||
                 request.downloadHandler == null)
@@ -136,20 +137,29 @@ public static class FoxCraftInGameKeyboardInstaller
         try
         {
             if (!Directory.Exists(folder)) return false;
+            bool foundExpectedVersion = false;
             foreach (string file in Directory.GetFiles(folder, "*.jar"))
             {
                 string name = Path.GetFileName(file);
                 if (!name.StartsWith("foxcraft-keyboard-", StringComparison.OrdinalIgnoreCase))
                     continue;
-                sameVersion = name.Equals(ModJarName, StringComparison.OrdinalIgnoreCase);
-                if (sameVersion)
-                    Debug.Log("[FoxCraft] Existing in-game keyboard JAR retained.");
-                else
-                    Debug.LogWarning("[FoxCraft] Different keyboard JAR detected. " +
-                        "No files were overwritten.");
-                return true;
+
+                if (!name.Equals(ModJarName, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Scan ALL keyboard mods. Returning on the first matching
+                    // filename could miss a second, incompatible installed mod.
+                    Debug.LogWarning("[FoxCraft] Different keyboard JAR also detected: " +
+                        name + ". No mod files were modified.");
+                    return true;
+                }
+
+                foundExpectedVersion = true;
             }
-            return false;
+
+            sameVersion = foundExpectedVersion;
+            if (foundExpectedVersion)
+                Debug.Log("[FoxCraft] Existing keyboard version detected. Contents will be verified.");
+            return foundExpectedVersion;
         }
         catch (Exception ex)
         {
