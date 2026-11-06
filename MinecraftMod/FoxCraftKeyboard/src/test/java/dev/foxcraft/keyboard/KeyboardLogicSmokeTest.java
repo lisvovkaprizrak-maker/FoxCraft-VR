@@ -191,6 +191,28 @@ public final class KeyboardLogicSmokeTest {
             "Swipe commits a single combined text result on release");
         require(pointer.swipePreview().isEmpty(), "Swipe preview resets");
 
+        require(new VivecraftLeftPointer().poll(854, 480) == null,
+            "Optional second-hand Vivecraft bridge does not crash outside VR");
+
+        // Both pointer captures must remain independent, like two VR hands.
+        KeyboardPointerInput rightHand = new KeyboardPointerInput();
+        KeyboardPointerInput leftHand = new KeyboardPointerInput();
+        KeyboardLayout.Key ruT = key(ru.keys(), "т");
+        Object sharedChat = new Object();
+        require(rightHand.press(ru, yi.x() + 1, yi.y() + 1, 30_000, sharedChat),
+            "Right hand captures its letter");
+        require(leftHand.press(ru, ruT.x() + 1, ruT.y() + 1, 30_010, sharedChat),
+            "Left hand independently captures a different letter");
+        require(rightHand.isPressed(yi) && leftHand.isPressed(ruT),
+            "Both trigger captures can coexist");
+        KeyboardPointerInput.Release leftText = leftHand.release(
+            ru, ruT.x() + 1, ruT.y() + 1, 30_080, sharedChat);
+        KeyboardPointerInput.Release rightText = rightHand.release(
+            ru, yi.x() + 1, yi.y() + 1, 30_120, sharedChat);
+        require(leftText.activation() != null && "т".equals(leftText.activation().text()) &&
+            rightText.activation() != null && "й".equals(rightText.activation().text()),
+            "Left and right triggers commit their own letters without stealing focus");
+
         // A held single key still returns its alternate character.
         require(pointer.press(ru, yi.x() + 1, yi.y() + 1, 22_000, swipeField),
             "Ordinary long press starts");
