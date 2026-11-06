@@ -206,6 +206,9 @@ public final class FoxCraftVrPlane {
                 scaleField.setFloat(null, scale);
                 draw.invoke(null, partialTick, target, position, rotation, depthAlways);
                 worldHookWorking = true;
+                // Close stock Vivecraft keyboard only after our separate VR
+                // surface genuinely rendered. Otherwise retain its fallback.
+                QuestCraftKeyboardSuppressor.closeWhenFoxCraftVisible();
             } finally {
                 scaleField.setFloat(null, previous);
             }
