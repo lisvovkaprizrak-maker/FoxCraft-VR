@@ -9,6 +9,9 @@ This folder contains the **Minecraft-side** keyboard, separate from the Unity la
 - Small alternate characters on letter keys; tap for the letter, hold for **450 ms** to type a punctuation symbol into the focused Minecraft text field. Long-press `Е` types `ё` (or `Ё` with Shift). The upper number row is separate from these alternates. Dragging away cancels the pending character.
 - Dark background, orange shimmering border, immediate pressed-key glow on VR trigger, and hover/long-press feedback.
 - Minecraft-screen GUI rendering rather than Unity's launcher canvas.
+- **Compact by default** (280 UI pixels versus 428 in the first headset-tested version). Header button **РАЗМ** cycles 280 → 320 → 240 → 280; the width preference is saved to the Fabric config directory and survives Quest restarts.
+- **Trigger-held swipe**: start on a letter, hold the pointing-hand input, cross other letters and release over the panel. The collected letters appear in a preview and are inserted **once on release**; this is deterministic path spelling, not an autocorrect dictionary. Single-key long press still enters its alternate symbol.
+- **Left-hand VR ray** is projected independently using Vivecraft 1.21.5's GUI geometry, with an orange **L** marker. In the stock Oculus GUI mapping, the **left grip** is the default available input (GUI Shift); the default **left trigger is not mapped to GUI click**, while the right trigger is. For left-trigger use, bind the left trigger to the GUI Shift action in your Vivecraft controller bindings. The optional Vivecraft Keyboard Click action is supported when its keyboard action set is active; it is not active just because FoxCraft's overlay is shown. Don't override or replace Oculus bindings automatically. Hardware verification of both hands is pending.
 
 ## Device feedback (2026-11-06)
 
