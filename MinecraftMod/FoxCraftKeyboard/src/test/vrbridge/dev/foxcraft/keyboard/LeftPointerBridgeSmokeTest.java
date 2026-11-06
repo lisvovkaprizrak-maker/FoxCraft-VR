@@ -6,6 +6,7 @@ import org.vivecraft.client_vr.gameplay.screenhandlers.GuiHandler;
 /** Runs separately with stub Vivecraft classes, never inside game JAR. */
 public final class LeftPointerBridgeSmokeTest {
     public static void main(String[] args) {
+        System.setProperty("foxcraft.vrBridgeDiagnostics", "true");
         VivecraftLeftPointer pointer = new VivecraftLeftPointer();
 
         VivecraftLeftPointer.Sample idle = pointer.poll(800, 400);
