@@ -91,7 +91,8 @@ public final class KeyboardLogicSmokeTest {
             854, 480, false, true, false, false, false);
         KeyboardLayout.Panel menuLeftField = KeyboardLayout.dockForMenu(
             menuSource, 854, 480, 35, 30, 200, 20);
-        require(menuLeftField.x() > 500, "Menu field on left docks keyboard to right edge");
+        require(menuLeftField.x() > 854 / 2,
+            "Menu field on left docks keyboard to the right half");
         require(menuLeftField.y() >= 8 &&
             menuLeftField.y() + menuLeftField.height() <= 472,
             "Docked keyboard remains on the menu screen");
@@ -109,8 +110,8 @@ public final class KeyboardLogicSmokeTest {
             "Wide bottom text field never sits under the docked keyboard");
 
         KeyboardLayout.Panel ru = KeyboardLayout.make(854, 480, true, true, false, false, false);
-        require(ru.width() == 280 && ru.height() <= 165,
-            "Compact 280px keyboard includes a 3-candidate correction strip");
+        require(ru.width() == 390 && ru.height() <= 190,
+            "Reference-width keyboard includes branding and stays compact");
         KeyboardLayout.Panel chatAnchored = KeyboardLayout.make(
             854, 480, true, true, false, false, false, 280, List.of(), 250);
         require(chatAnchored.y() >= 258,
@@ -125,17 +126,17 @@ public final class KeyboardLogicSmokeTest {
             854, 480, true, true, false, false, false);
         require(fallbackChat.y() > 8,
             "Chat layout fallback also uses a lower floating position");
-        require(ru.keys().stream().anyMatch(k ->
-            k.command() == KeyboardLayout.Command.RESIZE && "РАЗМ".equals(k.label())),
-            "Headset keyboard contains a size button");
-        for (int option : new int[]{240, 280, 320}) {
+        require(ru.keys().stream().noneMatch(k ->
+            k.command() == KeyboardLayout.Command.RESIZE),
+            "Size control must be removed for the fixed reference design");
+        for (int oldPreference : new int[]{240, 280, 320}) {
             KeyboardLayout.Panel sized = KeyboardLayout.make(
-                854, 480, true, true, false, false, false, option);
-            require(sized.width() == option,
-                "Configurable keyboard width matches selected VR size: " + option);
+                854, 480, true, true, false, false, false, oldPreference);
+            require(sized.width() == 390,
+                "Old saved width preferences cannot resize the reference keyboard");
             require(sized.keys().stream().allMatch(k ->
                 k.x() >= sized.x() && k.x() + k.width() <= sized.x() + sized.width()),
-                "All resized keys remain on panel");
+                "All fixed-size keys remain on panel");
         }
         KeyboardLayout.Panel detached = KeyboardLayout.make(
             854, 480, false, true, false, false, false, 280,
