@@ -24,8 +24,20 @@ public final class KeyboardLogicSmokeTest {
         }
 
         KeyboardLayout.Panel ru = KeyboardLayout.make(854, 480, true, true, false, false, false);
-        require(ru.width() <= 320 && ru.height() <= 145,
-            "Compact keyboard reduces VR obstruction");
+        require(ru.width() == 280 && ru.height() <= 145,
+            "Default Quest keyboard must be smaller than the 428px prototype");
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.RESIZE && "РАЗМ".equals(k.label())),
+            "Headset keyboard contains a size button");
+        for (int option : new int[]{240, 280, 320}) {
+            KeyboardLayout.Panel sized = KeyboardLayout.make(
+                854, 480, true, true, false, false, false, option);
+            require(sized.width() == option,
+                "Configurable keyboard width matches selected VR size: " + option);
+            require(sized.keys().stream().allMatch(k ->
+                k.x() >= sized.x() && k.x() + k.width() <= sized.x() + sized.width()),
+                "All resized keys remain on panel");
+        }
         int digitRowY = key(ru.keys(), "1").y();
         StringBuilder numbers = new StringBuilder();
         for (KeyboardLayout.Key k : ru.keys())
