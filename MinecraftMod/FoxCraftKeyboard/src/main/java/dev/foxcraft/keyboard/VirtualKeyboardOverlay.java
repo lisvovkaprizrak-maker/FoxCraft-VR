@@ -71,6 +71,10 @@ public final class VirtualKeyboardOverlay {
     private String voiceStatus = "";
     private String localClipboard = "";
     private final QuickMessageDraft quickDraft = new QuickMessageDraft();
+    private final QuickBindingStore quickBinds = new QuickBindingStore(
+        FabricLoader.getInstance().getConfigDir().resolve("foxcraft-keyboard-binds.properties"));
+    private int quickPage;
+    private int editingQuickSlot = -1;
     private long voiceStatusAt;
     private final FoxCraftFeatureSettings featurePrefs =
         new FoxCraftFeatureSettings(FabricLoader.getInstance().getConfigDir()
@@ -135,6 +139,7 @@ public final class VirtualKeyboardOverlay {
             settingsOpen = false;
             menuPage = "KEYBOARD";
             quickDraft.clear();
+            editingQuickSlot = -1;
             panel = null;
         }
 
@@ -186,40 +191,27 @@ public final class VirtualKeyboardOverlay {
                     case "THEMES" -> KeyboardLayout.themeMenu(panel, theme.name());
                     case "SETTINGS" -> KeyboardLayout.toolMenu(panel,
                         new String[]{"ТЕМЫ", "МИКРОФОН", "Бинды",
-                            "БУФЕР ОБМЕНА", "ПЕРЕМЕЩЕНИЕ", "КОНТРОЛЛЕРЫ",
-                            "← К клавиатуре"},
+                            "ПЕРЕМЕЩЕНИЕ", "КОНТРОЛЛЕРЫ", "← К клавиатуре"},
                         new KeyboardLayout.Command[]{KeyboardLayout.Command.THEMES_PAGE,
                             KeyboardLayout.Command.MICROPHONE,
                             KeyboardLayout.Command.QUICK_MESSAGES,
-                            KeyboardLayout.Command.CLIPBOARD,
                             KeyboardLayout.Command.MOVE_MENU,
                             KeyboardLayout.Command.CONTROLLER_MENU,
                             KeyboardLayout.Command.BACK_TO_KEYS},
-                        new String[]{"", "", "", "", "", "", ""});
-                    case "QUICK" -> KeyboardLayout.toolMenu(panel,
-                        new String[]{"Привет!", "Где ты?", "Иду к тебе!",
-                            "Помоги, пожалуйста!", "Спасибо!", "Сейчас буду.",
-                            "СВОЙ ТЕКСТ", "← Назад"},
-                        new KeyboardLayout.Command[]{KeyboardLayout.Command.QUICK_MESSAGE,
-                            KeyboardLayout.Command.QUICK_MESSAGE,
-                            KeyboardLayout.Command.QUICK_MESSAGE,
-                            KeyboardLayout.Command.QUICK_MESSAGE,
-                            KeyboardLayout.Command.QUICK_MESSAGE,
-                            KeyboardLayout.Command.QUICK_MESSAGE,
-                            KeyboardLayout.Command.QUICK_COMPOSE,
-                            KeyboardLayout.Command.SETTINGS_HOME},
-                        new String[]{"Привет!", "Где ты?", "Иду к тебе!",
-                            "Помоги, пожалуйста!", "Спасибо!", "Сейчас буду.", "", ""});
+                        new String[]{"", "", "", "", "", ""});
+                    case "QUICK" -> KeyboardLayout.quickBindingsMenu(panel,
+                        quickBinds.pageLabels(quickPage), quickPage);
                     case "COMPOSE" -> KeyboardLayout.composeMenu(panel,
                         quickDraft.message(), quickDraft.note(),
-                        quickDraft.editingNote(), russian, shift);
+                        quickDraft.editingNote(), russian, shift,
+                        editingQuickSlot >= 0);
                     case "CLIPBOARD" -> KeyboardLayout.toolMenu(panel,
                         new String[]{"КОПИРОВАТЬ", "ВСТАВИТЬ",
                             "ВЫДЕЛИТЬ ВСЁ", "← Назад"},
                         new KeyboardLayout.Command[]{KeyboardLayout.Command.COPY,
                             KeyboardLayout.Command.PASTE,
                             KeyboardLayout.Command.SELECT_ALL,
-                            KeyboardLayout.Command.SETTINGS_HOME},
+                            KeyboardLayout.Command.BACK_TO_KEYS},
                         new String[]{"", "", "", ""});
                     case "MOVE" -> KeyboardLayout.toolMenu(panel,
                         new String[]{"ЗАЖМИ И ПЕРЕТАЩИ", "← Левее",
@@ -450,6 +442,7 @@ public final class VirtualKeyboardOverlay {
                 }
             }
 
+            if (drawControlIcon(context, key, textColor, accent)) continue;
             String caption = longHeld ? key.alternate() : key.label();
             if (caption.isEmpty()) caption = key.label();
             if (key.command() == KeyboardLayout.Command.SUGGESTION) {
@@ -550,6 +543,54 @@ public final class VirtualKeyboardOverlay {
         // A successful screen fallback also replaces the old QuestCraft
         // keyboard. Do not suppress the native fallback if we drew nothing.
         if (!detached) QuestCraftKeyboardSuppressor.closeWhenScreenFallbackVisible();
+    }
+
+    /** Pixel-drawn VR pictograms, avoiding missing emoji glyphs on Quest. */
+    private static boolean drawControlIcon(DrawContext c, KeyboardLayout.Key key,
+                                           int ink, int accent) {
+        KeyboardLayout.Command cmd = key.command();
+        if (cmd != KeyboardLayout.Command.MICROPHONE &&
+            cmd != KeyboardLayout.Command.QUICK_MESSAGES &&
+            cmd != KeyboardLayout.Command.CLIPBOARD &&
+            cmd != KeyboardLayout.Command.ESCAPE &&
+            cmd != KeyboardLayout.Command.QUICK_EDIT) return false;
+        int cx = key.x() + key.width() / 2;
+        int cy = key.y() + key.height() / 2;
+        if (cmd == KeyboardLayout.Command.MICROPHONE) {
+            // Capsule, cradle and stand.
+            rounded(c, cx - 3, cy - 6, 6, 9, 3, ink);
+            c.fill(cx - 6, cy - 1, cx - 4, cy + 3, ink);
+            c.fill(cx + 4, cy - 1, cx + 6, cy + 3, ink);
+            c.fill(cx - 5, cy + 3, cx + 5, cy + 5, ink);
+            c.fill(cx - 1, cy + 5, cx + 1, cy + 8, ink);
+        } else if (cmd == KeyboardLayout.Command.QUICK_MESSAGES) {
+            // Message card + three short lines: quick-bind pictogram.
+            rounded(c, cx - 8, cy - 6, 16, 12, 2, ink);
+            c.fill(cx - 5, cy - 3, cx + 5, cy - 2, accent);
+            c.fill(cx - 5, cy, cx + 3, cy + 1, accent);
+            c.fill(cx - 5, cy + 3, cx + 1, cy + 4, accent);
+        } else if (cmd == KeyboardLayout.Command.CLIPBOARD) {
+            rounded(c, cx - 6, cy - 6, 12, 14, 2, ink);
+            rounded(c, cx - 3, cy - 8, 6, 4, 1, accent);
+            c.fill(cx - 3, cy - 1, cx + 3, cy, accent);
+            c.fill(cx - 3, cy + 3, cx + 3, cy + 4, accent);
+        } else if (cmd == KeyboardLayout.Command.ESCAPE) {
+            // Door and outward arrow (bottom-left exit).
+            c.fill(cx - 6, cy - 7, cx - 4, cy + 7, ink);
+            c.fill(cx - 6, cy - 7, cx + 2, cy - 5, ink);
+            c.fill(cx - 6, cy + 5, cx + 2, cy + 7, ink);
+            c.fill(cx - 1, cy - 1, cx + 7, cy + 1, ink);
+            c.fill(cx + 4, cy - 4, cx + 6, cy + 4, ink);
+        } else {
+            // Inset settings gear: distinct from tapping the message itself.
+            rounded(c, cx - 5, cy - 5, 10, 10, 3, ink);
+            c.fill(cx - 2, cy - 2, cx + 2, cy + 2, accent);
+            c.fill(cx - 1, cy - 7, cx + 1, cy - 5, ink);
+            c.fill(cx - 1, cy + 5, cx + 1, cy + 7, ink);
+            c.fill(cx - 7, cy - 1, cx - 5, cy + 1, ink);
+            c.fill(cx + 5, cy - 1, cx + 7, cy + 1, ink);
+        }
+        return true;
     }
 
     /**
@@ -1045,7 +1086,22 @@ public final class VirtualKeyboardOverlay {
             case SETTINGS_HOME -> openPage("SETTINGS");
             case BACK_TO_KEYS -> openPage("KEYBOARD");
             case QUICK_MESSAGES -> openPage("QUICK");
+            case QUICK_PAGE_PREVIOUS -> {
+                quickPage = (quickPage + 4) % 5;
+                openPage("QUICK");
+            }
+            case QUICK_PAGE_NEXT -> {
+                quickPage = (quickPage + 1) % 5;
+                openPage("QUICK");
+            }
+            case QUICK_EDIT -> {
+                editingQuickSlot = Integer.parseInt(result.key().value());
+                quickDraft.load(quickBinds.message(editingQuickSlot),
+                    quickBinds.note(editingQuickSlot));
+                openPage("COMPOSE");
+            }
             case QUICK_COMPOSE -> {
+                editingQuickSlot = -1;
                 quickDraft.clear();
                 openPage("COMPOSE");
             }
@@ -1053,8 +1109,13 @@ public final class VirtualKeyboardOverlay {
             case MOVE_MENU -> openPage("MOVE");
             case CONTROLLER_MENU -> openPage("CONTROLLERS");
             case QUICK_MESSAGE -> {
-                field.write(result.text());
-                openPage("KEYBOARD");
+                int slot = Integer.parseInt(result.key().value());
+                String preset = quickBinds.outgoing(slot);
+                if (preset.isEmpty()) showStatus("Пустой бинд: нажми шестерёнку");
+                else {
+                    field.write(preset);
+                    openPage("KEYBOARD");
+                }
             }
             case MICROPHONE -> startDictation(screen, field);
             case COPY -> {
@@ -1142,8 +1203,21 @@ public final class VirtualKeyboardOverlay {
             case COMPOSE_MESSAGE -> quickDraft.selectNote(false);
             case COMPOSE_NOTE -> quickDraft.selectNote(true);
             case COMPOSE_CLEAR -> quickDraft.clearActive();
-            case COMPOSE_SEND -> sendQuickDraft(screen, chatField);
-            case QUICK_MESSAGES, ESCAPE -> openPage("QUICK");
+            case COMPOSE_SEND -> {
+                if (editingQuickSlot >= 0) {
+                    if (quickBinds.put(editingQuickSlot,
+                        quickDraft.message(), quickDraft.note())) {
+                        editingQuickSlot = -1;
+                        quickDraft.clear();
+                        openPage("QUICK");
+                        showStatus("Бинд сохранён");
+                    } else showStatus("Бинд длиннее 256 символов");
+                } else sendQuickDraft(screen, chatField);
+            }
+            case QUICK_MESSAGES, ESCAPE -> {
+                editingQuickSlot = -1;
+                openPage("QUICK");
+            }
             case TYPE -> {
                 if (".".equals(result.text())) quickDraft.dot();
                 else quickDraft.insert(result.text());
