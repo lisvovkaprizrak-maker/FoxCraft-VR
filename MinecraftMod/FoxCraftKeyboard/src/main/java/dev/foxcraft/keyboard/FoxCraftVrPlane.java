@@ -495,15 +495,14 @@ public final class FoxCraftVrPlane {
             Object handed = Enum.valueOf(
                 (Class<? extends Enum>) handType.asSubclass(Enum.class),
                 hand == 0 ? "RIGHT" : "LEFT");
-            boolean downKeyboard = (Boolean) keyboardClick.getClass()
-                .getMethod("isDown", handType).invoke(keyboardClick, handed);
-            // Native keyboardClick loses priority when QuestCraft's own
-            // keyboard is hidden. Accept the existing LEFT controller grip
-            // (Vivecraft GUI Shift mapping) as a backup press on our panel,
-            // while preserving the RIGHT GUI click as an independent path.
-            // The left backup is only sampled here when FoxCraft is open.
+            // The handed isDown() query and the global GUI isPressed() can
+            // report a mirrored press on some Quest mappings. In particular,
+            // never let a right X/trigger press activate the left pointer.
+            // Verify actual input action + physical origin for primary clicks.
+            boolean downKeyboard = hand == 0 &&
+                FoxCraftLeftTrigger.pressedBinding(provider, handed, keyboardClick);
             boolean downRightGui = hand == 0 &&
-                ((KeyBinding) regularClick).isPressed();
+                FoxCraftLeftTrigger.pressedBinding(provider, handed, regularClick);
             // Do NOT use KEY_SHIFT.isPressed(): it is an unhanded/global
             // state and can mirror a right-hand button onto the left ray.
             // Only accept real left index-trigger actions below.
