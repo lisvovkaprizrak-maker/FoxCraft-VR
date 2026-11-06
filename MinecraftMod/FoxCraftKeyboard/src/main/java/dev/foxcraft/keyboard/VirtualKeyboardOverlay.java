@@ -204,7 +204,7 @@ public final class VirtualKeyboardOverlay {
         if (heldAlternate != null && !heldAlternate.alternate().isEmpty()) {
             String symbol = heldAlternate.alternate();
             int popupWidth = Math.max(23, font.getWidth(symbol) + 12);
-            int popupX = heldAlternate.x() + (heldAlternate.popupWidth() - popupWidth) / 2;
+            int popupX = heldAlternate.x() + (heldAlternate.width() - popupWidth) / 2;
             int popupY = Math.max(1, heldAlternate.y() - 24);
             context.fill(popupX - 2, popupY - 2,
                 popupX + popupWidth + 2, popupY + 20, ORANGE);
