@@ -1,11 +1,13 @@
 package dev.foxcraft.keyboard;
 
+import java.util.List;
+
 /**
  * Input capture for one Minecraft screen pointer. No Minecraft dependencies,
  * so VR controller press/release semantics can be verified in a plain JDK test.
  */
 public final class KeyboardPointerInput {
-    public record Release(boolean consumed, KeyHoldController.Activation activation) {}
+    public record Release(boolean consumed, KeyHoldController.Activation activation, List<String> suggestions) {}
 
     private final KeyHoldController hold = new KeyHoldController();
     private final SwipeGesture swipe = new SwipeGesture();
@@ -64,25 +66,27 @@ public final class KeyboardPointerInput {
     /** Consumes the release but inserts nothing if focus changed during hold. */
     public Release release(KeyboardLayout.Panel panel, double x, double y,
                            long nowMs, Object focusToken) {
-        if (!captured) return new Release(false, null);
+        if (!captured) return new Release(false, null, List.of());
         captured = false;
         Object originalFocus = focusedFieldToken;
         focusedFieldToken = null;
         if (originalFocus != focusToken) {
             hold.cancel();
             swipe.cancel();
-            return new Release(true, null);
+            return new Release(true, null, List.of());
         }
         KeyboardLayout.Key hovered = panel == null ? null : panel.at(x, y);
         swipe.move(panel, x, y);
         if (panel != null && panel.contains(x, y) && swipe.isSwiping()) {
             KeyboardLayout.Key first = swipe.firstKey();
-            String word = swipe.finish();
+            List<String> words = swipe.finishCandidates();
             hold.cancel();
-            return new Release(true, new KeyHoldController.Activation(first, word, false));
+            if (words.isEmpty()) return new Release(true, null, List.of());
+            return new Release(true,
+                new KeyHoldController.Activation(first, words.get(0), false), words);
         }
         swipe.cancel();
-        return new Release(true, hold.release(hovered, nowMs));
+        return new Release(true, hold.release(hovered, nowMs), List.of());
     }
 
     public float progress(KeyboardLayout.Key key, long nowMs) {
