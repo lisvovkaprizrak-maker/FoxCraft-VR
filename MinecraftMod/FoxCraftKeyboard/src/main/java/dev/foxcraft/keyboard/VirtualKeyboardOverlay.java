@@ -203,14 +203,14 @@ public final class VirtualKeyboardOverlay {
         // receives exactly one character after the controller trigger is released.
         if (heldAlternate != null && !heldAlternate.alternate().isEmpty()) {
             String symbol = heldAlternate.alternate();
-            int width = Math.max(23, font.getWidth(symbol) + 12);
-            int popupX = heldAlternate.x() + (heldAlternate.width() - width) / 2;
+            int popupWidth = Math.max(23, font.getWidth(symbol) + 12);
+            int popupX = heldAlternate.x() + (heldAlternate.popupWidth() - popupWidth) / 2;
             int popupY = Math.max(1, heldAlternate.y() - 24);
             context.fill(popupX - 2, popupY - 2,
-                popupX + width + 2, popupY + 20, ORANGE);
-            context.fill(popupX, popupY, popupX + width, popupY + 18, KEY_BG);
+                popupX + popupWidth + 2, popupY + 20, ORANGE);
+            context.fill(popupX, popupY, popupX + popupWidth, popupY + 18, KEY_BG);
             context.drawText(font, symbol,
-                popupX + (width - font.getWidth(symbol)) / 2,
+                popupX + (popupWidth - font.getWidth(symbol)) / 2,
                 popupY + 5, TEXT, false);
         }
 
