@@ -30,6 +30,9 @@ class StageKeyboardTests(unittest.TestCase):
                 "id": mod_id, "depends": {"minecraft": minecraft}
             }))
             jar.writestr("dummy/payload.txt", marker * 2100)
+            jar.writestr("dev/foxcraft/keyboard/FoxCraftKeyboardClient.class", b"CAFEBABE")
+            jar.writestr("dev/foxcraft/keyboard/VirtualKeyboardOverlay.class", b"CAFEBABE")
+            jar.writestr("dev/foxcraft/keyboard/KeyboardPointerInput.class", b"CAFEBABE")
 
     def test_copy_and_idempotent(self):
         self.jar(self.source)
@@ -68,6 +71,16 @@ class StageKeyboardTests(unittest.TestCase):
         self.assertEqual(b"not a valid jar", self.destination.read_bytes())
         stage_module.stage(self.source, self.destination, True)
         self.assertEqual(self.source.read_bytes(), self.destination.read_bytes())
+
+    def test_missing_fabric_entrypoint_is_rejected(self):
+        with ZipFile(self.source, "w") as jar:
+            jar.writestr("fabric.mod.json", json.dumps({
+                "id": "foxcraft_keyboard", "depends": {"minecraft": "1.21.5"}
+            }))
+            jar.writestr("dummy/payload.txt", "x" * 3000)
+        with self.assertRaisesRegex(ValueError, "Required keyboard class missing"):
+            stage_module.stage(self.source, self.destination, False)
+        self.assertFalse(self.destination.exists())
 
     def test_corrupt_source_rejected(self):
         self.source.write_bytes(b"not zip")
