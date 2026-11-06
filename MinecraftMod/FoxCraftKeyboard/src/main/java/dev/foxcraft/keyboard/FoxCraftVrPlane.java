@@ -124,7 +124,13 @@ public final class FoxCraftVrPlane {
             int sh = guiClass.getField("SCALED_HEIGHT_MAX").getInt(null);
             if (w <= 0 || h <= 0 || sw < 220 || sh < 140) return;
             if (target == null || bufferWidth != w || bufferHeight != h) {
-                releaseBuffer();
+                // Do NOT call releaseBuffer() here: that method also resets
+                // position and rotation computed just above. The first VR
+                // frame would then project a ray with NULL geometry, disable
+                // FoxCraft's entire VR bridge, and never display the panel.
+                if (target != null) target.delete();
+                target = null;
+                screen = null; // Reinitialise the panel at the new GUI size.
                 target = new SimpleFramebuffer("FoxCraft VR keyboard", w, h, true);
                 bufferWidth = w;
                 bufferHeight = h;
