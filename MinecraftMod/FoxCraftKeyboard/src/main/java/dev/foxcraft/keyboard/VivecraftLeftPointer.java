@@ -64,8 +64,6 @@ public final class VivecraftLeftPointer {
             @SuppressWarnings({"unchecked", "rawtypes"})
             Object leftHand = Enum.valueOf((Class<? extends Enum>) handType.asSubclass(Enum.class),
                 "LEFT");
-            boolean trigger = (Boolean) keyboardBinding.getClass()
-                .getMethod("isDown", handType).invoke(keyboardBinding, leftHand);
             // The standalone plane and the emergency GUI overlay must read
             // the SAME physical left index trigger (Quest 3: Place / Use).
             Object leftGuiClick = null;
@@ -87,17 +85,12 @@ public final class VivecraftLeftPointer {
                 (rightGuiClick != null && rawTrigger(provider, leftHand,
                     keyboardBinding, rightGuiClick));
 
-            // Stock Oculus GUI bindings map left grip to GUI Shift, while
-            // only right trigger clicks the mouse. Left grip is a useful
-            // fallback until left trigger is bound to Keyboard Click in VR.
-            Object shiftBinding = gui.getField("KEY_SHIFT").get(null);
-            // GUI Shift is an unhanded binding; using it here can make a
-            // right-controller button appear as a LEFT-hand click.
-            // Accept only handed left KeyboardClick or source-confirmed
-            // left index trigger; the left GRIP is not an index trigger.
+            // Match the 3D panel: only source-verified LEFT action states
+            // count. KeyBinding.isDown(LEFT) can mirror a right click on
+            // some QuestCraft variants, so do not use it as a fallback.
             boolean valid = u >= 0 && u <= 1 && v >= 0 && v <= 1;
             return new Sample(valid, u * guiWidth, v * guiHeight,
-                trigger || rawLeftTrigger);
+                rawLeftTrigger);
         } catch (ClassNotFoundException e) {
             unavailable = true;
             return null;
