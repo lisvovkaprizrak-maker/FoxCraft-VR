@@ -5,7 +5,7 @@ This folder contains the **Minecraft-side** keyboard, separate from the Unity la
 ## Implemented in source
 
 - RU / EN letter layouts, Shift, symbols, space, cursor arrows, backspace and Enter.
-- A dedicated top number row **1 2 3 4 5 6 7 8 9 0** on every layout.
+- A dedicated top number row **1 2 3 4 5 6 7 8 9 0** on every layout. The `123` symbols layer offers punctuation such as `@ # / ? { }` instead of duplicating the number row.
 - Small alternate characters on letter keys; tap for the letter, hold for **450 ms** to type a punctuation symbol into the focused Minecraft text field. Long-press `Е` types `ё` (or `Ё` with Shift). The upper number row is separate from these alternates. Dragging away cancels the pending character.
 - Dark background, orange shimmering border and hover/long-press feedback.
 - Minecraft-screen GUI rendering rather than Unity's launcher canvas.
@@ -39,7 +39,7 @@ A Fabric `.jar` is **not** an Android APK. To bundle this mod inside a future Fo
 1. Build the mod with `gradle build` or download its verified GitHub Actions artifact.
 2. From the repository root run `python3 tools/stage_foxcraft_ingame_keyboard.py`. The script verifies the JAR ZIP, `fabric.mod.json`, mod ID and pinned Minecraft **1.21.5** dependency.
 3. The script writes `Assets/StreamingAssets/foxcraft-keyboard-0.1.0-alpha.jar`. It refuses to overwrite a different existing JAR without explicit `--replace`.
-4. Build the Unity project. When the player launches a profile whose `versionName` is `1.21.5`, `InstanceButton` calls `FoxCraftInGameKeyboardInstaller.EnsureInstalled` **before** starting Pojlib. The installer checks the Java profile's `gameDir`, uses Pojlib's `USER_HOME/instances` boundary, copies the JAR into that profile's `mods` folder and never overwrites a keyboard mod already present.
+4. Build the Unity project. After Pojlib `prelaunch`, the launcher verifies both Minecraft `versionName` **1.21.5** and the instance Java `mainClass` belonging to Fabric's `KnotClient`, then calls `FoxCraftInGameKeyboardInstaller.EnsureInstalled` **before** starting Minecraft. The installer checks the Java profile's `gameDir`, uses Pojlib's `USER_HOME/instances` boundary, copies the JAR into that profile's `mods` folder and never overwrites a keyboard mod already present.
 5. A missing staged JAR or unsupported Pojlib path produces a warning and the game launches **without** the keyboard, avoiding accidental damage to existing profiles.
 
 **Untested on-device:** This does not prove Pojlib's `USER_HOME` path, the Android StreamingAssets URL, controller events or Unity compilation. The existing separate FoxCraft APK pipeline in PR #1 targets Minecraft **1.21.1** and does not automatically become compatible with this **1.21.5** mod. Never install the 1.21.5 JAR into a 1.21.1 profile.
