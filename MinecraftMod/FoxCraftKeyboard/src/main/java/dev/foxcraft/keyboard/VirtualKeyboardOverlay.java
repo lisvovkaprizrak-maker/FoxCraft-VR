@@ -185,7 +185,7 @@ public final class VirtualKeyboardOverlay {
                 panel = switch (menuPage) {
                     case "THEMES" -> KeyboardLayout.themeMenu(panel, theme.name());
                     case "SETTINGS" -> KeyboardLayout.toolMenu(panel,
-                        new String[]{"ТЕМЫ", "МИКРОФОН", "БЫСТРЫЕ ФРАЗЫ",
+                        new String[]{"ТЕМЫ", "МИКРОФОН", "Бинды",
                             "БУФЕР ОБМЕНА", "ПЕРЕМЕЩЕНИЕ", "КОНТРОЛЛЕРЫ",
                             "← К клавиатуре"},
                         new KeyboardLayout.Command[]{KeyboardLayout.Command.THEMES_PAGE,
