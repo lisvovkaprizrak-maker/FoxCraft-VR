@@ -1,10 +1,16 @@
 package dev.foxcraft.keyboard;
 
 import net.minecraft.client.MinecraftClient;
+import net.fabricmc.loader.api.FabricLoader;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.ArrayList;
 import java.util.function.Consumer;
 
@@ -19,6 +25,15 @@ import java.util.function.Consumer;
 public final class FoxCraftVoiceInput {
     private static volatile boolean listening;
     private static Object recognizer;
+    private static String bridgeRequestId;
+    private static Consumer<String> bridgeResult;
+    private static Consumer<String> bridgeStatus;
+    private static long bridgeStartedAt;
+    private static long bridgeNextPollAt;
+
+    private static Path bridgePath() {
+        return FabricLoader.getInstance().getConfigDir().resolve("foxcraft-voice-bridge");
+    }
 
     private FoxCraftVoiceInput() {}
 
@@ -28,9 +43,13 @@ public final class FoxCraftVoiceInput {
             postMinecraft(() -> status.accept("Микрофон уже слушает"));
             return false;
         }
+        // The QuestCraft/Pojlib JVM generally cannot access Android classes
+        // even though it runs inside the Android Unity host. Prefer the real
+        // app-side bridge when its live heartbeat is present.
+        if (startViaUnityBridge(russian, completed, status)) return true;
         if (!System.getProperty("java.vendor", "").toLowerCase().contains("android") &&
             !isAndroidAvailable()) {
-            status.accept("Голосовой ввод доступен только на Android Quest");
+            status.accept("Для микрофона установи APK FoxCraft с голосовым мостом");
             return false;
         }
         try {
@@ -74,6 +93,82 @@ public final class FoxCraftVoiceInput {
             status.accept("Голосовой ввод недоступен: " + e.getClass().getSimpleName());
             return false;
         }
+    }
+
+    private static boolean startViaUnityBridge(boolean russian,
+                                               Consumer<String> completed,
+                                               Consumer<String> status) {
+        Path folder = bridgePath();
+        try {
+            Path ready = folder.resolve("ready");
+            // A stale readiness file must never make a dead APK look ready.
+            if (!Files.isRegularFile(ready) ||
+                System.currentTimeMillis() -
+                    Files.getLastModifiedTime(ready).toMillis() > 12000)
+                return false;
+            Files.createDirectories(folder);
+            Files.deleteIfExists(folder.resolve("result"));
+            String id = Long.toUnsignedString(System.nanoTime());
+            Files.writeString(folder.resolve("request"),
+                id + "\n" + (russian ? "ru" : "en"), StandardCharsets.UTF_8);
+            bridgeRequestId = id;
+            bridgeResult = completed;
+            bridgeStatus = status;
+            bridgeStartedAt = System.currentTimeMillis();
+            bridgeNextPollAt = 0;
+            listening = true;
+            status.accept("Микрофон FoxCraft запускается…");
+            return true;
+        } catch (IOException | SecurityException e) {
+            status.accept("Нет доступа к голосовому мосту FoxCraft");
+            return false;
+        }
+    }
+
+    /** Poll once per render interval on the Minecraft client thread. */
+    public static void poll() {
+        if (bridgeRequestId == null) return;
+        long now = System.currentTimeMillis();
+        if (now < bridgeNextPollAt) return;
+        bridgeNextPollAt = now + 180;
+        String expected = bridgeRequestId;
+        Path response = bridgePath().resolve("result");
+        try {
+            if (Files.isRegularFile(response)) {
+                String[] parts = Files.readString(response, StandardCharsets.UTF_8)
+                    .split("\\n", 3);
+                if (parts.length >= 3 && expected.equals(parts[0])) {
+                    Files.deleteIfExists(response);
+                    String received = new String(Base64.getDecoder().decode(parts[2]),
+                        StandardCharsets.UTF_8);
+                    Consumer<String> done = bridgeResult;
+                    Consumer<String> notice = bridgeStatus;
+                    clearBridge();
+                    if ("OK".equals(parts[1]) && !received.isBlank())
+                        done.accept(received);
+                    else notice.accept(received.isBlank()
+                        ? "Голосовой ввод не распознал речь" : received);
+                    return;
+                }
+            }
+            if (now - bridgeStartedAt > 45000) {
+                Consumer<String> notice = bridgeStatus;
+                clearBridge();
+                Files.deleteIfExists(bridgePath().resolve("request"));
+                notice.accept("Микрофон не ответил. Проверь доступ в Android.");
+            }
+        } catch (IOException | IllegalArgumentException e) {
+            Consumer<String> notice = bridgeStatus;
+            clearBridge();
+            notice.accept("Не удалось прочитать результат микрофона");
+        }
+    }
+
+    private static void clearBridge() {
+        bridgeRequestId = null;
+        bridgeResult = null;
+        bridgeStatus = null;
+        listening = false;
     }
 
     private static boolean isAndroidAvailable() {
