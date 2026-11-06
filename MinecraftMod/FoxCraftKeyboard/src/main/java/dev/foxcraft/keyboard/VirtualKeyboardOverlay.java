@@ -69,6 +69,7 @@ public final class VirtualKeyboardOverlay {
     private String menuPage = "KEYBOARD";
     private String layoutMenuPage = "";
     private String voiceStatus = "";
+    private String localClipboard = "";
     private long voiceStatusAt;
     private final FoxCraftFeatureSettings featurePrefs =
         new FoxCraftFeatureSettings(FabricLoader.getInstance().getConfigDir()
@@ -789,8 +790,10 @@ public final class VirtualKeyboardOverlay {
         } else if (!pressed && leftDown) {
             KeyboardPointerInput.Release release = leftPointer.release(
                 panel, x, y, nowMs, field);
-            if (release.activation() != null && field != null)
+            if (release.activation() != null && field != null) {
+                FoxCraftHaptics.pulse(1, featurePrefs.hapticStrength());
                 applyRelease(screen, release);
+            }
         }
         leftDown = pressed;
     }
@@ -803,8 +806,15 @@ public final class VirtualKeyboardOverlay {
         if (panel == null || !layoutDetached || !shouldDisplayForScreen(screen))
             return false;
         TextFieldWidget field = focusedField(screen);
-        return field != null && handPointer(hand).press(panel, x, y,
+        if (field == null) return false;
+        boolean accepted = handPointer(hand).press(panel, x, y,
             System.nanoTime() / 1_000_000L, field);
+        if (accepted && "MOVE".equals(menuPage)) {
+            KeyboardLayout.Key key = panel.at(x, y);
+            if (key != null && key.command() == KeyboardLayout.Command.MOVE_GRAB)
+                FoxCraftVrPlane.beginGrab(hand);
+        }
+        return accepted;
     }
 
     public void vrMoved(Screen screen, double x, double y, int hand) {
@@ -813,14 +823,17 @@ public final class VirtualKeyboardOverlay {
     }
 
     public void vrReleased(Screen screen, double x, double y, int hand) {
+        FoxCraftVrPlane.finishGrab(hand);
         if (panel == null) {
             handPointer(hand).cancel();
             return;
         }
         KeyboardPointerInput.Release release = handPointer(hand).release(
             panel, x, y, System.nanoTime() / 1_000_000L, focusedField(screen));
-        if (release.activation() != null && focusedField(screen) != null)
+        if (release.activation() != null && focusedField(screen) != null) {
+            FoxCraftHaptics.pulse(hand, featurePrefs.hapticStrength());
             applyRelease(screen, release);
+        }
     }
 
     private KeyboardPointerInput handPointer(int hand) {
@@ -883,8 +896,11 @@ public final class VirtualKeyboardOverlay {
 
         KeyboardPointerInput.Release release = pointer.release(
             panel, x, y, System.nanoTime() / 1_000_000L, focusedField(screen));
-        if (release.activation() != null && focusedField(screen) != null)
+        if (release.activation() != null && focusedField(screen) != null) {
+            if (FoxCraftVrPlane.isVrSession())
+                FoxCraftHaptics.pulse(0, featurePrefs.hapticStrength());
             applyRelease(screen, release);
+        }
         return release.consumed();
     }
 
@@ -995,8 +1011,77 @@ public final class VirtualKeyboardOverlay {
             case LANGUAGE_EN -> { russian = false; symbols = false; }
             case SYMBOLS -> symbols = !symbols;
             case RESIZE -> { /* Fixed size; intentionally disabled. */ }
-            case SETTINGS -> { settingsOpen = true; panel = null; }
-            case BACK_TO_KEYS -> { settingsOpen = false; panel = null; }
+            case SETTINGS -> openPage("SETTINGS");
+            case THEMES_PAGE -> openPage("THEMES");
+            case SETTINGS_HOME -> openPage("SETTINGS");
+            case BACK_TO_KEYS -> openPage("KEYBOARD");
+            case QUICK_MESSAGES -> openPage("QUICK");
+            case CLIPBOARD -> openPage("CLIPBOARD");
+            case MOVE_MENU -> openPage("MOVE");
+            case CONTROLLER_MENU -> openPage("CONTROLLERS");
+            case QUICK_MESSAGE -> {
+                field.write(result.text());
+                openPage("KEYBOARD");
+            }
+            case MICROPHONE -> startDictation(screen, field);
+            case COPY -> {
+                String selection = field.getSelectedText();
+                if (selection.isEmpty()) showStatus("Сначала выдели текст");
+                else {
+                    localClipboard = selection;
+                    try {
+                        GLFW.glfwSetClipboardString(
+                            MinecraftClient.getInstance().getWindow().getHandle(),
+                            selection);
+                        showStatus("Текст скопирован");
+                    } catch (RuntimeException | LinkageError e) {
+                        showStatus("Скопировано во внутренний буфер");
+                    }
+                }
+            }
+            case PASTE -> {
+                String clip = null;
+                try {
+                    clip = GLFW.glfwGetClipboardString(
+                        MinecraftClient.getInstance().getWindow().getHandle());
+                } catch (RuntimeException | LinkageError ignored) {}
+                if (clip == null) clip = localClipboard;
+                if (clip != null && !clip.isEmpty()) {
+                    field.write(clip);
+                    openPage("KEYBOARD");
+                } else showStatus("Буфер пуст");
+            }
+            case SELECT_ALL -> {
+                field.setSelectionStart(0);
+                field.setSelectionEnd(field.getText().length());
+                showStatus("Выделен весь текст");
+            }
+            case MOVE_STEP -> {
+                switch (result.key().value()) {
+                    case "LEFT" -> featurePrefs.move(-0.035f, 0, 0);
+                    case "RIGHT" -> featurePrefs.move(0.035f, 0, 0);
+                    case "UP" -> featurePrefs.move(0, -0.035f, 0);
+                    case "DOWN" -> featurePrefs.move(0, 0.035f, 0);
+                    case "NEAR" -> featurePrefs.move(0, 0, 0.035f);
+                    case "FAR" -> featurePrefs.move(0, 0, -0.035f);
+                    default -> { }
+                }
+                featurePrefs.savePosition();
+                showStatus("Положение изменено");
+            }
+            case MOVE_GRAB -> { /* Held-controller movement is handled by VR plane. */ }
+            case MOVE_RESET -> {
+                featurePrefs.resetPosition();
+                showStatus("Положение сброшено");
+            }
+            case HAPTIC_TOGGLE -> { featurePrefs.toggleHaptics(); panel = null; }
+            case HAPTIC_STRENGTH -> { featurePrefs.adjustHapticStrength(); panel = null; }
+            case CONTROLLER_LEFT_TOGGLE -> { featurePrefs.toggleLeft(); panel = null; }
+            case CONTROLLER_RIGHT_TOGGLE -> { featurePrefs.toggleRight(); panel = null; }
+            case BEAM_SHORTER -> { featurePrefs.adjustBeam(-5); panel = null; }
+            case BEAM_LONGER -> { featurePrefs.adjustBeam(5); panel = null; }
+            case DOT_SMALLER -> { featurePrefs.adjustDot(-1); panel = null; }
+            case DOT_LARGER -> { featurePrefs.adjustDot(1); panel = null; }
             case THEME -> {
                 theme = KeyboardTheme.fromName(result.key().value());
                 themePrefs.save(theme);
@@ -1004,12 +1089,37 @@ public final class VirtualKeyboardOverlay {
                 panel = null;
             }
             case SHIFT -> shift = !shift;
-            case COLLAPSE -> { collapsed = true; settingsOpen = false; }
+            case COLLAPSE -> { collapsed = true; openPage("KEYBOARD"); }
             case EXPAND -> collapsed = false;
             default -> { }
         }
         if (result.key().command() == KeyboardLayout.Command.TYPE && shift)
             shift = false;
+    }
+
+    private void openPage(String page) {
+        menuPage = page;
+        settingsOpen = !"KEYBOARD".equals(page);
+        panel = null;
+    }
+
+    private void showStatus(String message) {
+        voiceStatus = message;
+        voiceStatusAt = System.nanoTime() / 1_000_000L;
+    }
+
+    private void startDictation(Screen original, TextFieldWidget destination) {
+        // Mic permission and recognition service are owned by Android. The
+        // user's spoken words never automatically send a Minecraft message.
+        FoxCraftVoiceInput.start(russian, words -> {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (original == mc.currentScreen &&
+                destination == focusedField(original)) {
+                destination.write(words);
+                showStatus("Речь вставлена в поле");
+                openPage("KEYBOARD");
+            } else showStatus("Поле изменилось, ввод отменён");
+        }, this::showStatus);
     }
 
     /** Select only a visible input field directly clicked by the user. */
