@@ -9,7 +9,7 @@ using UnityEngine;
 public sealed class QuestChatKeyboardOverlayBridge : MonoBehaviour
 {
     private const string Magic = "QCKB1";
-    private const string InstanceName = "1.21.1";
+    private const string InstanceName = "1.21.5";
     private static readonly Encoding Utf8 = new UTF8Encoding(false);
     private static QuestChatKeyboardOverlayBridge instance;
 
