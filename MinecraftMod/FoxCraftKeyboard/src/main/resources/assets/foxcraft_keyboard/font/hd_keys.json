@@ -1,0 +1,23 @@
+{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "foxcraft_keyboard:font/hd_keys.png",
+      "ascent": 9,
+      "height": 12,
+      "chars": [
+        "abcdefghijklmnop",
+        "qrstuvwxyzABCDEF",
+        "GHIJKLMNOPQRSTUV",
+        "WXYZабвгдеёжзийк",
+        "лмнопрстуфхцчшщъ",
+        "ыьэюяАБВГДЕЁЖЗИЙ",
+        "КЛМНОПРСТУФХЦЧШЩ",
+        "ЪЫЬЭЮЯ0123456789",
+        "!@#$%^&*()_-+=[]",
+        "{};:'\",.<>/?\\|~`",
+        "№×⚙←→⌫ \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    }
+  ]
+}
