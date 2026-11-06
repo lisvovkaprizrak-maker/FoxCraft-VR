@@ -21,7 +21,7 @@ import java.util.UUID;
  * Uses a reflection-based Fabric tick callback, matching QuestCraft 6.0.0.
  */
 public final class QuestChatKeyboardBridge implements ClientModInitializer {
-    private static final String VERSION = "0.6.0";
+    private static final String VERSION = "0.6.1";
     private static final String MAGIC = "QCKB1";
     private static final int RESPONSE_LIMIT_BYTES = 8192;
 
