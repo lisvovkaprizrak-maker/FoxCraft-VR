@@ -21,8 +21,9 @@ public final class GuiHandler {
 
     public static final class FakeHandedClick {
         public boolean leftPressed;
+        public boolean rightPressed;
         public boolean isDown(ControllerType type) {
-            return type == ControllerType.LEFT && leftPressed;
+            return type == ControllerType.LEFT ? leftPressed : rightPressed;
         }
     }
     public static final class FakeGuiShift {

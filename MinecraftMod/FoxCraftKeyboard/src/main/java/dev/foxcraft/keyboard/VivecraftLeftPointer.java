@@ -64,33 +64,13 @@ public final class VivecraftLeftPointer {
             @SuppressWarnings({"unchecked", "rawtypes"})
             Object leftHand = Enum.valueOf((Class<? extends Enum>) handType.asSubclass(Enum.class),
                 "LEFT");
-            // The standalone plane and the emergency GUI overlay must read
-            // the SAME physical left index trigger (Quest 3: Place / Use).
-            Object leftGuiClick = null;
-            try {
-                leftGuiClick = gui.getField("KEY_LEFT_CLICK").get(null);
-            } catch (NoSuchFieldException ignored) {
-                // Older QuestCraft variants/test doubles may not expose
-                // the optional GUI left-click binding at all.
-            }
-            // Keep this optional reflection link: the standalone geometry
-            // smoke tests compile VivecraftLeftPointer without Minecraft,
-            // whereas the actual Fabric mod includes FoxCraftLeftTrigger.
-            // No right-hand clicks can activate this left-hand path.
-            Object rightGuiClick = null;
-            try { rightGuiClick = gui.getField("KEY_RIGHT_CLICK").get(null); }
-            catch (NoSuchFieldException ignored) { }
-            boolean rawLeftTrigger = rawTrigger(provider, leftHand,
-                keyboardBinding, leftGuiClick) ||
-                (rightGuiClick != null && rawTrigger(provider, leftHand,
-                    keyboardBinding, rightGuiClick));
-
-            // Match the 3D panel: only source-verified LEFT action states
-            // count. KeyBinding.isDown(LEFT) can mirror a right click on
-            // some QuestCraft variants, so do not use it as a fallback.
+            // No custom QuestCraft mappings: use native handed keyboard click.
+            // GUI Shift / global GUI click must never press this left ray.
+            boolean nativeLeftClick = (Boolean) keyboardBinding.getClass()
+                .getMethod("isDown", handType).invoke(keyboardBinding, leftHand);
             boolean valid = u >= 0 && u <= 1 && v >= 0 && v <= 1;
             return new Sample(valid, u * guiWidth, v * guiHeight,
-                rawLeftTrigger);
+                nativeLeftClick);
         } catch (ClassNotFoundException e) {
             unavailable = true;
             return null;
@@ -102,18 +82,6 @@ public final class VivecraftLeftPointer {
             // the already-tested right-controller path if reflection differs.
             unavailable = true;
             return null;
-        }
-    }
-
-    private static boolean rawTrigger(Object provider, Object leftHand,
-                                      Object keyboardClick, Object guiClick) {
-        try {
-            Class<?> helper = Class.forName("dev.foxcraft.keyboard.FoxCraftLeftTrigger");
-            return (Boolean) helper.getMethod("pressed",
-                Object.class, Object.class, Object.class, Object.class)
-                .invoke(null, provider, leftHand, keyboardClick, guiClick);
-        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
-            return false;
         }
     }
 
