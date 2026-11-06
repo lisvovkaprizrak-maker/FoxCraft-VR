@@ -4,17 +4,17 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 
 import java.lang.reflect.Method;
-import java.util.Collection;
 
 /**
- * Reads the LEFT index-trigger input from Vivecraft's underlying OpenXR action
- * state, not just Minecraft's GUI click/Shift key state.
+ * Reads controller-specific OpenXR action states for BOTH VR hands, rather
+ * than trusting Minecraft's global GUI click or Shift state.
  *
- * QuestCraft can hide Vivecraft's built-in keyboard; when it does, the normal
- * KEY_KEYBOARD_CLICK handed KeyBinding may no longer receive synthetic presses.
- * The VRInputAction can still carry the hand-specific digital controller state.
- * Other GUI bindings are checked only when their source is actually LEFT,
- * never using a global right-hand click to activate the left pointer.
+ * FoxCraft's detached keyboard has a separate pointer per physical hand.
+ * A QuestCraft fork may route index triggers through Keyboard Click, GUI
+ * Click, Attack or Use. A non-handed action is allowed to fire only from its
+ * verified physical source; a handed action is sampled for the requested
+ * hand and cross-checked against a reported origin when available.
+ * This preserves the old class name for compatibility with the 2D bridge.
  */
 public final class FoxCraftLeftTrigger {
     private FoxCraftLeftTrigger() {}
@@ -44,7 +44,7 @@ public final class FoxCraftLeftTrigger {
         return vr != null && hand != null && pressedAction(vr, hand, binding);
     }
 
-    private static boolean pressedAction(Object vr, Object leftHand,
+    private static boolean pressedAction(Object vr, Object requestedHand,
                                          Object binding) {
         if (!(binding instanceof KeyBinding key)) return false;
         try {
@@ -56,18 +56,25 @@ public final class FoxCraftLeftTrigger {
             Class<?> cls = action.getClass();
             boolean handed = (Boolean) cls.getMethod("isHanded").invoke(action);
             if (handed) {
-                Class<?> handClass = leftHand.getClass();
+                Class<?> handClass = requestedHand.getClass();
                 Method current = cls.getMethod("getCurrentHand");
                 Method select = cls.getMethod("setCurrentHand", handClass);
                 synchronized (action) {
                     Object previous = current.invoke(action);
                     try {
-                        select.invoke(action, leftHand);
-                        // Raw isActive/isButtonPressed is intentionally used:
-                        // native KeyBinding.isDown can be swallowed by the
-                        // priority system when the stock keyboard is closed.
-                        return (Boolean) cls.getMethod("isActive").invoke(action) &&
-                            (Boolean) cls.getMethod("isButtonPressed").invoke(action);
+                        select.invoke(action, requestedHand);
+                        // Never trust the global KeyBinding.isDown(): it can
+                        // reflect a press on the *other* controller.
+                        if (!(Boolean) cls.getMethod("isActive").invoke(action) ||
+                            !(Boolean) cls.getMethod("isButtonPressed").invoke(action))
+                            return false;
+                        // Some QuestCraft forks mirror handed button state.
+                        // An explicitly different physical origin overrides
+                        // that apparent press. An origin of zero is normal on
+                        // some handed actions; their per-hand state is enough.
+                        long origin = ((Number) cls.getMethod("getLastOrigin")
+                            .invoke(action)).longValue();
+                        return origin == 0L || matchesHandOrigin(vr, requestedHand, origin);
                     } finally {
                         select.invoke(action, previous);
                     }
@@ -79,28 +86,28 @@ public final class FoxCraftLeftTrigger {
                 return false;
             long origin = ((Number) cls.getMethod("getLastOrigin")
                 .invoke(action)).longValue();
-            if (origin == 0L) return false;
-            // Vivecraft's MCOpenVR.getOriginControllerType(long) is
-            // PROTECTED, not public. getMethod() silently loses the physical
-            // left/right association and makes non-handed GUI/use actions
-            // impossible to use for the off-hand index trigger.
-            Method originMethod = null;
-            Class<?> owner = vr.getClass();
-            while (owner != null && originMethod == null) {
-                try {
-                    originMethod = owner.getDeclaredMethod(
-                        "getOriginControllerType", long.class);
-                } catch (NoSuchMethodException ignored) {
-                    owner = owner.getSuperclass();
-                }
-            }
-            if (originMethod == null) return false;
-            originMethod.setAccessible(true);
-            Object sourceHand = originMethod.invoke(vr, origin);
-            return leftHand.equals(sourceHand);
+            return origin != 0L && matchesHandOrigin(vr, requestedHand, origin);
         } catch (ReflectiveOperationException | RuntimeException |
                  LinkageError ignored) {
             return false;
         }
+    }
+
+    /** getOriginControllerType is protected in Vivecraft's provider class. */
+    private static boolean matchesHandOrigin(Object vr, Object hand, long origin)
+        throws ReflectiveOperationException
+    {
+        Method resolver = null;
+        Class<?> owner = vr.getClass();
+        while (owner != null && resolver == null) {
+            try {
+                resolver = owner.getDeclaredMethod("getOriginControllerType", long.class);
+            } catch (NoSuchMethodException ignored) {
+                owner = owner.getSuperclass();
+            }
+        }
+        if (resolver == null) return false;
+        resolver.setAccessible(true);
+        return hand.equals(resolver.invoke(vr, origin));
     }
 }
