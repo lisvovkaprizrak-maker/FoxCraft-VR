@@ -24,6 +24,8 @@ public final class KeyboardLogicSmokeTest {
         }
 
         KeyboardLayout.Panel ru = KeyboardLayout.make(854, 480, true, true, false, false, false);
+        require(ru.width() <= 320 && ru.height() <= 145,
+            "Compact keyboard reduces VR obstruction");
         int digitRowY = key(ru.keys(), "1").y();
         StringBuilder numbers = new StringBuilder();
         for (KeyboardLayout.Key k : ru.keys())
@@ -170,6 +172,56 @@ public final class KeyboardLogicSmokeTest {
             17_900L, serverAddressInput);
         require(gapFocusChanged.consumed() && gapFocusChanged.activation() == null,
             "A changed field cannot cause a gap click-through");
+
+        // Swipe types the visited letter sequence exactly once on release.
+        KeyboardLayout.Key yi = key(ru.keys(), "й");
+        KeyboardLayout.Key ts = key(ru.keys(), "ц");
+        KeyboardLayout.Key u = key(ru.keys(), "у");
+        Object swipeField = new Object();
+        require(pointer.press(ru, yi.x() + 1, yi.y() + 1, 20_000, swipeField),
+            "Trigger-down starts gesture in chat");
+        pointer.move(ru, ts.x() + ts.width() / 2., ts.y() + 1, swipeField);
+        pointer.move(ru, u.x() + 1, u.y() + 1, swipeField);
+        require("йцу".equals(pointer.swipePreview()),
+            "Swipe preview joins every crossed letter before committing");
+        KeyboardPointerInput.Release swipeRelease = pointer.release(
+            ru, u.x() + 1, u.y() + 1, 21_000, swipeField);
+        require(swipeRelease.consumed() && swipeRelease.activation() != null &&
+            "йцу".equals(swipeRelease.activation().text()),
+            "Swipe commits a single combined text result on release");
+        require(pointer.swipePreview().isEmpty(), "Swipe preview resets");
+
+        // A held single key still returns its alternate character.
+        require(pointer.press(ru, yi.x() + 1, yi.y() + 1, 22_000, swipeField),
+            "Ordinary long press starts");
+        KeyboardPointerInput.Release ordinaryHold = pointer.release(
+            ru, yi.x() + 1, yi.y() + 1, 22_500, swipeField);
+        require(ordinaryHold.activation() != null && "~".equals(ordinaryHold.activation().text()),
+            "Long-press symbols remain available without swipe");
+
+        // Moving to a different text field cancels an in-progress word.
+        require(pointer.press(ru, yi.x() + 1, yi.y() + 1, 23_000, swipeField),
+            "Swipe starts before focus change");
+        pointer.move(ru, u.x() + 1, u.y() + 1, serverAddressInput);
+        KeyboardPointerInput.Release cancelledSwipe = pointer.release(
+            ru, u.x() + 1, u.y() + 1, 23_500, serverAddressInput);
+        require(cancelledSwipe.consumed() && cancelledSwipe.activation() == null,
+            "Changing focused field during swipe cannot type into the wrong UI");
+
+        // Dragging out of the keyboard must never commit a partial gesture.
+        require(pointer.press(ru, yi.x() + 1, yi.y() + 1, 24_000, swipeField),
+            "Start swipe before dragging away");
+        pointer.move(ru, ts.x() + 1, ts.y() + 1, swipeField);
+        KeyboardPointerInput.Release outsideSwipe = pointer.release(
+            ru, -100, -100, 24_700, swipeField);
+        require(outsideSwipe.consumed() && outsideSwipe.activation() == null,
+            "Swipe released outside keyboard is cancelled");
+
+        // Ignore digits and command keys when collecting a swipe.
+        SwipeGesture pureSwipe = new SwipeGesture();
+        pureSwipe.begin(key(ru.keys(), "1"), 0, 0);
+        pureSwipe.move(ru, yi.x() + 1, yi.y() + 1);
+        require(pureSwipe.preview().isEmpty(), "Number keys cannot begin swipe typing");
 
         KeyboardLayout.Panel collapsed = KeyboardLayout.make(854, 480, true, true, false, false, true);
         require(collapsed.keys().stream().anyMatch(k -> k.command() == KeyboardLayout.Command.EXPAND),
