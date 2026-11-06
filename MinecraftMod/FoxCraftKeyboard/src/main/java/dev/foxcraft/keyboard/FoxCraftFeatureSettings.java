@@ -44,12 +44,12 @@ public final class FoxCraftFeatureSettings {
         save();
     }
     public void toggleLeft() {
-        if (!leftHand && !rightHand) rightHand = true;
+        if (leftHand && !rightHand) return;
         leftHand = !leftHand;
         save();
     }
     public void toggleRight() {
-        if (!leftHand && !rightHand) leftHand = true;
+        if (rightHand && !leftHand) return;
         rightHand = !rightHand;
         save();
     }
