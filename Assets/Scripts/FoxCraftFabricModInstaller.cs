@@ -9,8 +9,8 @@ using UnityEngine.Networking;
 
 public sealed class FoxCraftFabricModInstaller : MonoBehaviour
 {
-    private const string Instance = "1.21.1";
-    private const string JarName = "FoxChatKeyboard-bridge-0.6.0.jar";
+    private const string Instance = "1.21.5";
+    private const string JarName = "FoxChatKeyboard-bridge-0.6.1.jar";
     private static FoxCraftFabricModInstaller instance;
     private bool completed;
     private bool installing;
