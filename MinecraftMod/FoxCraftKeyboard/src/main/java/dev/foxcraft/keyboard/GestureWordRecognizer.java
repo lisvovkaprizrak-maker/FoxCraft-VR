@@ -28,6 +28,9 @@ public final class GestureWordRecognizer {
         hello hi hey bye goodbye thanks thank please yes no ok okay sure cool great nice good bad awesome amazing perfect welcome friend friends buddy brother sister family people player players name names chat text word words typing keyboard swipe gesture controller trigger release hold left right hands hand both touch cursor pointer game games gaming minecraft questcraft vivecraft foxcraft quest virtual reality vr headset world server servers join leave connect online offline login start stop begin end continue restart reset cancel save load open close settings options test testing check fix fixed build built work works working broken update version mod mods install download layout language english russian morning afternoon evening night today tomorrow yesterday now soon later maybe probably definitely sometimes always never again only also really very much many little less more best better worse worst here there where when why what who which whose how can could will would should might must do does did done doing make made making get got getting go going went gone come coming came back right wrong correct error issue problem solution help helping sorry excuse free busy ready waiting good luck well done nice shot nice try no problem all good alright sound sounds music audio voice microphone mic mute unmute screen display button buttons press tap touch touchpad thumbstick joystick grip shoulder control controls finger fingers ray type typed suggestion suggestions candidate candidates choose choice select correct correction predictions predict predicted dictionary words this that these those your yours mine my our ours their theirs its his her he she they them us you i me we are is am be been being were was have has had with without about around before after between through over under above below inside outside into from for to at in on by a an the and or but because so if as than then too enough need want wanted wish love loved like liked dislike hate know knew known think thought thinking feel feeling hope hoping believe game crafting craft mining mine stone wood dirt water fire house home base cave armor sword shield pickaxe axe food bread meat fish apple diamond iron gold copper redstone nether end portal village villager zombie skeleton creeper enderman dragon follow following meet meeting find found search searching message messages write wrote written tell told say said speak speaking talk talking listen listening look looking see seeing saw watching try trying tried happy sad fun funny beautiful pretty simple easy hard difficult fast slow clear dark light day time moment minute second seconds next last first one two three four five six seven eight nine ten zero
         """;
 
+    private static final String[] RU_WORDS = RU.strip().split("\\s+");
+    private static final String[] EN_WORDS = EN.strip().split("\\s+");
+
     private GestureWordRecognizer() {}
 
     public static List<String> suggest(KeyboardLayout.Panel panel, List<Point> stroke,
@@ -45,7 +48,7 @@ public final class GestureWordRecognizer {
         }
         boolean russian = positions.containsKey("й");
         if (russian) positions.put("ё", positions.get("е"));
-        String[] dictionary = (russian ? RU : EN).strip().split("\\s+");
+        String[] dictionary = russian ? RU_WORDS : EN_WORDS;
         List<Point> trace = resample(stroke, 24);
         if (trace.size() < 2) return List.of();
         Point start = stroke.get(0), end = stroke.get(stroke.size() - 1);
