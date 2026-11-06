@@ -101,6 +101,56 @@ public final class FoxCraftVrPlane {
         return keyboard.shouldDisplayForScreen(client.currentScreen);
     }
 
+    /**
+     * Returns the real Vivecraft keyboard hit point in render-eye-relative world
+     * coordinates. The projection uses the same cursor UV, room panel pose,
+     * quad size and VR world transform as GUI input and VREffectsHelper.render2D.
+     * Null means that the controller did not hit our panel this frame.
+     */
+    public static Vector3f controllerHitRelativeToEye(int hand) {
+        if (!isPointingAtKeyboard(hand) || position == null || rotation == null
+            || uiWidth <= 0 || uiHeight <= 0) return null;
+        try {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            float u = (float) (cursorX[hand] / uiWidth);
+            float v = (float) (cursorY[hand] / uiHeight);
+            float aspect = (float) mc.getWindow().getScaledHeight()
+                / (float) mc.getWindow().getScaledWidth();
+            Vector3f inRoom = rotation.transformPosition(new Vector3f(
+                (u - 0.5f) * 1.5f * scale,
+                (0.5f - v) * 1.5f * scale * aspect, 0.0f))
+                .add(position);
+
+            Object holder = Class.forName("org.vivecraft.client_vr.ClientDataHolderVR")
+                .getMethod("getInstance").invoke(null);
+            Object player = holder.getClass().getField("vrPlayer").get(holder);
+            Object world = player.getClass().getField("vrdata_world_render").get(player);
+            Class<?> worldClass = world.getClass();
+            float worldScale = worldClass.getField("worldScale").getFloat(world);
+            float yaw = worldClass.getField("rotation_radians").getFloat(world);
+            inRoom.mul(worldScale).rotateY(yaw);
+            Object origin = worldClass.getField("origin").get(world);
+            Object pass = holder.getClass().getField("currentPass").get(holder);
+            Method getEye = null;
+            for (Method method : worldClass.getMethods())
+                if (method.getName().equals("getEye") &&
+                    method.getParameterCount() == 1) getEye = method;
+            if (getEye == null) return null;
+            Object eyePose = getEye.invoke(world, pass);
+            Object eye = eyePose.getClass().getMethod("getPosition").invoke(eyePose);
+            Class<?> vec = origin.getClass();
+            return new Vector3f(
+                inRoom.x + (float) (vec.getField("x").getDouble(origin)
+                    - vec.getField("x").getDouble(eye)),
+                inRoom.y + (float) (vec.getField("y").getDouble(origin)
+                    - vec.getField("y").getDouble(eye)),
+                inRoom.z + (float) (vec.getField("z").getDouble(origin)
+                    - vec.getField("z").getDouble(eye)));
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return null; // Never render a guessed beam through the world.
+        }
+    }
+
     /** Prevent secondary 2D chat clicks while pointing at FoxCraft in VR. */
     public static boolean interceptsMainGuiMouse() {
         return isReady() && keyboard != null &&
