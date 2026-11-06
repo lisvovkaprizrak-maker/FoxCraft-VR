@@ -78,8 +78,10 @@ def verify_aar(path: Path) -> None:
             raise ValueError("Pojlib Instance.gameDir missing")
         if "public java.lang.String versionName;" not in instance:
             raise ValueError("Pojlib Instance.versionName missing")
+        if "public java.lang.String mainClass;" not in instance:
+            raise ValueError("Pojlib Instance.mainClass missing (cannot verify Fabric loader)")
 
-    print("Pojlib API preflight OK: boolean prelaunch, launchInstance, USER_HOME, gameDir, versionName")
+    print("Pojlib API preflight OK: boolean prelaunch, launchInstance, USER_HOME, gameDir, versionName, mainClass")
     print("Device compatibility and Unity Android compilation are not verified.")
 
 
