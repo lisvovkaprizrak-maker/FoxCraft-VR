@@ -11,7 +11,7 @@ import java.util.Locale;
 public final class KeyboardLayout {
     public enum Command {
         NONE, TYPE, LANGUAGE, SYMBOLS, SHIFT, SPACE,
-        LEFT, RIGHT, BACKSPACE, ENTER, COLLAPSE, EXPAND
+        LEFT, RIGHT, BACKSPACE, ENTER, ESCAPE, COLLAPSE, EXPAND
     }
 
     public record Key(String label, Command command, String value, String alternate,
@@ -112,13 +112,13 @@ public final class KeyboardLayout {
             rowY += rowHeight + gap;
         }
         addWeighted(keys, insideX, rowY, insideWidth, rowHeight, gap,
-            new String[]{shift ? "SHIFT*" : "SHIFT", "←",
+            new String[]{russian ? "ВЫХ" : "ESC", shift ? "SHIFT*" : "SHIFT", "←",
                 russian ? "ПРОБЕЛ" : "SPACE", "→", "⌫",
                 russian ? "ВВОД" : "ENTER"},
-            new Command[]{Command.SHIFT, Command.LEFT, Command.SPACE,
-                Command.RIGHT, Command.BACKSPACE, Command.ENTER},
-            new String[]{"", "", " ", "", "", ""},
-            new int[]{3, 2, 8, 2, 2, 4});
+            new Command[]{Command.ESCAPE, Command.SHIFT, Command.LEFT,
+                Command.SPACE, Command.RIGHT, Command.BACKSPACE, Command.ENTER},
+            new String[]{"", "", "", " ", "", "", ""},
+            new int[]{2, 3, 2, 8, 2, 2, 4});
         return new Panel(x, y, width, height, List.copyOf(keys));
     }
 
