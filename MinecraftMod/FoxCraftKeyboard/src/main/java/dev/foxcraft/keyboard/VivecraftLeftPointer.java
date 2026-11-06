@@ -69,8 +69,12 @@ public final class VivecraftLeftPointer {
             // The standalone plane and the emergency GUI overlay must read
             // the SAME physical left index trigger (Quest 3: Place / Use).
             Object leftGuiClick = gui.getField("KEY_LEFT_CLICK").get(null);
-            boolean rawLeftTrigger = FoxCraftLeftTrigger.pressed(
-                provider, leftHand, keyboardBinding, leftGuiClick);
+            // Keep this optional reflection link: the standalone geometry
+            // smoke tests compile VivecraftLeftPointer without Minecraft,
+            // whereas the actual Fabric mod includes FoxCraftLeftTrigger.
+            // No right-hand clicks can activate this left-hand path.
+            boolean rawLeftTrigger = rawTrigger(provider, leftHand,
+                keyboardBinding, leftGuiClick);
 
             // Stock Oculus GUI bindings map left grip to GUI Shift, while
             // only right trigger clicks the mouse. Left grip is a useful
@@ -89,6 +93,18 @@ public final class VivecraftLeftPointer {
             // the already-tested right-controller path if reflection differs.
             unavailable = true;
             return null;
+        }
+    }
+
+    private static boolean rawTrigger(Object provider, Object leftHand,
+                                      Object keyboardClick, Object guiClick) {
+        try {
+            Class<?> helper = Class.forName("dev.foxcraft.keyboard.FoxCraftLeftTrigger");
+            return (Boolean) helper.getMethod("pressed",
+                Object.class, Object.class, Object.class, Object.class)
+                .invoke(null, provider, leftHand, keyboardClick, guiClick);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return false;
         }
     }
 
