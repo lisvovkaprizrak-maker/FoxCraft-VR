@@ -36,25 +36,27 @@ jobs:
           python3 - <<'PY'
           import json, zipfile
           from pathlib import Path
-          path = Path("Fabric/foxchatkeyboard/FoxChatKeyboard-bridge-0.6.0-fabric-1.21.1.jar")
+          path = Path("Fabric/foxchatkeyboard/FoxChatKeyboard-bridge-0.6.1-fabric-1.21.5.jar")
           with zipfile.ZipFile(path) as jar:
               names = set(jar.namelist())
               data = json.loads(jar.read("fabric.mod.json"))
               assert data["id"] == "questchatkeyboardbridge"
-              assert data["version"] == "0.6.0"
-              assert data["depends"]["minecraft"] == "1.21.1"
+              assert data["version"] == "0.6.1"
+              assert data["depends"]["minecraft"] == "1.21.5"
               assert "com/questchatkeyboard/bridge/QuestChatKeyboardBridge.class" in names
               assert not any(name.startswith("net/fabricmc/") for name in names)
           print("JAR validated:", path, path.stat().st_size, "bytes")
           PY
+      - name: Confirm JAR declares Minecraft 1.21.5
+        run: python3 tools/foxcraft_check_fabric_compat.py Fabric/foxchatkeyboard/FoxChatKeyboard-bridge-0.6.1-fabric-1.21.5.jar --minecraft 1.21.5
       - name: Stage JAR into Unity StreamingAssets
         run: |
           python3 tools/foxcraft_stage_fabric.py
-          test -s Assets/StreamingAssets/FoxChatKeyboard-bridge-0.6.0.jar
+          test -s Assets/StreamingAssets/FoxChatKeyboard-bridge-0.6.1.jar
       - name: Upload compiled Fabric JAR
         uses: actions/upload-artifact@v4
         with:
-          name: FoxChatKeyboard-Fabric-0.6.0-1.21.1
-          path: Fabric/foxchatkeyboard/FoxChatKeyboard-bridge-0.6.0-fabric-1.21.1.jar
+          name: FoxChatKeyboard-Fabric-0.6.1-1.21.5
+          path: Fabric/foxchatkeyboard/FoxChatKeyboard-bridge-0.6.1-fabric-1.21.5.jar
           if-no-files-found: error
           retention-days: 14
