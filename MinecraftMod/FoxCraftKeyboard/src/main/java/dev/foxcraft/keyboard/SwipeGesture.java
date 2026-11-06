@@ -83,12 +83,17 @@ public final class SwipeGesture {
 
     public KeyboardLayout.Key firstKey() { return first; }
 
-    public String finish() {
+    /** Final frame is always rescored before insertion; preview may be cached. */
+    public List<String> finishCandidates() {
         List<String> words = isSwiping()
             ? GestureWordRecognizer.suggest(panel, points, 3) : List.of();
-        String best = words.isEmpty() ? "" : words.get(0);
         cancel();
-        return best;
+        return words;
+    }
+
+    public String finish() {
+        List<String> words = finishCandidates();
+        return words.isEmpty() ? "" : words.get(0);
     }
 
     public void cancel() {
