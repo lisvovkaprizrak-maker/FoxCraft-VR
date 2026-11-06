@@ -61,6 +61,16 @@ public final class FoxCraftVrPlane {
         return ready && worldHookWorking && !disabled;
     }
 
+    /** True only while Vivecraft is actually rendering a VR headset session. */
+    public static boolean isVrSession() {
+        try {
+            Class<?> vr = Class.forName("org.vivecraft.client_vr.VRState");
+            return vr.getField("VR_RUNNING").getBoolean(null);
+        } catch (ReflectiveOperationException | LinkageError unavailable) {
+            return false;
+        }
+    }
+
     /** Prevent secondary 2D chat clicks while pointing at FoxCraft in VR. */
     public static boolean interceptsMainGuiMouse() {
         return isReady() && keyboard != null &&
