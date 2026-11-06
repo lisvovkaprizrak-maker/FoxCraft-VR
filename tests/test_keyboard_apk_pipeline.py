@@ -17,6 +17,10 @@ class KeyboardApkPipelineTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn('selected.versionName, "1.21.5"', launcher)
+        self.assertIn("FoxCraftInGameKeyboardInstaller.UsesFabricLoader(selected.raw)", launcher)
+        self.assertIn('Get<string>("mainClass")', installer)
+        self.assertIn('StartsWith("net.fabricmc.loader."', installer)
+        self.assertIn('EndsWith(".KnotClient"', installer)
         self.assertIn("FoxCraftInGameKeyboardInstaller.EnsureInstalled", launcher)
         self.assertIn('foxcraft-keyboard-0.1.0-alpha.jar', installer)
         self.assertIn('Get<string>("gameDir")', installer)
