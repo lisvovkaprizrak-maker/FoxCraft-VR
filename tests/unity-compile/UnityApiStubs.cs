@@ -13,11 +13,18 @@ namespace UnityEngine
         public static string persistentDataPath { get; set; }
         public static string streamingAssetsPath { get; set; }
     }
-    public class GameObject { }
+    public class GameObject
+    {
+        public GameObject() { }
+        public GameObject(string name) { }
+        public T AddComponent<T>() where T : new() { return new T(); }
+    }
+    public static class Time { public static float realtimeSinceStartup { get; set; } }
     public class Coroutine { }
     public class MonoBehaviour
     {
         protected Coroutine StartCoroutine(IEnumerator coroutine) { return null; }
+        protected static void DontDestroyOnLoad(object target) { }
     }
     public class CanvasGroup
     {
@@ -32,6 +39,9 @@ namespace UnityEngine
     }
     public class AndroidJavaObject : IDisposable
     {
+        public AndroidJavaObject() { }
+        public AndroidJavaObject(string className, params object[] args) { }
+        public void Call(string method, params object[] args) { }
         public T Get<T>(string field) { return default(T); }
         public T Call<T>(string method, params object[] args) { return default(T); }
         public void Dispose() { }
@@ -43,10 +53,26 @@ namespace UnityEngine
         public T CallStatic<T>(string method, params object[] args) { return default(T); }
         public void CallStatic(string method, params object[] args) { }
     }
+    public sealed class AndroidJavaRunnable
+    {
+        public AndroidJavaRunnable(Action action) { }
+    }
+    public class AndroidJavaProxy
+    {
+        protected AndroidJavaProxy(string javaInterface) { }
+    }
     public static class AndroidJNI
     {
         public static int AttachCurrentThread() { return 0; }
         public static void DetachCurrentThread() { }
+    }
+}
+namespace UnityEngine.Android
+{
+    public static class Permission
+    {
+        public static bool HasUserAuthorizedPermission(string name) { return true; }
+        public static void RequestUserPermission(string name) { }
     }
 }
 namespace UnityEngine.XR { }
