@@ -232,6 +232,45 @@ public final class KeyboardLogicSmokeTest {
         require(yoResult != null && yoResult.alternate() && "ё".equals(yoResult.text()),
             "Long press on Е selects Ё exactly once");
 
+        // Backspace tap deletes once; long press repeats one character at a time.
+        KeyboardLayout.Key backspace = ru.keys().stream()
+            .filter(k -> k.command() == KeyboardLayout.Command.BACKSPACE)
+            .findFirst().orElseThrow();
+        KeyboardPointerInput deleting = new KeyboardPointerInput();
+        Object deleteField = new Object();
+        int bx = backspace.x() + backspace.width() / 2;
+        int by = backspace.y() + backspace.height() / 2;
+        require(deleting.press(ru, bx, by, 40000, deleteField), "Backspace captures");
+        require(!deleting.repeatBackspace(40449, deleteField),
+            "No repeated deletion before 450 ms");
+        KeyboardPointerInput.Release shortDelete = deleting.release(
+            ru, bx, by, 40449, deleteField);
+        require(shortDelete.activation() != null &&
+            shortDelete.activation().key().command() == KeyboardLayout.Command.BACKSPACE,
+            "Short Backspace tap deletes one character on release");
+        require(deleting.press(ru, bx, by, 41000, deleteField),
+            "Backspace hold starts");
+        require(!deleting.repeatBackspace(41449, deleteField), "Hold delay respected");
+        require(deleting.repeatBackspace(41450, deleteField),
+            "Hold deletes first character at 450 ms");
+        require(!deleting.repeatBackspace(41534, deleteField),
+            "Repeat never fires earlier than 85 ms");
+        require(deleting.repeatBackspace(41535, deleteField),
+            "Hold deletes next character gradually");
+        KeyboardPointerInput.Release longDelete = deleting.release(
+            ru, bx, by, 41600, deleteField);
+        require(longDelete.consumed() && longDelete.activation() == null,
+            "Releasing held Backspace must not add another deletion");
+        require(!deleting.repeatBackspace(42000, deleteField),
+            "Releasing stops Backspace repeat");
+        require(deleting.press(ru, bx, by, 43000, deleteField),
+            "Backspace begins before focus changes");
+        require(!deleting.repeatBackspace(44000, new Object()),
+            "Backspace cannot delete into another field");
+        deleting.move(ru, -100, -100, deleteField);
+        require(!deleting.repeatBackspace(45000, deleteField),
+            "Moving off Backspace stops repeat");
+        deleting.release(ru, -100, -100, 45000, deleteField);
         KeyboardPointerInput pointer = new KeyboardPointerInput();
         require(!pointer.isPressed(letter), "Idle key is not visually pressed");
         require(pointer.press(ru, letter.x() + 1, letter.y() + 1, 7000),
