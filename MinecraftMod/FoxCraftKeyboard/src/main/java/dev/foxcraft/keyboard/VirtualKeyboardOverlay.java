@@ -248,6 +248,11 @@ public final class VirtualKeyboardOverlay {
             drawSnowDots(context, panel, now);
         }
 
+        // Animate only the chassis beneath and BETWEEN the keycaps.
+        // Draw before every key: even partial overlaps cannot cover labels,
+        // change hover states or intercept controller hit testing.
+        drawThemeAmbient(context, panel, theme, now);
+
         var font = MinecraftClient.getInstance().textRenderer;
         // Branding is decoration, never a controller-hit-test key.
         if (!collapsed) {
@@ -429,6 +434,104 @@ public final class VirtualKeyboardOverlay {
      * Curved pixels blend with the backdrop at fractional coverage instead
      * of snapping each arc edge to a solid one-pixel staircase.
      */
+    /**
+     * Ambient moving lights for every theme. Geometry stays behind the keys
+     * and small particles are clipped to gutters and the panel background.
+     * This is paint only; the entire hit-test/key layout is untouched.
+     */
+    private static void drawThemeAmbient(DrawContext c, KeyboardLayout.Panel p,
+                                         KeyboardTheme theme, long now) {
+        int width = p.width();
+        int height = p.height();
+        if (width <= 20 || height <= 20) return;
+        int rgb = theme.accent() & 0x00FFFFFF;
+        long tick = now / (23 + theme.ordinal() * 5L);
+
+        // Gentle animated light travelling along both side rails.
+        for (int side = 0; side < 2; side++) {
+            int x = side == 0 ? p.x() + 3 : p.x() + width - 4;
+            int phase = Math.floorMod(tick + side * (height / 2L), height - 12);
+            int y = p.y() + 6 + phase;
+            c.fill(x, y, x + 1, y + 5, 0xA0000000 | rgb);
+            c.fill(x, y - 2, x + 1, y, 0x44000000 | rgb);
+            c.fill(x, y + 5, x + 1, y + 7, 0x44000000 | rgb);
+        }
+
+        // Flowing one-pixel highlights in the gaps directly under key rows.
+        // Each key itself is drawn AFTER this pass, completely opaque.
+        int row = 0;
+        int lastY = Integer.MIN_VALUE;
+        for (KeyboardLayout.Key k : p.keys()) {
+            if (k.y() == lastY) continue;
+            lastY = k.y();
+            int gutterY = k.y() + k.height();
+            if (gutterY >= p.y() + height - 3) continue;
+            int x = p.x() + 8 + Math.floorMod(tick + row * 71L,
+                Math.max(1, width - 16));
+            if (clearAmbientPixel(p, x, gutterY)) {
+                c.fill(x, gutterY, x + 2, gutterY + 1,
+                    0x9A000000 | rgb);
+            }
+            row++;
+        }
+
+        // Each palette has a different motion:
+        // embers rise, stars twinkle, bubbles rise, petals descend,
+        // aurora glides sideways, and New Year snow falls.
+        int number = theme == KeyboardTheme.NEW_YEAR ? 38 : 25;
+        for (int i = 0; i < number; i++) {
+            long t = now / (theme == KeyboardTheme.SAKURA ? 49L : 39L);
+            long seed = i * 97L + theme.ordinal() * 53L;
+            int localX = 6 + Math.floorMod(seed, width - 12);
+            int localY = 6 + Math.floorMod(seed * 3L, height - 12);
+            int light = 0x78000000 | rgb;
+            switch (theme) {
+                case CLASSIC -> {
+                    localX = 6 + Math.floorMod(seed + (t / 6), width - 12);
+                    localY = 6 + Math.floorMod(seed * 3L - t, height - 12);
+                }
+                case MIDNIGHT -> {
+                    light = (((now / 240L + i) % 4 == 0 ? 0xCC : 0x55) << 24)
+                        | 0x00E7EAFF;
+                }
+                case OCEAN -> {
+                    localY = 6 + Math.floorMod(seed * 3L - t, height - 12);
+                    light = 0x7A000000 | 0x0097FFFF;
+                }
+                case SAKURA -> {
+                    localX = 6 + Math.floorMod(seed + t / 3, width - 12);
+                    localY = 6 + Math.floorMod(seed * 3L + t, height - 12);
+                    light = 0x98000000 | 0x00FFD4EB;
+                }
+                case AURORA -> {
+                    localX = 6 + Math.floorMod(seed + t * 2L, width - 12);
+                    localY = 6 + Math.floorMod(seed * 3L +
+                        (long) (7 * Math.sin(now / 500.0 + i)), height - 12);
+                    light = 0x81000000 | 0x0085FFD5;
+                }
+                case NEW_YEAR -> {
+                    localX = 6 + Math.floorMod(seed + t / 8, width - 12);
+                    localY = 6 + Math.floorMod(seed * 3L + t, height - 12);
+                    light = 0xB5000000 | 0x00F0FCFF;
+                }
+            }
+            int x = p.x() + localX, y = p.y() + localY;
+            // Never draw over keycaps, captions, or controller hit markers.
+            if (clearAmbientPixel(p, x, y)) {
+                c.fill(x, y, x + 1, y + 1, light);
+            }
+        }
+    }
+
+    private static boolean clearAmbientPixel(KeyboardLayout.Panel p, int x, int y) {
+        if (x < p.x() + 2 || x >= p.x() + p.width() - 2 ||
+            y < p.y() + 2 || y >= p.y() + p.height() - 2) return false;
+        for (KeyboardLayout.Key key : p.keys()) {
+            if (key.contains(x, y)) return false;
+        }
+        return true;
+    }
+
     /** Non-fox seasonal decor, deliberately confined to the panel corners. */
     private static void drawSnowDots(DrawContext c, KeyboardLayout.Panel p, long now) {
         int twinkle = (int) ((now / 430) % 3);
