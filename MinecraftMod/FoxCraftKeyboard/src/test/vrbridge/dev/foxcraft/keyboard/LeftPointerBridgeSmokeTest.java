@@ -14,9 +14,13 @@ public final class LeftPointerBridgeSmokeTest {
         require(idle.x() == 200 && idle.y() == 200, "Left ray uses own UV coordinates");
         require(!idle.pressed(), "Idle controller does not press keys");
 
+        // GUI Shift is unhanded. It may be activated by an unrelated
+        // right-controller button, so it cannot count as the left index
+        // trigger. This regression test prevents mirrored left clicks.
         GuiHandler.KEY_SHIFT.leftGripPressed = true;
         VivecraftLeftPointer.Sample grip = pointer.poll(800, 400);
-        require(grip != null && grip.pressed(), "Default left GUI grip can activate keys");
+        require(grip != null && !grip.pressed(),
+            "GUI Shift/grip must not generate phantom left pointer presses");
         GuiHandler.KEY_SHIFT.leftGripPressed = false;
 
         GuiHandler.KEY_KEYBOARD_CLICK.leftPressed = true;
