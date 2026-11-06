@@ -164,6 +164,16 @@ public final class VirtualKeyboardOverlay {
                 popupY + 5, TEXT, false);
         }
 
+        // Explicit left-hand marker helps verify that the second controller
+        // ray tracks independently from Vivecraft's right-hand mouse cursor.
+        if (leftSample != null && leftSample.valid() &&
+            panel.contains(leftSample.x(), leftSample.y())) {
+            int lx = (int) leftSample.x();
+            int ly = (int) leftSample.y();
+            context.fill(lx - 3, ly - 3, lx + 4, ly + 4, ORANGE);
+            context.drawText(font, "L", lx + 6, ly - 5, MINI, false);
+        }
+
         // A swipe shows its gathered letters live, but writes none of them
         // into chat until the trigger is released.
         String preview = !leftPointer.swipePreview().isEmpty()
