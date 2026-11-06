@@ -175,6 +175,7 @@ public final class VirtualKeyboardOverlay {
             case LEFT -> field.moveCursor(-1, false);
             case RIGHT -> field.moveCursor(1, false);
             case ENTER -> screen.keyPressed(GLFW.GLFW_KEY_ENTER, 0, 0);
+            case ESCAPE -> screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
             case LANGUAGE -> russian = !russian;
             case SYMBOLS -> symbols = !symbols;
             case SHIFT -> shift = !shift;
