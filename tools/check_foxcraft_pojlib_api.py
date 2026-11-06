@@ -56,14 +56,19 @@ def verify_aar(path: Path) -> None:
         constants = describe("pojlib.util.Constants")
         instance = describe("pojlib.util.json.MinecraftInstances$Instance")
 
-        # QuestCraft-6.0.0 API.prelaunch() is void. A boolean JNI call will
-        # request a nonexistent JVM signature and crash the launch path.
+        # The AAR shipped with this Unity project is NOT binary-equivalent
+        # to upstream QuestCraft-6.0.0 source. Its API.prelaunch is boolean.
+        # Always validate this signature against the actual packaged AAR.
         prelaunch = [
             line.strip() for line in api.splitlines()
             if " prelaunch(" in line
         ]
-        if not prelaunch:
-            raise ValueError("Pojlib API.prelaunch method is missing")
+        if not any(line.startswith("public static boolean prelaunch(")
+                   for line in prelaunch):
+            raise ValueError(
+                "Bundled Pojlib must expose boolean API.prelaunch: " +
+                ("; ".join(prelaunch) if prelaunch else "(missing)")
+            )
         print("Bundled Pojlib prelaunch signature(s):", *prelaunch, sep="\\n  ")
         if "public static void launchInstance(" not in api:
             raise ValueError("Pojlib API.launchInstance missing")
@@ -74,7 +79,7 @@ def verify_aar(path: Path) -> None:
         if "public java.lang.String versionName;" not in instance:
             raise ValueError("Pojlib Instance.versionName missing")
 
-    print("Pojlib API preflight OK: void prelaunch, launchInstance, USER_HOME, gameDir, versionName")
+    print("Pojlib API preflight OK: boolean prelaunch, launchInstance, USER_HOME, gameDir, versionName")
     print("Device compatibility and Unity Android compilation are not verified.")
 
 
