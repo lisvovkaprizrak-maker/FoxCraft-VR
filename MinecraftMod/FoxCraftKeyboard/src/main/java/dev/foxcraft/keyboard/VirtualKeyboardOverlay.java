@@ -353,18 +353,16 @@ public final class VirtualKeyboardOverlay {
             panel.contains(leftSample.x(), leftSample.y())) {
             int lx = (int) leftSample.x();
             int ly = (int) leftSample.y();
-            context.fill(lx - 3, ly - 3, lx + 4, ly + 4, ORANGE);
-            context.drawText(font, hd("L"), lx + 6, ly - 5, MINI, false);
+            // Compact circular marker at the actual left-hand hit point.
+            drawAimCircle(context, lx, ly, 0xFFACD7FF);
         }
 
         // The right controller is the primary GUI pointer. In detached VR
         // mode its position is projected independently of the left marker.
         // Draw both so missing native QuestCraft rays are immediately obvious.
         if (panel.contains(mouseX, mouseY)) {
-            context.fill(mouseX - 3, mouseY - 3,
-                mouseX + 4, mouseY + 4, ORANGE);
-            context.drawText(font, hd("R"), mouseX + 6, mouseY - 5,
-                ORANGE, false);
+            // Both controllers use simple circles, never L / R labels.
+            drawAimCircle(context, mouseX, mouseY, ORANGE);
         }
 
         // A swipe shows its gathered letters live, but writes none of them
@@ -399,6 +397,13 @@ public final class VirtualKeyboardOverlay {
      * Curved pixels blend with the backdrop at fractional coverage instead
      * of snapping each arc edge to a solid one-pixel staircase.
      */
+    /** A 5px filled circular touch point; no controller letter or square cursor. */
+    private static void drawAimCircle(DrawContext context, int x, int y, int color) {
+        context.fill(x - 1, y - 2, x + 2, y + 3, color);
+        context.fill(x - 2, y - 1, x + 3, y + 2, color);
+        context.fill(x, y, x + 1, y + 1, 0xFFFFFFFF);
+    }
+
     private static void rounded(DrawContext c, int x, int y, int w, int h,
                                 int radius, int color) {
         if (w <= 0 || h <= 0 || (color >>> 24) == 0) return;
