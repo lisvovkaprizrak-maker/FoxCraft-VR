@@ -161,8 +161,8 @@ public final class KeyboardLogicSmokeTest {
         require("1234567890".contentEquals(numbers), "Permanent number row: " + numbers);
 
         require(ru.keys().stream().anyMatch(k ->
-            k.command() == KeyboardLayout.Command.ESCAPE && k.label().isEmpty()),
-            "Russian layout includes an Escape key to close the chat");
+            k.command() == KeyboardLayout.Command.TYPE && ",".equals(k.value())),
+            "Russian main keyboard replaces redundant exit with comma");
         KeyboardLayout.Key letter = key(ru.keys(), "й");
         require("~".equals(letter.alternate()), "Russian Й has ~ legend");
         require("@".equals(key(ru.keys(), "ф").alternate()), "Russian Ф has @ legend");
@@ -172,8 +172,8 @@ public final class KeyboardLogicSmokeTest {
             "Russian hard sign must be available as a normal key");
         KeyboardLayout.Panel en = KeyboardLayout.make(854, 480, true, false, false, false, false);
         require(en.keys().stream().anyMatch(k ->
-            k.command() == KeyboardLayout.Command.ESCAPE && k.label().isEmpty()),
-            "English layout includes Escape for closing Minecraft screens");
+            k.command() == KeyboardLayout.Command.TYPE && ".".equals(k.value())),
+            "English main keyboard replaces redundant collapse with period");
         require("@".equals(key(en.keys(), "q").alternate()), "English Q has @ legend");
         KeyboardLayout.Panel ruShift = KeyboardLayout.make(854, 480, true, true, false, true, false);
         require("Ё".equals(key(ruShift.keys(), "Е").alternate()),
@@ -540,9 +540,13 @@ public final class KeyboardLogicSmokeTest {
                 k.y() < key(ru.keys(), "1").y()),
             "Delete moved to the top-right controls");
         require(ru.keys().stream().anyMatch(k ->
-            k.command() == KeyboardLayout.Command.COLLAPSE &&
-                k.y() > key(ru.keys(), "1").y()),
-            "Close moved next to Enter");
+            k.command() == KeyboardLayout.Command.TYPE && "!".equals(k.value()) &&
+                k.y() < key(ru.keys(), "1").y()),
+            "Exclamation mark is directly available in the top toolbar");
+        require(ru.keys().stream().noneMatch(k ->
+            k.command() == KeyboardLayout.Command.COLLAPSE ||
+                k.command() == KeyboardLayout.Command.ESCAPE),
+            "No redundant bottom-left exit or input-adjacent collapse button");
         KeyboardLayout.Panel toolbox = KeyboardLayout.toolMenu(ru,
             new String[]{"Темы", "Микрофон", "Фразы", "Буфер", "Переместить",
                 "Контроллеры", "Назад"},
