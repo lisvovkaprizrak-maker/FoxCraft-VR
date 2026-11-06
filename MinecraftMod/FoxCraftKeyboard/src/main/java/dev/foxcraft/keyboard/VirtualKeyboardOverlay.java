@@ -64,21 +64,22 @@ public final class VirtualKeyboardOverlay {
 
     public void render(Screen screen, DrawContext context, int mouseX, int mouseY) {
         if (screen instanceof ChatScreen && FoxCraftVrPlane.isReady()) return;
-        renderInternal(screen, context, mouseX, mouseY, screen.width, screen.height, false);
+        renderInternal(screen, context, mouseX, mouseY,
+            screen.width, screen.height, false, -100, -100);
     }
 
     /** Same keyboard controls, painted on the separate QuestCraft-aligned VR quad. */
     public void renderDetached(Screen screen, DrawContext context,
                                int mouseX, int mouseY, int width, int height,
                                double leftX, double leftY) {
-        renderInternal(screen, context, mouseX, mouseY, width, height, true);
-        leftSample = new VivecraftLeftPointer.Sample(
-            leftX >= 0 && leftY >= 0, leftX, leftY, false);
+        renderInternal(screen, context, mouseX, mouseY,
+            width, height, true, leftX, leftY);
     }
 
     private void renderInternal(Screen screen, DrawContext context,
                                 int mouseX, int mouseY, int width,
-                                int height, boolean detached) {
+                                int height, boolean detached,
+                                double detachedLeftX, double detachedLeftY) {
         if (screen != previousScreen) {
             previousScreen = screen;
             clearSuggestions();
@@ -89,6 +90,12 @@ public final class VirtualKeyboardOverlay {
             suppressMinecraftGuiClick = false;
             collapsed = false;
             panel = null;
+        }
+
+        if (detached) {
+            leftSample = new VivecraftLeftPointer.Sample(
+                detachedLeftX >= 0 && detachedLeftY >= 0,
+                detachedLeftX, detachedLeftY, false);
         }
 
         if (focusedField(screen) == null) {
