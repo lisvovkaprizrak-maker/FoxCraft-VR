@@ -572,48 +572,90 @@ public final class KeyboardLogicSmokeTest {
             Path config = Files.createTempFile("foxcraft-binds-", ".properties");
             Files.deleteIfExists(config);
             QuickBindingStore store = new QuickBindingStore(config);
-            require(store.pageLabels(0).length == 6,
-                "Six large bind slots per page");
+            require(store.count() == 6 && store.pages() == 1,
+                "New players start with six binds, not thirty unneeded placeholders");
             require("Привет!".equals(store.message(0)),
-                "First page preserves starter phrase");
-            require(store.message(29).isEmpty(), "Thirtieth slot is editable");
-            require(store.put(29, "Проверка", "мой комментарий"),
-                "Last bind can be edited");
-            require("Проверка — мой комментарий".equals(store.outgoing(29)),
-                "Saved bind includes optional note without automatic sending");
-            QuickBindingStore loaded = new QuickBindingStore(config);
-            require("Проверка".equals(loaded.message(29)) &&
-                "мой комментарий".equals(loaded.note(29)),
-                "Saved edits survive app restart");
-            require(loaded.put(29, "", ""), "A preset can be cleared");
-            require(loaded.outgoing(29).isEmpty(), "Cleared preset inserts nothing");
-            for (int page = 0; page < 5; page++) {
-                KeyboardLayout.Panel original = KeyboardLayout.make(
-                    854, 480, true, true, false, false, false);
+                "Original first starter bind remains");
+            require("Привет!".equals(store.outgoing(0)),
+                "Only the left field goes into chat");
+            require(store.put(0, "/home", "Домой"),
+                "A bind accepts separate command and button name");
+            require("/home".equals(store.outgoing(0)),
+                "Right label is never appended to the slash command");
+            require("Домой".equals(store.pageLabels(0)[0]),
+                "Visible bind button displays its right-hand name");
+
+            // Dynamic addition must create pages only as needed, not limit
+            // users to the original static 30 slots.
+            for (int i = 0; i < 31; i++)
+                require(store.add() == i + 6, "New bind index is append-only");
+            require(store.count() == 37 && store.pages() == 7,
+                "More than 30 binds can be added on demand");
+            require(store.put(36, "/spawn", "Спавн"),
+                "User can edit a bind well beyond former 30-slot limit");
+            require("Спавн".equals(store.pageLabels(6)[0]),
+                "Last dynamic page displays title rather than command");
+
+            require(store.remove(0), "Any existing bind can be deleted");
+            require(store.count() == 36 && store.pages() == 6,
+                "Deletion compacts slots and removes unneeded trailing pages");
+            require("Где ты?".equals(store.outgoing(0)),
+                "Remaining bind commands shift cleanly after deletion");
+            require("Спавн".equals(store.pageLabels(5)[5]),
+                "Last bind retains its title after compaction");
+
+            QuickBindingStore reloaded = new QuickBindingStore(config);
+            require(reloaded.count() == 36 &&
+                "Спавн".equals(reloaded.pageLabels(5)[5]) &&
+                "/spawn".equals(reloaded.outgoing(35)),
+                "All inserted/deleted binds persist across restarts");
+            KeyboardLayout.Panel original = KeyboardLayout.make(
+                854, 480, true, true, false, false, false);
+            for (int page = 0; page < reloaded.pages(); page++) {
                 KeyboardLayout.Panel binds = KeyboardLayout.quickBindingsMenu(
-                    original, loaded.pageLabels(page), page);
+                    original, reloaded.pageLabels(page), page, reloaded.pages());
                 require(binds.width() == original.width() &&
                     binds.height() == original.height(),
-                    "Bind pages preserve calibrated VR panel size");
+                    "Dynamic pages preserve calibrated VR panel size");
                 require(binds.keys().stream().filter(k ->
                     k.command() == KeyboardLayout.Command.QUICK_MESSAGE).count() == 6 &&
                     binds.keys().stream().filter(k ->
-                    k.command() == KeyboardLayout.Command.QUICK_EDIT).count() == 6,
-                    "Every one of thirty binds has an independent edit gear");
-                for (KeyboardLayout.Key gear : binds.keys()) {
-                    if (gear.command() != KeyboardLayout.Command.QUICK_EDIT) continue;
-                    KeyboardLayout.Key hit = binds.at(
-                        gear.x() + gear.width() / 2.0,
-                        gear.y() + gear.height() / 2.0);
-                    require(hit == gear, "Gear must win hit testing over bind card");
+                    k.command() == KeyboardLayout.Command.QUICK_EDIT).count() == 6 &&
+                    binds.keys().stream().filter(k ->
+                    k.command() == KeyboardLayout.Command.QUICK_DELETE).count() == 6,
+                    "Every card has independent name edit and remove controls");
+                require(binds.keys().stream().anyMatch(k ->
+                    k.command() == KeyboardLayout.Command.QUICK_ADD),
+                    "Every page has an add bind button");
+                for (KeyboardLayout.Key key : binds.keys()) {
+                    if (key.command() != KeyboardLayout.Command.QUICK_EDIT &&
+                        key.command() != KeyboardLayout.Command.QUICK_DELETE) continue;
+                    require(binds.at(key.x() + key.width() / 2.0,
+                        key.y() + key.height() / 2.0) == key,
+                        "Overlay edit/delete buttons must win over full card");
                 }
             }
-            QuickMessageDraft draft = new QuickMessageDraft();
-            draft.load("Мой бинд", "заметка");
-            require("Мой бинд".equals(draft.message()) &&
-                "заметка".equals(draft.note()),
-                "Gear opens message and note for editing");
+
+            // Migration from old 30-slot config preserves nonempty entries
+            // instead of losing users' commands and annotations.
+            Path legacy = Files.createTempFile("foxcraft-binds-legacy-", ".properties");
+            java.util.Properties old = new java.util.Properties();
+            old.setProperty("text.0", "/home");
+            old.setProperty("note.0", "Домой");
+            old.setProperty("text.29", "/warp");
+            old.setProperty("note.29", "Телепорт");
+            try (java.io.OutputStream out = Files.newOutputStream(legacy)) {
+                old.store(out, "old quick-bind file");
+            }
+            QuickBindingStore migrated = new QuickBindingStore(legacy);
+            require(migrated.count() == 30 &&
+                "/home".equals(migrated.outgoing(0)) &&
+                "Домой".equals(migrated.pageLabels(0)[0]) &&
+                "/warp".equals(migrated.outgoing(29)),
+                "Legacy fixed binds are preserved and labels are converted");
+
             Files.deleteIfExists(config);
+            Files.deleteIfExists(legacy);
         } catch (IOException e) {
             throw new AssertionError("Bind settings test failed", e);
         }
@@ -638,8 +680,8 @@ public final class KeyboardLogicSmokeTest {
         draft.insert("важное примечание");
         require(draft.editingNote() && "важное примечание".equals(draft.note()),
             "Note is an independent editable field");
-        require("Привет мир. — важное примечание".equals(draft.outgoing()),
-            "Optional note is appended when Send is pressed");
+        require("Привет мир.".equals(draft.outgoing()),
+            "Button title stays out of the sent Minecraft message");
         draft.backspace();
         require(draft.note().endsWith("примечани"),
             "Backspace edits the selected note without altering message");
