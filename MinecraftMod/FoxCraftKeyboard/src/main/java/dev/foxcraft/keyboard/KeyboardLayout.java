@@ -296,6 +296,31 @@ public final class KeyboardLayout {
                ay < by + bh && ay + ah > by;
     }
 
+    /**
+     * Swipe recognition outputs lowercase dictionary words. For Russian text
+     * always capitalise the word's FIRST letter, without changing the other
+     * characters. English obeys the existing Shift state.
+     */
+    public static String swipeWord(String word, boolean russian, boolean shift) {
+        if (word == null || word.isEmpty() || (!russian && !shift))
+            return word == null ? "" : word;
+        return word.substring(0, 1).toUpperCase(Locale.ROOT) +
+            word.substring(1);
+    }
+
+    /** Do not insert two automatic spaces when typing in an existing line. */
+    public static String trailingWordSpace(String text, int cursor) {
+        if (text != null && cursor >= 0 && cursor < text.length() &&
+            Character.isWhitespace(text.charAt(cursor))) return "";
+        return " ";
+    }
+
+    /** A dot joins the preceding word, not its automatically-added space. */
+    public static boolean trimSpaceBeforeDot(String text, int cursor) {
+        return text != null && cursor > 0 && cursor <= text.length() &&
+            text.charAt(cursor - 1) == ' ';
+    }
+
     private static void addLetters(List<Key> keys, int x, int y, int width,
                                    int height, int gap, String[] row, String[] legends,
                                    boolean upper) {
