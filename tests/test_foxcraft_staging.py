@@ -14,12 +14,12 @@ class StageFabricTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         self.jar = self.root / "input.jar"
-        self.dest = self.root / "Assets/StreamingAssets/FoxChatKeyboard-bridge-0.6.0.jar"
+        self.dest = self.root / "Assets/StreamingAssets/FoxChatKeyboard-bridge-0.6.1.jar"
         with zipfile.ZipFile(self.jar, "w") as z:
             z.writestr("fabric.mod.json", json.dumps({
                 "id": "questchatkeyboardbridge",
-                "version": "0.6.0",
-                "depends": {"minecraft": "1.21.1"}}))
+                "version": "0.6.1",
+                "depends": {"minecraft": "1.21.5"}}))
             z.writestr("com/questchatkeyboard/bridge/QuestChatKeyboardBridge.class", b"X" * 1800)
 
     def tearDown(self):
@@ -45,8 +45,8 @@ class StageFabricTests(unittest.TestCase):
     def test_invalid_mod_id_rejected(self):
         other = self.root / "wrong.jar"
         with zipfile.ZipFile(other, "w") as z:
-            z.writestr("fabric.mod.json", json.dumps({"id": "other", "version": "0.6.0",
-                                                       "depends": {"minecraft": "1.21.1"}}))
+            z.writestr("fabric.mod.json", json.dumps({"id": "other", "version": "0.6.1",
+                                                       "depends": {"minecraft": "1.21.5"}}))
             z.writestr("com/questchatkeyboard/bridge/QuestChatKeyboardBridge.class", b"X" * 1800)
         with self.assertRaisesRegex(ValueError, "Unexpected Fabric mod id"):
             validate_jar(other)
@@ -55,7 +55,7 @@ class StageFabricTests(unittest.TestCase):
         other = self.root / "missing.jar"
         with zipfile.ZipFile(other, "w") as z:
             z.writestr("fabric.mod.json", json.dumps({"id": "questchatkeyboardbridge",
-                         "version": "0.6.0", "depends": {"minecraft": "1.21.1"}}))
+                         "version": "0.6.1", "depends": {"minecraft": "1.21.5"}}))
             z.writestr("unrelated.class", b"X" * 1800)
         with self.assertRaisesRegex(ValueError, "entrypoint"):
             validate_jar(other)
