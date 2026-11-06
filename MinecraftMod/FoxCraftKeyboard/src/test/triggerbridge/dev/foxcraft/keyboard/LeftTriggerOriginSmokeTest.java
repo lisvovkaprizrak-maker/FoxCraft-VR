@@ -55,6 +55,10 @@ public final class LeftTriggerOriginSmokeTest {
         require(!FoxCraftLeftTrigger.pressed(provider, Hand.LEFT,
             handedKeyboard, guiClick), "Right controller trigger must not click left keys");
 
+        require(!FoxCraftLeftTrigger.pressedBinding(provider, Hand.LEFT, guiClick),
+            "Unhanded right-only GUI press cannot become left press");
+        require(FoxCraftLeftTrigger.pressedBinding(provider, Hand.RIGHT, guiClick),
+            "Unhanded right-origin press is accepted only by right hand");
         keyboard.left = true;
         require(FoxCraftLeftTrigger.pressed(provider, Hand.LEFT,
             handedKeyboard, guiClick), "Left-handed raw keyboard action clicks");
