@@ -99,8 +99,13 @@ public sealed class FoxCraftVoiceBridge : MonoBehaviour
                     return;
                 }
                 // Android SpeechRecognizer requires its main UI thread.
+                string id = currentId;
                 activity.Call("runOnUiThread", new AndroidJavaRunnable(() =>
-                    BeginOnUiThread(activity, russian, currentId)));
+                {
+                    using (AndroidJavaClass cls = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+                    using (AndroidJavaObject current = cls.GetStatic<AndroidJavaObject>("currentActivity"))
+                        BeginOnUiThread(current, russian, id);
+                }));
             }
         }
         catch (Exception ex)
