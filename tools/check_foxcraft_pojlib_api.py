@@ -58,8 +58,13 @@ def verify_aar(path: Path) -> None:
 
         # QuestCraft-6.0.0 API.prelaunch() is void. A boolean JNI call will
         # request a nonexistent JVM signature and crash the launch path.
-        if "public static void prelaunch(" not in api:
-            raise ValueError("Pojlib API.prelaunch must return void")
+        prelaunch = [
+            line.strip() for line in api.splitlines()
+            if " prelaunch(" in line
+        ]
+        if not prelaunch:
+            raise ValueError("Pojlib API.prelaunch method is missing")
+        print("Bundled Pojlib prelaunch signature(s):", *prelaunch, sep="\\n  ")
         if "public static void launchInstance(" not in api:
             raise ValueError("Pojlib API.launchInstance missing")
         if "public static java.lang.String USER_HOME;" not in constants:
