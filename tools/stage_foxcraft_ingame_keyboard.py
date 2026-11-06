@@ -30,6 +30,16 @@ def inspect_jar(path: Path) -> str:
             if archive.testzip() is not None:
                 raise ValueError("Corrupted JAR ZIP entry")
             metadata = json.loads(archive.read("fabric.mod.json").decode("utf-8"))
+            classes = set(archive.namelist())
+            for needed in (
+                "dev/foxcraft/keyboard/FoxCraftKeyboardClient.class",
+                "dev/foxcraft/keyboard/VirtualKeyboardOverlay.class",
+                "dev/foxcraft/keyboard/KeyboardPointerInput.class",
+            ):
+                if needed not in classes:
+                    raise ValueError("Required keyboard class missing: " + needed)
+            if any(name.startswith("net/fabricmc/") for name in classes):
+                raise ValueError("Fabric API classes must not be bundled into the keyboard mod")
     except (BadZipFile, KeyError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"Invalid Fabric JAR: {exc}") from exc
     if metadata.get("id") != EXPECTED_MOD:
