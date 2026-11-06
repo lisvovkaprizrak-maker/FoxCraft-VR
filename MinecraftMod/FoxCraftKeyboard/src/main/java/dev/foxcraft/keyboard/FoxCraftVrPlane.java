@@ -65,7 +65,11 @@ public final class FoxCraftVrPlane {
 
     /** Actual Vivecraft GUI projection, not the cosmetic beam direction. */
     public static boolean isPointingAtKeyboard(int hand) {
-        if (!isReady() || hand < 0 || hand >= 2 || keyboard == null) return false;
+        // Do not gate this by isReady(): that requires a completed world quad
+        // draw, but controller rays may be rendered earlier in the eye pass.
+        if (hand < 0 || hand >= 2 || keyboard == null || disabled ||
+            !isKeyboardActive() || position == null || rotation == null ||
+            uiWidth <= 0 || uiHeight <= 0) return false;
         return keyboard.detachedContains(cursorX[hand], cursorY[hand]);
     }
 
