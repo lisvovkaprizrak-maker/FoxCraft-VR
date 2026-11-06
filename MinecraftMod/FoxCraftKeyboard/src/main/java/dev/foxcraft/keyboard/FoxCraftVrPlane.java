@@ -37,6 +37,9 @@ public final class FoxCraftVrPlane {
     private static Vector3f position;
     private static Matrix4f rotation;
     private static boolean ready;
+    // If the Vivecraft world-space draw hook never fires on a fork, the
+    // original on-screen keyboard stays available instead of disappearing.
+    private static boolean worldHookWorking;
     private static boolean disabled;
 
     // One ray and one press latch per controller; swipe paths stay separate.
@@ -52,12 +55,12 @@ public final class FoxCraftVrPlane {
 
     /** Used only by the ordinary 2D Screen renderer to avoid duplicate panels. */
     public static boolean isReady() {
-        return ready;
+        return ready && worldHookWorking && !disabled;
     }
 
     /** Prevent secondary 2D chat clicks while pointing at FoxCraft in VR. */
     public static boolean interceptsMainGuiMouse() {
-        return ready && keyboard != null &&
+        return isReady() && keyboard != null &&
             keyboard.detachedContains(cursorX[0], cursorY[0]);
     }
 
@@ -180,6 +183,7 @@ public final class FoxCraftVrPlane {
             try {
                 scaleField.setFloat(null, scale);
                 draw.invoke(null, partialTick, target, position, rotation, depthAlways);
+                worldHookWorking = true;
             } finally {
                 scaleField.setFloat(null, previous);
             }
