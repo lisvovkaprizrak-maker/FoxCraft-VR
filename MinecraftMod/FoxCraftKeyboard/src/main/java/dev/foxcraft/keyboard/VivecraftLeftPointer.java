@@ -66,6 +66,11 @@ public final class VivecraftLeftPointer {
                 "LEFT");
             boolean trigger = (Boolean) keyboardBinding.getClass()
                 .getMethod("isDown", handType).invoke(keyboardBinding, leftHand);
+            // The standalone plane and the emergency GUI overlay must read
+            // the SAME physical left index trigger (Quest 3: Place / Use).
+            Object leftGuiClick = gui.getField("KEY_LEFT_CLICK").get(null);
+            boolean rawLeftTrigger = FoxCraftLeftTrigger.pressed(
+                provider, leftHand, keyboardBinding, leftGuiClick);
 
             // Stock Oculus GUI bindings map left grip to GUI Shift, while
             // only right trigger clicks the mouse. Left grip is a useful
@@ -75,7 +80,7 @@ public final class VivecraftLeftPointer {
                 .getMethod("isDown").invoke(shiftBinding);
             boolean valid = u >= 0 && u <= 1 && v >= 0 && v <= 1;
             return new Sample(valid, u * guiWidth, v * guiHeight,
-                trigger || leftGrip);
+                trigger || rawLeftTrigger || leftGrip);
         } catch (ClassNotFoundException e) {
             unavailable = true;
             return null;
