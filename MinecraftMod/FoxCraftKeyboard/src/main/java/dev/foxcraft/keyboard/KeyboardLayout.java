@@ -14,6 +14,7 @@ public final class KeyboardLayout {
         LEFT, RIGHT, BACKSPACE, ENTER, ESCAPE, RESIZE, COLLAPSE, EXPAND, SUGGESTION,
         SETTINGS, THEME, BACK_TO_KEYS, HISTORY_PREVIOUS, HISTORY_NEXT,
         THEMES_PAGE, SETTINGS_HOME, MICROPHONE, QUICK_MESSAGES, QUICK_MESSAGE,
+        QUICK_COMPOSE, COMPOSE_MESSAGE, COMPOSE_NOTE, COMPOSE_SEND, COMPOSE_CLEAR,
         CLIPBOARD, COPY, PASTE, SELECT_ALL, MOVE_MENU, MOVE_STEP,
         MOVE_GRAB, MOVE_RESET, CONTROLLER_MENU, HAPTIC_TOGGLE, HAPTIC_STRENGTH,
         CONTROLLER_LEFT_TOGGLE, CONTROLLER_RIGHT_TOGGLE, BEAM_SHORTER,
@@ -284,6 +285,53 @@ public final class KeyboardLayout {
                 col == columns - 1 ? width - col * (keyWidth + gap) : keyWidth,
                 height));
         }
+        return new Panel(original.x(), original.y(), original.width(),
+            original.height(), List.copyOf(keys));
+    }
+
+
+    /**
+     * Quick-message editor uses the calibrated main keyboard geometry.
+     * The upper strip contains two independently editable fields and Send;
+     * the keys below still support both Quest controllers and swipe typing.
+     */
+    public static Panel composeMenu(Panel original, String message, String note,
+                                    boolean editingNote, boolean russian,
+                                    boolean shift) {
+        if (original == null) return null;
+        Key header = original.keys().stream()
+            .filter(k -> k.command() == Command.LANGUAGE_RU).findFirst().orElse(null);
+        Key footer = original.keys().stream()
+            .filter(k -> k.command() == Command.HISTORY_PREVIOUS).findFirst().orElse(null);
+        if (header == null || footer == null) return original;
+        List<Key> keys = new ArrayList<>();
+        for (Key key : original.keys()) {
+            if (key.y() != header.y() && key.y() != footer.y()) keys.add(key);
+        }
+        int innerX = original.x() + 5;
+        int innerWidth = original.width() - 10;
+        int gap = 2;
+        String messageTail = message.length() > 15
+            ? "…" + message.substring(message.length() - 15) : message;
+        String noteTail = note.length() > 13
+            ? "…" + note.substring(note.length() - 13) : note;
+        addWeighted(keys, innerX, header.y(), innerWidth, header.height(), gap,
+            new String[]{(editingNote ? "ТЕКСТ: " : "▸ ТЕКСТ: ") +
+                    (messageTail.isBlank() ? "…" : messageTail),
+                (editingNote ? "▸ ЗАМЕТКА: " : "ЗАМЕТКА: ") +
+                    (noteTail.isBlank() ? "…" : noteTail),
+                "ОТПРАВИТЬ"},
+            new Command[]{Command.COMPOSE_MESSAGE, Command.COMPOSE_NOTE,
+                Command.COMPOSE_SEND},
+            new String[]{"", "", ""}, new int[]{8, 7, 5});
+        addWeighted(keys, innerX, footer.y(), innerWidth, footer.height(), gap,
+            new String[]{"НАЗАД", russian ? "EN" : "RU", "123", shift ? "SHIFT*" : "SHIFT",
+                "←", russian ? "ПРОБЕЛ" : "SPACE", "→", "/", "⌫", "ОЧИСТ"},
+            new Command[]{Command.QUICK_MESSAGES, Command.LANGUAGE,
+                Command.SYMBOLS, Command.SHIFT, Command.LEFT, Command.SPACE,
+                Command.RIGHT, Command.TYPE, Command.BACKSPACE, Command.COMPOSE_CLEAR},
+            new String[]{"", "", "", "", "", " ", "", "/", "", ""},
+            new int[]{4, 2, 2, 3, 2, 7, 2, 2, 2, 3});
         return new Panel(original.x(), original.y(), original.width(),
             original.height(), List.copyOf(keys));
     }
