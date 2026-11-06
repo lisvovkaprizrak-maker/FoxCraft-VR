@@ -51,6 +51,16 @@ public final class KeyboardLogicSmokeTest {
         KeyboardLayout.Panel ru = KeyboardLayout.make(854, 480, true, true, false, false, false);
         require(ru.width() == 280 && ru.height() <= 165,
             "Compact 280px keyboard includes a 3-candidate correction strip");
+        KeyboardLayout.Panel chatAnchored = KeyboardLayout.make(
+            854, 480, true, true, false, false, false, 280, List.of(), 455);
+        require(chatAnchored.y() > 8,
+            "Chat keyboard must not be pinned to the top of the chat history");
+        require(chatAnchored.y() + chatAnchored.height() <= 447,
+            "Chat keyboard must end above the active chat input field");
+        KeyboardLayout.Panel fallbackChat = KeyboardLayout.make(
+            854, 480, true, true, false, false, false);
+        require(fallbackChat.y() > 8,
+            "Chat layout fallback also uses a lower floating position");
         require(ru.keys().stream().anyMatch(k ->
             k.command() == KeyboardLayout.Command.RESIZE && "РАЗМ".equals(k.label())),
             "Headset keyboard contains a size button");
