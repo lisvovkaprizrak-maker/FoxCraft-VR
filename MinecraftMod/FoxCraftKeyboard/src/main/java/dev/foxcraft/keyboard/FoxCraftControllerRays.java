@@ -19,7 +19,8 @@ public final class FoxCraftControllerRays {
     private static final float START_OFFSET = 0.04f;
     private static final float MAX_BEAM_LENGTH = 0.38f;
     private static final float GAP_BEFORE_KEYBOARD = 0.06f;
-    private static final float BEAM_HALF_WIDTH = 0.0035f;
+    // A thin pale-white Quest pointer with a subtle blue fringe.
+    private static final float BEAM_HALF_WIDTH = 0.0018f;
 
     private static Method setup;
     private static Method tracking;
@@ -103,9 +104,9 @@ public final class FoxCraftControllerRays {
         for (Vector3f offset : sides) {
             Vector3f middleSide = new Vector3f(midpoint).add(offset);
             addLine(consumer, matrix, start.x, start.y, start.z,
-                middleSide.x, middleSide.y, middleSide.z, 140, 230);
+                middleSide.x, middleSide.y, middleSide.z, 115, 205);
             addLine(consumer, matrix, middleSide.x, middleSide.y, middleSide.z,
-                finish.x, finish.y, finish.z, 230, 110);
+                finish.x, finish.y, finish.z, 205, 70);
         }
     }
 
@@ -114,8 +115,8 @@ public final class FoxCraftControllerRays {
                                 float bx, float by, float bz,
                                 int startAlpha, int endAlpha) {
         consumer.vertex(matrix, ax, ay, az)
-            .color(245, 248, 255, startAlpha).normal(0, 1, 0);
+            .color(232, 245, 255, startAlpha).normal(0, 1, 0);
         consumer.vertex(matrix, bx, by, bz)
-            .color(245, 248, 255, endAlpha).normal(0, 1, 0);
+            .color(232, 245, 255, endAlpha).normal(0, 1, 0);
     }
 }
