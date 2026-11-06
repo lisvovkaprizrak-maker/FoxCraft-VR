@@ -121,7 +121,8 @@ public class InstanceButton : MonoBehaviour
 
         // Only Fabric 1.21.5 receives the separate Minecraft keyboard mod.
         // This must happen after Pojlib's mod sync, before launchInstance.
-        if (String.Equals(selected.versionName, "1.21.5", StringComparison.Ordinal))
+        if (String.Equals(selected.versionName, "1.21.5", StringComparison.Ordinal) &&
+            FoxCraftInGameKeyboardInstaller.UsesFabricLoader(selected.raw))
         {
             bool keyboardInstalled = false;
             yield return FoxCraftInGameKeyboardInstaller.EnsureInstalled(
