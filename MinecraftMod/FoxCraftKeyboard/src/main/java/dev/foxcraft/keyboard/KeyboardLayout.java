@@ -114,10 +114,13 @@ public final class KeyboardLayout {
                              List<String> suggestedWords, int chatInputBottomY,
                              boolean centerOnVrPlane) {
         if (screenWidth < 220 || screenHeight < 140) return null;
-        int width = Math.min(Math.max(220, Math.min(390, preferredWidth)),
-            screenWidth - 12);
+        // Fixed reference size. Shrink only when the GUI framebuffer is too
+        // small to contain it; no user resize preference can alter the panel.
+        int width = Math.min(390, screenWidth - 12);
         int x = (screenWidth - width) / 2;
-        int rowHeight = Math.max(14, Math.min(19, (screenHeight - 30) / 7));
+        // The additional branded top section must fit even on the smallest
+        // supported Minecraft GUI (220x140). Never clip the last key row.
+        int rowHeight = Math.max(10, Math.min(19, (screenHeight - 38) / 9));
         int gap = 2;
         int brandHeight = rowHeight + 7;
         int headerHeight = rowHeight + 4;
@@ -162,13 +165,11 @@ public final class KeyboardLayout {
         // control strip. The logo is decorative, not a clickable key.
         rowY += brandHeight + gap;
         addWeighted(keys, insideX, rowY, insideWidth, headerHeight, gap,
-            new String[]{"АБВ Русский",
-                "ABC English", "123", "!?#", "⚙", "×", "РАЗМ"},
+            new String[]{"АБВ Русский", "ABC English", "123", "!?#", "⚙", "×"},
             new Command[]{Command.LANGUAGE_RU, Command.LANGUAGE_EN,
-                Command.SYMBOLS, Command.SYMBOLS, Command.NONE,
-                Command.COLLAPSE, Command.RESIZE},
-            new String[]{"", "", "", "", "", "", ""},
-            new int[]{4, 4, 2, 2, 2, 2, 2});
+                Command.SYMBOLS, Command.SYMBOLS, Command.NONE, Command.COLLAPSE},
+            new String[]{"", "", "", "", "", ""},
+            new int[]{4, 4, 2, 2, 2, 2});
         rowY += headerHeight + gap;
 
         // These are actual keys, not just a visual label: either VR hand can
