@@ -798,17 +798,22 @@ public final class VirtualKeyboardOverlay {
         if (result.key().command() == KeyboardLayout.Command.TYPE &&
             !release.suggestions().isEmpty()) {
             clearSuggestions();
-            // Capitalise the first letter of every Russian swipe result,
-            // then append one space (unless the following character already
-            // is whitespace). Preserve that suffix when correcting the word.
-            String chosen = KeyboardLayout.swipeWord(result.text(), russian, shift);
-            List<String> choices = release.suggestions().stream()
-                .map(word -> KeyboardLayout.swipeWord(word, russian, shift))
-                .toList();
-            shift = false;
+            // Capitalize only at the start of the input line. Swipe never
+            // inserts an automatic space after every word.
             int before = field.getCursor();
-            String suffix = KeyboardLayout.trailingWordSpace(field.getText(), before);
-            String inserted = chosen + suffix;
+            boolean atStartOfLine = before == 0 ||
+                field.getText().substring(0, Math.min(before, field.getText().length()))
+                    .isBlank();
+            String chosen = KeyboardLayout.swipeWord(result.text(), russian, shift,
+                atStartOfLine);
+            List<String> choices = release.suggestions().stream()
+                .map(word -> KeyboardLayout.swipeWord(word, russian, shift,
+                    atStartOfLine)).toList();
+            shift = false;
+            // Explicit Space key controls word separation. No automatic
+            // spaces after swipe words, including candidate replacements.
+            String suffix = "";
+            String inserted = chosen;
             field.write(inserted);
             int after = field.getCursor();
             String actual = field.getText();
