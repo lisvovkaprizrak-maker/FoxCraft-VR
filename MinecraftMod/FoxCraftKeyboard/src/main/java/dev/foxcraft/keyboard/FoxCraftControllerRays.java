@@ -17,7 +17,7 @@ import java.lang.reflect.Method;
 public final class FoxCraftControllerRays {
     // Short cosmetic pointers, not the actual interaction / hit-test ray.
     private static final float START_OFFSET = 0.04f;
-    private static final float MAX_BEAM_LENGTH = 0.38f;
+    private static final float DEFAULT_BEAM_LENGTH = 0.38f;
     private static final float GAP_BEFORE_KEYBOARD = 0.06f;
     // A thin pale-white Quest pointer with a subtle blue fringe.
     private static final float BEAM_HALF_WIDTH = 0.0018f;
@@ -52,6 +52,9 @@ public final class FoxCraftControllerRays {
                 if ((hand == 0 && !renderRight) ||
                     (hand == 1 && !renderLeft)) continue;
                 if (!(Boolean) tracking.invoke(vr, hand)) continue;
+                FoxCraftFeatureSettings prefs = FoxCraftVrPlane.features();
+                if (prefs != null &&
+                    !(hand == 0 ? prefs.rightHand() : prefs.leftHand())) continue;
                 // Vivecraft's panel projection is the authoritative click
                 // target. Aim our SHORT cosmetic beam exactly along that same
                 // line, not along a guessed fixed -Z controller axis.
@@ -68,7 +71,9 @@ public final class FoxCraftControllerRays {
                     if (hit.isFinite() && hit.lengthSquared() > 0.01f)
                         localDirection.set(hit);
                 }
-                drawTaperedPointer(consumer, matrix, localDirection);
+                float beamMetres = prefs != null ?
+                    prefs.beamCentimetres() / 100f : DEFAULT_BEAM_LENGTH;
+                drawTaperedPointer(consumer, matrix, localDirection, beamMetres);
             }
             buffers.draw(RenderLayer.getLines());
         } catch (ReflectiveOperationException | LinkageError | RuntimeException error) {
@@ -87,14 +92,15 @@ public final class FoxCraftControllerRays {
      * panel orientation; longitudinal ridges taper toward both ends.
      */
     private static void drawTaperedPointer(VertexConsumer consumer,
-                                           Matrix4f matrix, Vector3f localTarget) {
+                                           Matrix4f matrix, Vector3f localTarget,
+                                           float maxBeamLength) {
         float distance = localTarget.length();
         if (!(distance > 0.001f) || !localTarget.isFinite()) return;
         Vector3f direction = localTarget.normalize(new Vector3f());
         // The visible pointer is intentionally short, even if the click ray
         // intersects the panel farther away. When no hit is available, still
         // show the normal straight pointer for calibration.
-        float end = Math.min(MAX_BEAM_LENGTH,
+        float end = Math.min(maxBeamLength,
             Math.max(START_OFFSET + 0.05f, distance - GAP_BEFORE_KEYBOARD));
         Vector3f start = new Vector3f(direction).mul(START_OFFSET);
         Vector3f finish = new Vector3f(direction).mul(end);
