@@ -5,6 +5,7 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 
 import java.lang.reflect.Method;
 
@@ -15,8 +16,9 @@ import java.lang.reflect.Method;
  */
 public final class FoxCraftControllerRays {
     // Short cosmetic pointers, not the actual interaction / hit-test ray.
-    private static final float BEAM_START_Z = -0.04f;
-    private static final float BEAM_END_Z = -0.38f;
+    private static final float START_OFFSET = 0.04f;
+    private static final float MAX_BEAM_LENGTH = 0.38f;
+    private static final float GAP_BEFORE_KEYBOARD = 0.06f;
     private static final float BEAM_HALF_WIDTH = 0.0035f;
 
     private static Method setup;
@@ -49,15 +51,16 @@ public final class FoxCraftControllerRays {
                 if ((hand == 0 && !renderRight) ||
                     (hand == 1 && !renderLeft)) continue;
                 if (!(Boolean) tracking.invoke(vr, hand)) continue;
-                // Do not display a beam that has no corresponding interaction
-                // hit on FoxCraft's actual VR panel. Previously both beams
-                // continued through the world even when they missed all keys.
-                if (!FoxCraftVrPlane.isPointingAtKeyboard(hand)) continue;
+                // Vivecraft's panel projection is the authoritative click
+                // target. Aim our SHORT cosmetic beam exactly along that same
+                // line, not along a guessed fixed -Z controller axis.
+                Vector3f eyeRelativeHit = FoxCraftVrPlane.controllerHitRelativeToEye(hand);
+                if (eyeRelativeHit == null) continue;
                 Matrix4f matrix = new Matrix4f();
                 setup.invoke(null, hand, matrix);
-                // Keep Quest's tested forward (-Z) direction. The visual ray
-                // stops before the keyboard; controller hit-testing is unchanged.
-                drawTaperedPointer(consumer, matrix);
+                Vector3f targetInController = new Matrix4f(matrix).invert()
+                    .transformPosition(eyeRelativeHit, new Vector3f());
+                drawTaperedPointer(consumer, matrix, targetInController);
             }
             buffers.draw(RenderLayer.getLines());
         } catch (ReflectiveOperationException | LinkageError | RuntimeException error) {
@@ -70,19 +73,39 @@ public final class FoxCraftControllerRays {
         }
     }
 
-    /** Toothpick silhouette: narrow at controller and tip, thickest midway. */
-    private static void drawTaperedPointer(VertexConsumer consumer, Matrix4f matrix) {
-        float middleZ = (BEAM_START_Z + BEAM_END_Z) * 0.5f;
-        // Four slim longitudinal ridges make a symmetric double-ended taper.
-        for (int axis = 0; axis < 4; axis++) {
-            float dx = axis == 0 ? BEAM_HALF_WIDTH :
-                       axis == 1 ? -BEAM_HALF_WIDTH : 0f;
-            float dy = axis == 2 ? BEAM_HALF_WIDTH :
-                       axis == 3 ? -BEAM_HALF_WIDTH : 0f;
-            addLine(consumer, matrix, 0f, 0f, BEAM_START_Z,
-                dx, dy, middleZ, 155, 220);
-            addLine(consumer, matrix, dx, dy, middleZ,
-                0f, 0f, BEAM_END_Z, 220, 110);
+    /**
+     * Real collision point defines direction, but the rendered beam stops
+     * short of the keyboard. Same geometry for either controller and any VR
+     * panel orientation; longitudinal ridges taper toward both ends.
+     */
+    private static void drawTaperedPointer(VertexConsumer consumer,
+                                           Matrix4f matrix, Vector3f localTarget) {
+        float distance = localTarget.length();
+        if (!(distance > START_OFFSET + GAP_BEFORE_KEYBOARD)) return;
+        Vector3f direction = localTarget.normalize(new Vector3f());
+        float end = Math.min(MAX_BEAM_LENGTH, distance - GAP_BEFORE_KEYBOARD);
+        if (end <= START_OFFSET + 0.03f) return;
+        Vector3f start = new Vector3f(direction).mul(START_OFFSET);
+        Vector3f finish = new Vector3f(direction).mul(end);
+        Vector3f midpoint = new Vector3f(start).add(finish).mul(0.5f);
+
+        // Pick a stable pair of vectors perpendicular to the true aim.
+        Vector3f horizontal = new Vector3f(0f, 1f, 0f).cross(direction);
+        if (horizontal.lengthSquared() < 0.01f)
+            horizontal.set(1f, 0f, 0f);
+        horizontal.normalize().mul(BEAM_HALF_WIDTH);
+        Vector3f vertical = new Vector3f(direction).cross(horizontal)
+            .normalize().mul(BEAM_HALF_WIDTH);
+        Vector3f[] sides = {
+            horizontal, new Vector3f(horizontal).negate(),
+            vertical, new Vector3f(vertical).negate()
+        };
+        for (Vector3f offset : sides) {
+            Vector3f middleSide = new Vector3f(midpoint).add(offset);
+            addLine(consumer, matrix, start.x, start.y, start.z,
+                middleSide.x, middleSide.y, middleSide.z, 140, 230);
+            addLine(consumer, matrix, middleSide.x, middleSide.y, middleSide.z,
+                finish.x, finish.y, finish.z, 230, 110);
         }
     }
 
