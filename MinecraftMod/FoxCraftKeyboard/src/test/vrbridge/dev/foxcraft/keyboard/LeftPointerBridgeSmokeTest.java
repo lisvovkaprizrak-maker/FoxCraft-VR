@@ -23,9 +23,14 @@ public final class LeftPointerBridgeSmokeTest {
             "GUI Shift/grip must not generate phantom left pointer presses");
         GuiHandler.KEY_SHIFT.leftGripPressed = false;
 
+        // The isolated ray-projection smoke test intentionally contains no
+        // Minecraft/OpenXR action provider; even a handed isDown(LEFT)
+        // must NOT bypass the verified-origin input bridge. Actual index
+        // trigger activation is tested in LeftTriggerOriginSmokeTest.
         GuiHandler.KEY_KEYBOARD_CLICK.leftPressed = true;
         VivecraftLeftPointer.Sample mapped = pointer.poll(800, 400);
-        require(mapped != null && mapped.pressed(), "Remapped left keyboard trigger can activate keys");
+        require(mapped != null && !mapped.pressed(),
+            "Unverified isDown(LEFT) must not create mirrored controller press");
         GuiHandler.KEY_KEYBOARD_CLICK.leftPressed = false;
 
         GuiHandler.cursorX = -1;
