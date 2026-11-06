@@ -177,12 +177,12 @@ public class InstanceButton : MonoBehaviour
     public async void MirrorNativesForInstance()
     {
         PojlibInstance instance = JNIStorage.GetInstance(currInstName);
-        JNIStorage.apiClass.CallStatic("mirrorNativesInFolder", JNIStorage.activity, JNIStorage.instancesObj, instance.raw, "/sdcard/Android/data/com.qcxr.qcxr/files/natives");
+        JNIStorage.apiClass.CallStatic("mirrorNativesInFolder", JNIStorage.activity, JNIStorage.instancesObj, instance.raw, Path.Combine(Application.persistentDataPath, "natives"));
     }
 
     public async void ImportSaves()
     {
         PojlibInstance instance = JNIStorage.GetInstance(currInstName);
-        JNIStorage.apiClass.CallStatic("unzipSavesFromFolder", instance.raw, "/sdcard/Android/data/com.qcxr.qcxr/files/import-saves");
+        JNIStorage.apiClass.CallStatic("unzipSavesFromFolder", instance.raw, Path.Combine(Application.persistentDataPath, "import-saves"));
     }
 }
