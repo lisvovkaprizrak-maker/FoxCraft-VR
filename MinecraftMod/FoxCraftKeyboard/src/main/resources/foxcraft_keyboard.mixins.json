@@ -6,7 +6,8 @@
   "client": [
     "FoxcraftFramebufferMixin",
     "VRPassHelperMixin",
-    "VREffectsHelperMixin"
+    "VREffectsHelperMixin",
+    "VRArmHelperMixin"
   ],
   "injectors": {
     "defaultRequire": 0
