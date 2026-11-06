@@ -40,6 +40,9 @@ public final class VirtualKeyboardOverlay {
     private VivecraftLeftPointer.Sample leftSample;
     private KeyboardLayout.Panel panel;
     private Screen previousScreen;
+    private TextFieldWidget layoutFocusedField;
+    private int layoutFieldX = -1, layoutFieldY = -1;
+    private int layoutFieldWidth = -1, layoutFieldHeight = -1;
     private int layoutWidth = -1;
     private int layoutPreferredWidth = -1;
     private int preferredWidth = prefs.loadWidth();
@@ -128,6 +131,11 @@ public final class VirtualKeyboardOverlay {
         int chatInputBottomY = chat && !detached
             ? activeField.getY() + activeField.getHeight() : -1;
         if (panel == null || layoutWidth != width || layoutHeight != height ||
+            layoutFocusedField != activeField ||
+            layoutFieldX != activeField.getX() ||
+            layoutFieldY != activeField.getY() ||
+            layoutFieldWidth != activeField.getWidth() ||
+            layoutFieldHeight != activeField.getHeight() ||
             layoutChatInputBottomY != chatInputBottomY ||
             layoutChat != chat || layoutDetached != detached ||
             layoutPreferredWidth != preferredWidth ||
@@ -141,6 +149,11 @@ public final class VirtualKeyboardOverlay {
                     activeField.getX(), activeField.getY(),
                     activeField.getWidth(), activeField.getHeight());
             }
+            layoutFocusedField = activeField;
+            layoutFieldX = activeField.getX();
+            layoutFieldY = activeField.getY();
+            layoutFieldWidth = activeField.getWidth();
+            layoutFieldHeight = activeField.getHeight();
             layoutWidth = width;
             layoutPreferredWidth = preferredWidth;
             layoutHeight = height;
@@ -479,6 +492,13 @@ public final class VirtualKeyboardOverlay {
         // send text to chat when the player is not actually editing.
         if (focused instanceof TextFieldWidget field && field.isVisible())
             return field;
+        // Some QuestCraft menu screens focus their text widget directly
+        // without setting Screen.getFocused(). Recover only a genuinely
+        // focused, visible child; never select an arbitrary search box.
+        for (Element child : screen.children()) {
+            if (child instanceof TextFieldWidget field &&
+                field.isVisible() && field.isFocused()) return field;
+        }
         return null;
     }
 }
