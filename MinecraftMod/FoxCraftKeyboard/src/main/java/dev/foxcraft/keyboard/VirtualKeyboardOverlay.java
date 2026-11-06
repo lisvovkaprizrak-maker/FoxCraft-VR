@@ -201,6 +201,12 @@ public final class VirtualKeyboardOverlay {
             panel.x() + panel.width(), panel.y() + panel.height(), PANEL_BG);
 
         var font = MinecraftClient.getInstance().textRenderer;
+        // FoxCraft is branding rather than a clickable key. The decorative
+        // header doesn't consume controller input or alter keyboard commands.
+        if (!collapsed) {
+            context.drawText(font, "FoxCraft",
+                panel.x() + 9, panel.y() + 11, ORANGE, false);
+        }
         KeyboardLayout.Key heldAlternate = null;
         for (KeyboardLayout.Key key : panel.keys()) {
             boolean hovered = key.contains(mouseX, mouseY) ||
