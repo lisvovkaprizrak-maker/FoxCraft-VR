@@ -79,6 +79,15 @@ public final class QuickMessageDraft {
         return length > 0 && length <= MAX_CHAT_LENGTH;
     }
 
+    /** Open a saved binding in the same editable two-field composer. */
+    public void load(String savedMessage, String savedNote) {
+        clear();
+        insert(savedMessage == null ? "" : savedMessage);
+        selectNote(true);
+        insert(savedNote == null ? "" : savedNote);
+        selectNote(false);
+    }
+
     public void clear() {
         message.setLength(0);
         note.setLength(0);
