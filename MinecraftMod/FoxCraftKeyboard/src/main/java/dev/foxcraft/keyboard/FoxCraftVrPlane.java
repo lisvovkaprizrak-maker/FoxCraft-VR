@@ -504,8 +504,9 @@ public final class FoxCraftVrPlane {
             // The left backup is only sampled here when FoxCraft is open.
             boolean downRightGui = hand == 0 &&
                 ((KeyBinding) regularClick).isPressed();
-            boolean downLeftGrip = hand == 1 &&
-                ((KeyBinding) shiftClick).isPressed();
+            // Do NOT use KEY_SHIFT.isPressed(): it is an unhanded/global
+            // state and can mirror a right-hand button onto the left ray.
+            // Only accept real left index-trigger actions below.
             // Quest 3 index trigger is not the side GRIP: stock Vivecraft
             // often hides the handed keyboard click input when its own GUI
             // keyboard is suppressed. Check the underlying LEFT-only VR
@@ -517,8 +518,7 @@ public final class FoxCraftVrPlane {
                   FoxCraftLeftTrigger.pressed(provider, handed,
                       keyboardClick, guiRightClick)));
             boolean down = tracked &&
-                (downKeyboard || downRightGui || downLeftGrip ||
-                    downLeftTrigger);
+                (downKeyboard || downRightGui || downLeftTrigger);
             boolean accepted = down;
             if (down && !wasPressed[hand]) {
                 accepted = x >= 0 && y >= 0 &&
