@@ -9,6 +9,7 @@ import java.io.IOException;
 public final class KeyboardLogicSmokeTest {
     public static void main(String[] args) {
         testQuickMessageComposer();
+        testQuickBinds();
         // Regression: on Quest, the world-selection text field must not
         // display FoxCraft over the menu, while in-world chat stays usable
         // even if the optional 3D Vivecraft hook never starts.
@@ -160,7 +161,7 @@ public final class KeyboardLogicSmokeTest {
         require("1234567890".contentEquals(numbers), "Permanent number row: " + numbers);
 
         require(ru.keys().stream().anyMatch(k ->
-            k.command() == KeyboardLayout.Command.ESCAPE && "ВЫХ".equals(k.label())),
+            k.command() == KeyboardLayout.Command.ESCAPE && k.label().isEmpty()),
             "Russian layout includes an Escape key to close the chat");
         KeyboardLayout.Key letter = key(ru.keys(), "й");
         require("~".equals(letter.alternate()), "Russian Й has ~ legend");
@@ -171,7 +172,7 @@ public final class KeyboardLogicSmokeTest {
             "Russian hard sign must be available as a normal key");
         KeyboardLayout.Panel en = KeyboardLayout.make(854, 480, true, false, false, false, false);
         require(en.keys().stream().anyMatch(k ->
-            k.command() == KeyboardLayout.Command.ESCAPE && "ESC".equals(k.label())),
+            k.command() == KeyboardLayout.Command.ESCAPE && k.label().isEmpty()),
             "English layout includes Escape for closing Minecraft screens");
         require("@".equals(key(en.keys(), "q").alternate()), "English Q has @ legend");
         KeyboardLayout.Panel ruShift = KeyboardLayout.make(854, 480, true, true, false, true, false);
@@ -531,6 +532,17 @@ public final class KeyboardLogicSmokeTest {
         require(ru.keys().stream().anyMatch(k ->
             k.command() == KeyboardLayout.Command.QUICK_MESSAGES),
             "Quick phrases action exists on the main keyboard");
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.CLIPBOARD),
+            "Clipboard has a dedicated main keyboard button");
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.BACKSPACE &&
+                k.y() < key(ru.keys(), "1").y()),
+            "Delete moved to the top-right controls");
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.COLLAPSE &&
+                k.y() > key(ru.keys(), "1").y()),
+            "Close moved next to Enter");
         KeyboardLayout.Panel toolbox = KeyboardLayout.toolMenu(ru,
             new String[]{"Темы", "Микрофон", "Фразы", "Буфер", "Переместить",
                 "Контроллеры", "Назад"},
@@ -553,6 +565,58 @@ public final class KeyboardLogicSmokeTest {
 
 
         System.out.println("FoxCraft keyboard logic smoke tests: OK");
+    }
+
+    private static void testQuickBinds() {
+        try {
+            Path config = Files.createTempFile("foxcraft-binds-", ".properties");
+            Files.deleteIfExists(config);
+            QuickBindingStore store = new QuickBindingStore(config);
+            require(store.pageLabels(0).length == 6,
+                "Six large bind slots per page");
+            require("Привет!".equals(store.message(0)),
+                "First page preserves starter phrase");
+            require(store.message(29).isEmpty(), "Thirtieth slot is editable");
+            require(store.put(29, "Проверка", "мой комментарий"),
+                "Last bind can be edited");
+            require("Проверка — мой комментарий".equals(store.outgoing(29)),
+                "Saved bind includes optional note without automatic sending");
+            QuickBindingStore loaded = new QuickBindingStore(config);
+            require("Проверка".equals(loaded.message(29)) &&
+                "мой комментарий".equals(loaded.note(29)),
+                "Saved edits survive app restart");
+            require(loaded.put(29, "", ""), "A preset can be cleared");
+            require(loaded.outgoing(29).isEmpty(), "Cleared preset inserts nothing");
+            for (int page = 0; page < 5; page++) {
+                KeyboardLayout.Panel original = KeyboardLayout.make(
+                    854, 480, true, true, false, false, false);
+                KeyboardLayout.Panel binds = KeyboardLayout.quickBindingsMenu(
+                    original, loaded.pageLabels(page), page);
+                require(binds.width() == original.width() &&
+                    binds.height() == original.height(),
+                    "Bind pages preserve calibrated VR panel size");
+                require(binds.keys().stream().filter(k ->
+                    k.command() == KeyboardLayout.Command.QUICK_MESSAGE).count() == 6 &&
+                    binds.keys().stream().filter(k ->
+                    k.command() == KeyboardLayout.Command.QUICK_EDIT).count() == 6,
+                    "Every one of thirty binds has an independent edit gear");
+                for (KeyboardLayout.Key gear : binds.keys()) {
+                    if (gear.command() != KeyboardLayout.Command.QUICK_EDIT) continue;
+                    KeyboardLayout.Key hit = binds.at(
+                        gear.x() + gear.width() / 2.0,
+                        gear.y() + gear.height() / 2.0);
+                    require(hit == gear, "Gear must win hit testing over bind card");
+                }
+            }
+            QuickMessageDraft draft = new QuickMessageDraft();
+            draft.load("Мой бинд", "заметка");
+            require("Мой бинд".equals(draft.message()) &&
+                "заметка".equals(draft.note()),
+                "Gear opens message and note for editing");
+            Files.deleteIfExists(config);
+        } catch (IOException e) {
+            throw new AssertionError("Bind settings test failed", e);
+        }
     }
 
     private static KeyboardLayout.Key key(List<KeyboardLayout.Key> keys, String label) {
