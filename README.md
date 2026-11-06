@@ -2,7 +2,9 @@
 [![GPLv3 License](https://img.shields.io/badge/License-GPLv3-green.svg)](https://choosealicense.com/licenses/gpl-3.0/)
 
 A wrapper/launcher made with Unity and Pojlib meant for use in QCXR projects.
-<br>Use Unity Version [2022.3.62f2](https://unity.com/releases/editor/whats-new/2022.3.62f2) With Android plugin.
+<br>Use **Unity 2022.3.62f3** with Android Build Support (SDK, NDK and OpenJDK). This version matches `ProjectSettings/ProjectVersion.txt`.
+
+For setup instructions and an Android XR build checklist, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 
 ## Contributing
