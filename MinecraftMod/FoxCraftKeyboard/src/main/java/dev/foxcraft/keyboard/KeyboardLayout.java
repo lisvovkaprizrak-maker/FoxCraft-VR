@@ -14,7 +14,8 @@ public final class KeyboardLayout {
         LEFT, RIGHT, BACKSPACE, ENTER, ESCAPE, RESIZE, COLLAPSE, EXPAND, SUGGESTION,
         SETTINGS, THEME, BACK_TO_KEYS, HISTORY_PREVIOUS, HISTORY_NEXT,
         THEMES_PAGE, SETTINGS_HOME, MICROPHONE, QUICK_MESSAGES, QUICK_MESSAGE,
-        QUICK_COMPOSE, COMPOSE_MESSAGE, COMPOSE_NOTE, COMPOSE_SEND, COMPOSE_CLEAR,
+        QUICK_COMPOSE, QUICK_EDIT, QUICK_PAGE_PREVIOUS, QUICK_PAGE_NEXT,
+        COMPOSE_MESSAGE, COMPOSE_NOTE, COMPOSE_SEND, COMPOSE_CLEAR,
         CLIPBOARD, COPY, PASTE, SELECT_ALL, MOVE_MENU, MOVE_STEP,
         MOVE_GRAB, MOVE_RESET, CONTROLLER_MENU, HAPTIC_TOGGLE, HAPTIC_STRENGTH,
         CONTROLLER_LEFT_TOGGLE, CONTROLLER_RIGHT_TOGGLE, BEAM_SHORTER,
@@ -33,6 +34,8 @@ public final class KeyboardLayout {
             return px >= x && px < x + width && py >= y && py < y + height;
         }
         public Key at(double px, double py) {
+            for (Key key : keys)
+                if (key.command() == Command.QUICK_EDIT && key.contains(px, py)) return key;
             for (Key key : keys)
                 if (key.contains(px, py)) return key;
             return null;
@@ -173,12 +176,13 @@ public final class KeyboardLayout {
         rowY += brandHeight + gap;
         addWeighted(keys, insideX, rowY, insideWidth, headerHeight, gap,
             new String[]{"АБВ Русский", "ABC English", "123", "!?#",
-                "МИК", "Бинды", "⚙", "×"},
+                "", "", "", "⚙", "⌫"},
             new Command[]{Command.LANGUAGE_RU, Command.LANGUAGE_EN,
                 Command.SYMBOLS, Command.SYMBOLS, Command.MICROPHONE,
-                Command.QUICK_MESSAGES, Command.SETTINGS, Command.COLLAPSE},
-            new String[]{"", "", "", "", "", "", "", ""},
-            new int[]{4, 4, 2, 2, 2, 3, 2, 2});
+                Command.QUICK_MESSAGES, Command.CLIPBOARD, Command.SETTINGS,
+                Command.BACKSPACE},
+            new String[]{"", "", "", "", "", "", "", "", ""},
+            new int[]{4, 4, 2, 2, 2, 2, 2, 2, 2});
         rowY += headerHeight + gap;
 
         // These are actual keys, not just a visual label: either VR hand can
@@ -215,13 +219,13 @@ public final class KeyboardLayout {
         // command slash. No extra row is added: the physical VR panel stays
         // at the calibrated fixed size and preserves all previous controls.
         addWeighted(keys, insideX, rowY, insideWidth, rowHeight, gap,
-            new String[]{russian ? "ВЫХ" : "ESC", shift ? "SHIFT*" : "SHIFT",
+            new String[]{"", shift ? "SHIFT*" : "SHIFT",
                 "↑", "↓", "←", russian ? "ПРОБЕЛ" : "SPACE",
-                "→", "/", "⌫", russian ? "ВВОД" : "ENTER"},
+                "→", "/", "×", russian ? "ВВОД" : "ENTER"},
             new Command[]{Command.ESCAPE, Command.SHIFT,
                 Command.HISTORY_PREVIOUS, Command.HISTORY_NEXT,
                 Command.LEFT, Command.SPACE, Command.RIGHT, Command.TYPE,
-                Command.BACKSPACE, Command.ENTER},
+                Command.COLLAPSE, Command.ENTER},
             new String[]{"", "", "", "", "", " ", "", "/", "", ""},
             new int[]{2, 3, 2, 2, 2, 7, 2, 2, 2, 4});
         return new Panel(x, y, width, height, List.copyOf(keys));
@@ -290,6 +294,47 @@ public final class KeyboardLayout {
     }
 
 
+    /** Thirty editable binds in five pages of six; gear hitboxes overlay cards. */
+    public static Panel quickBindingsMenu(Panel original, String[] labels, int page) {
+        if (original == null) return null;
+        if (labels == null || labels.length != 6 || page < 0 || page >= 5)
+            throw new IllegalArgumentException("Expected six labels and page 0..4");
+        int x = original.x() + 7, y = original.y() + 30;
+        int width = original.width() - 14, height = original.height() - 37;
+        int gap = 4, rowHeight = Math.max(13, (height - 3 * gap) / 4);
+        int columnWidth = (width - gap) / 2;
+        List<Key> keys = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            int col = i % 2, row = i / 2;
+            int cellX = x + col * (columnWidth + gap);
+            int cellY = y + row * (rowHeight + gap);
+            int cellWidth = col == 1 ? width - columnWidth - gap : columnWidth;
+            String caption = (page * 6 + i + 1) + ". " +
+                (labels[i] == null || labels[i].isBlank() ? "Пустой бинд" : labels[i]);
+            keys.add(new Key(caption, Command.QUICK_MESSAGE,
+                Integer.toString(page * 6 + i), "", cellX, cellY,
+                cellWidth, rowHeight));
+        }
+        for (int i = 0; i < 6; i++) {
+            int col = i % 2, row = i / 2;
+            int cellX = x + col * (columnWidth + gap);
+            int cellY = y + row * (rowHeight + gap);
+            int cellWidth = col == 1 ? width - columnWidth - gap : columnWidth;
+            keys.add(new Key("", Command.QUICK_EDIT,
+                Integer.toString(page * 6 + i), "",
+                cellX + cellWidth - 23, cellY + 2, 21,
+                Math.min(18, Math.max(10, rowHeight - 4))));
+        }
+        addWeighted(keys, x, y + 3 * (rowHeight + gap), width, rowHeight, 3,
+            new String[]{"◀", (page + 1) + " / 5", "▶", "НОВЫЙ", "НАЗАД"},
+            new Command[]{Command.QUICK_PAGE_PREVIOUS, Command.NONE,
+                Command.QUICK_PAGE_NEXT, Command.QUICK_COMPOSE,
+                Command.BACK_TO_KEYS},
+            new String[]{"", "", "", "", ""}, new int[]{2, 2, 2, 3, 3});
+        return new Panel(original.x(), original.y(), original.width(),
+            original.height(), List.copyOf(keys));
+    }
+
     /**
      * Quick-message editor uses the calibrated main keyboard geometry.
      * The upper strip contains two independently editable fields and Send;
@@ -298,6 +343,12 @@ public final class KeyboardLayout {
     public static Panel composeMenu(Panel original, String message, String note,
                                     boolean editingNote, boolean russian,
                                     boolean shift) {
+        return composeMenu(original, message, note, editingNote, russian, shift, false);
+    }
+
+    public static Panel composeMenu(Panel original, String message, String note,
+                                    boolean editingNote, boolean russian,
+                                    boolean shift, boolean savingBind) {
         if (original == null) return null;
         Key header = original.keys().stream()
             .filter(k -> k.command() == Command.LANGUAGE_RU).findFirst().orElse(null);
@@ -320,7 +371,7 @@ public final class KeyboardLayout {
                     (messageTail.isBlank() ? "…" : messageTail),
                 (editingNote ? "▸ ЗАМЕТКА: " : "ЗАМЕТКА: ") +
                     (noteTail.isBlank() ? "…" : noteTail),
-                "ОТПРАВИТЬ"},
+                savingBind ? "СОХРАНИТЬ" : "ОТПРАВИТЬ"},
             new Command[]{Command.COMPOSE_MESSAGE, Command.COMPOSE_NOTE,
                 Command.COMPOSE_SEND},
             new String[]{"", "", ""}, new int[]{8, 7, 5});
