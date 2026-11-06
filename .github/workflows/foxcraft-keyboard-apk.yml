@@ -9,6 +9,8 @@ on:
       - 'Assets/Scripts/InstanceButton.cs'
       - 'tests/test_keyboard_apk_pipeline.py'
       - 'tools/check_foxcraft_pojlib_api.py'
+      - 'tools/foxcraft_quest_smoke.py'
+      - 'tests/test_foxcraft_quest_smoke.py'
   workflow_dispatch:
 
 permissions:
@@ -37,6 +39,7 @@ jobs:
         run: |
           python3 -m unittest discover -s tests -p 'test_keyboard_apk_pipeline.py' -v
           python3 -m unittest discover -s tests -p 'test_stage_foxcraft_ingame_keyboard.py' -v
+          python3 -m unittest discover -s tests -p 'test_foxcraft_quest_smoke.py' -v
       - name: Require configured Unity license for manual Android build
         if: github.event_name == 'workflow_dispatch'
         env:
