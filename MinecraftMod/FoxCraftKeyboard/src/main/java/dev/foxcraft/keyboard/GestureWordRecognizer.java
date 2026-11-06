@@ -68,7 +68,7 @@ public final class GestureWordRecognizer {
             if (!known) continue;
             double first = squared(start, letters.get(0), sx, sy);
             double last = squared(end, letters.get(letters.size()-1), sx, sy);
-            if (first > 3.5 || last > 3.5) continue;
+            if (first > 2.5 || last > 2.5) continue;
             List<Point> expected = resample(letters, trace.size());
             double shape = 0;
             for (int j = 0; j < trace.size(); j++)
@@ -76,7 +76,7 @@ public final class GestureWordRecognizer {
             shape /= trace.size();
             double score = shape + 0.27 * (first + last) +
                 Math.log1p(rank) * 0.025;
-            if (score <= 4.5) matches.add(new Match(word, score));
+            if (score <= 2.2) matches.add(new Match(word, score));
         }
         matches.sort(Comparator.comparingDouble(Match::score));
         List<String> result = new ArrayList<>();
