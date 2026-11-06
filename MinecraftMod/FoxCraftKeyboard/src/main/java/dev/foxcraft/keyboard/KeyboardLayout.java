@@ -12,7 +12,7 @@ public final class KeyboardLayout {
     public enum Command {
         NONE, TYPE, LANGUAGE, LANGUAGE_RU, LANGUAGE_EN, SYMBOLS, SHIFT, SPACE,
         LEFT, RIGHT, BACKSPACE, ENTER, ESCAPE, RESIZE, COLLAPSE, EXPAND, SUGGESTION,
-        SETTINGS, THEME, BACK_TO_KEYS
+        SETTINGS, THEME, BACK_TO_KEYS, HISTORY_PREVIOUS, HISTORY_NEXT
     }
 
     public record Key(String label, Command command, String value, String alternate,
@@ -203,14 +203,19 @@ public final class KeyboardLayout {
                 shift && !symbols);
             rowY += rowHeight + gap;
         }
+        // Main keyboard also provides chat-history navigation and a literal
+        // command slash. No extra row is added: the physical VR panel stays
+        // at the calibrated fixed size and preserves all previous controls.
         addWeighted(keys, insideX, rowY, insideWidth, rowHeight, gap,
-            new String[]{russian ? "ВЫХ" : "ESC", shift ? "SHIFT*" : "SHIFT", "←",
-                russian ? "ПРОБЕЛ" : "SPACE", "→", "⌫",
-                russian ? "ВВОД" : "ENTER"},
-            new Command[]{Command.ESCAPE, Command.SHIFT, Command.LEFT,
-                Command.SPACE, Command.RIGHT, Command.BACKSPACE, Command.ENTER},
-            new String[]{"", "", "", " ", "", "", ""},
-            new int[]{2, 3, 2, 8, 2, 2, 4});
+            new String[]{russian ? "ВЫХ" : "ESC", shift ? "SHIFT*" : "SHIFT",
+                "↑", "↓", "←", russian ? "ПРОБЕЛ" : "SPACE",
+                "→", "/", "⌫", russian ? "ВВОД" : "ENTER"},
+            new Command[]{Command.ESCAPE, Command.SHIFT,
+                Command.HISTORY_PREVIOUS, Command.HISTORY_NEXT,
+                Command.LEFT, Command.SPACE, Command.RIGHT, Command.TYPE,
+                Command.BACKSPACE, Command.ENTER},
+            new String[]{"", "", "", "", "", " ", "", "/", "", ""},
+            new int[]{2, 3, 2, 2, 2, 7, 2, 2, 2, 4});
         return new Panel(x, y, width, height, List.copyOf(keys));
     }
 
