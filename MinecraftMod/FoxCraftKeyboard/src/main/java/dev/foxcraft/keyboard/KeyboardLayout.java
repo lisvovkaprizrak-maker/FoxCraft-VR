@@ -78,7 +78,7 @@ public final class KeyboardLayout {
                              boolean russian, boolean symbols, boolean shift,
                              boolean collapsed, int preferredWidth) {
         return make(screenWidth, screenHeight, chat, russian, symbols, shift,
-            collapsed, preferredWidth, List.of());
+            collapsed, preferredWidth, List.of(), -1);
     }
 
     /** Suggested words appear in a dedicated clickable row under the header. */
@@ -86,6 +86,19 @@ public final class KeyboardLayout {
                              boolean russian, boolean symbols, boolean shift,
                              boolean collapsed, int preferredWidth,
                              List<String> suggestedWords) {
+        return make(screenWidth, screenHeight, chat, russian, symbols, shift,
+            collapsed, preferredWidth, suggestedWords, -1);
+    }
+
+    /**
+     * Chat layout is anchored to the actual input field instead of the top
+     * of ChatScreen. This keeps the keyboard outside the message history and
+     * leaves a clear gap above the text-entry box, like a floating VR keyboard.
+     */
+    public static Panel make(int screenWidth, int screenHeight, boolean chat,
+                             boolean russian, boolean symbols, boolean shift,
+                             boolean collapsed, int preferredWidth,
+                             List<String> suggestedWords, int chatInputY) {
         if (screenWidth < 220 || screenHeight < 140) return null;
         int width = Math.min(Math.max(220, Math.min(390, preferredWidth)),
             screenWidth - 12);
@@ -94,7 +107,17 @@ public final class KeyboardLayout {
         int gap = 2;
         int headerHeight = rowHeight + 2;
         int height = collapsed ? headerHeight + 8 : headerHeight + rowHeight * 6 + gap * 6 + 9;
-        int y = chat ? 8 : Math.max(8, screenHeight - height - 8);
+        int y;
+        if (chat) {
+            // The active chat field sits below the keyboard. If an older
+            // caller does not provide its coordinate, keep a safe bottom
+            // anchor with extra room for Minecraft's input row.
+            int chatBottom = chatInputY >= 0 ? chatInputY - 8 : screenHeight - 42;
+            y = Math.max(8, Math.min(screenHeight - height - 8,
+                chatBottom - height));
+        } else {
+            y = Math.max(8, screenHeight - height - 8);
+        }
         int insideX = x + 5;
         int insideWidth = width - 10;
         int rowY = y + 5;
