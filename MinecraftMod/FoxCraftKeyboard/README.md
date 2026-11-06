@@ -7,7 +7,7 @@ This folder contains the **Minecraft-side** keyboard, separate from the Unity la
 - RU / EN letter layouts, Shift, symbols, space, cursor arrows, backspace, Enter and a dedicated **ESC / ВЫХ** key for closing Minecraft chat/screens.
 - A dedicated top number row **1 2 3 4 5 6 7 8 9 0** on every layout. The `123` symbols layer offers punctuation such as `@ # / ? { }` instead of duplicating the number row.
 - Small alternate characters on letter keys; tap for the letter, hold for **450 ms** to type a punctuation symbol into the focused Minecraft text field. Long-press `Е` types `ё` (or `Ё` with Shift). The upper number row is separate from these alternates. Dragging away cancels the pending character.
-- Dark background, orange shimmering border and hover/long-press feedback.
+- Dark background, orange shimmering border, immediate pressed-key glow on VR trigger, and hover/long-press feedback.
 - Minecraft-screen GUI rendering rather than Unity's launcher canvas.
 
 ## Device feedback (2026-11-06)
