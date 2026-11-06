@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DefineConstants>UNITY_EDITOR</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="UnityApiStubs.cs" />
+    <Compile Include="../../Assets/Scripts/InstanceButton.cs" Link="InstanceButton.cs" />
+    <Compile Include="../../Assets/Scripts/FoxCraftInGameKeyboardInstaller.cs" Link="FoxCraftInGameKeyboardInstaller.cs" />
+    <Compile Include="../../Assets/Editor/FoxCraftKeyboardAndroidBuild.cs" Link="FoxCraftKeyboardAndroidBuild.cs" />
+  </ItemGroup>
+</Project>
