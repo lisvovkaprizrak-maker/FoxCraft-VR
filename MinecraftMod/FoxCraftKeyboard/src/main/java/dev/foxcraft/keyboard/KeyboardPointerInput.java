@@ -63,6 +63,10 @@ public final class KeyboardPointerInput {
         return hold.progress(key, nowMs);
     }
 
+    public boolean isPressed(KeyboardLayout.Key key) {
+        return captured && hold.isPressed(key);
+    }
+
     public boolean isHolding(KeyboardLayout.Key key, long nowMs) {
         return hold.isHolding(key, nowMs);
     }
