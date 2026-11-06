@@ -12,6 +12,7 @@
     <Compile Include="UnityApiStubs.cs" />
     <Compile Include="../../Assets/Scripts/InstanceButton.cs" Link="InstanceButton.cs" />
     <Compile Include="../../Assets/Scripts/FoxCraftInGameKeyboardInstaller.cs" Link="FoxCraftInGameKeyboardInstaller.cs" />
+    <Compile Include="../../Assets/Scripts/FoxCraftVoiceBridge.cs" Link="FoxCraftVoiceBridge.cs" />
     <Compile Include="../../Assets/Editor/FoxCraftKeyboardAndroidBuild.cs" Link="FoxCraftKeyboardAndroidBuild.cs" />
   </ItemGroup>
 </Project>
