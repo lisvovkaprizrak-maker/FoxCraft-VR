@@ -475,6 +475,51 @@ public final class KeyboardLogicSmokeTest {
                 settings.y() + settings.height()),
             "Every theme choice fits the VR panel");
 
+        // Navigation and command typing remain on the main layout.
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.TYPE && "/".equals(k.value())),
+            "Standalone slash is available without switching symbol pages");
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.HISTORY_PREVIOUS),
+            "Previous chat message has a dedicated key");
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.HISTORY_NEXT),
+            "Next chat message has a dedicated key");
+        KeyboardLayout.Panel enMain = KeyboardLayout.make(
+            854, 480, true, false, false, false, false);
+        require(enMain.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.TYPE && "/".equals(k.value())),
+            "Slash must remain on the English layout");
+        for (KeyboardLayout.Panel current : new KeyboardLayout.Panel[]{ru, enMain}) {
+            require(current.keys().stream().allMatch(k ->
+                k.x() >= current.x() && k.x() + k.width() <=
+                    current.x() + current.width() &&
+                k.y() >= current.y() && k.y() + k.height() <=
+                    current.y() + current.height()),
+                "Added control keys never exceed the fixed keyboard bounds");
+        }
+
+        // Russian swipe always starts uppercase. Auto punctuation spacing
+        // must avoid doubled spaces and preserve the word correction suffix.
+        require("Привет".equals(KeyboardLayout.swipeWord("привет", true, false)),
+            "Swipe Russian words start with a capital first letter");
+        require("Спасибо".equals(KeyboardLayout.swipeWord("спасибо", true, true)),
+            "Russian capitalisation is stable with Shift");
+        require("hello".equals(KeyboardLayout.swipeWord("hello", false, false)),
+            "English words retain lowercase unless Shift requested");
+        require("Hello".equals(KeyboardLayout.swipeWord("hello", false, true)),
+            "English Shift still capitalises swipe");
+        require(" ".equals(KeyboardLayout.trailingWordSpace("Привет", 6)),
+            "Swipe word gets an automatic trailing space");
+        require("".equals(KeyboardLayout.trailingWordSpace("Привет уже", 6)),
+            "Existing following space must not be duplicated");
+        require(KeyboardLayout.trimSpaceBeforeDot("Привет ", 7),
+            "Dot removes trailing auto-space before punctuation");
+        require(!KeyboardLayout.trimSpaceBeforeDot("Привет", 6),
+            "Dot after word must not erase a letter");
+        require(" ".equals(KeyboardLayout.trailingWordSpace("Привет.", 7)),
+            "Dot is followed by a space");
+
         System.out.println("FoxCraft keyboard logic smoke tests: OK");
     }
 
