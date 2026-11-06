@@ -190,22 +190,29 @@ public final class VirtualKeyboardOverlay {
         int border = 0xFF000000 | (Math.min(255, 180 + pulse) << 16) |
             (Math.min(255, 85 + pulse / 3) << 8) | 16;
 
-        // Two translucent rings and a warm animated inner border.
-        context.fill(panel.x() - 4, panel.y() - 4,
-            panel.x() + panel.width() + 4, panel.y() + panel.height() + 4,
-            0x44FF7400);
-        context.fill(panel.x() - 2, panel.y() - 2,
-            panel.x() + panel.width() + 2, panel.y() + panel.height() + 2,
-            border);
-        context.fill(panel.x(), panel.y(),
-            panel.x() + panel.width(), panel.y() + panel.height(), PANEL_BG);
+        // Quest-style dark floating chassis: stepped rounded silhouette,
+        // warm illuminated edge and pixel accents instead of a flat rectangle.
+        rounded(context, panel.x() - 4, panel.y() - 4,
+            panel.width() + 8, panel.height() + 8, 9, 0x50FF7400);
+        rounded(context, panel.x() - 2, panel.y() - 2,
+            panel.width() + 4, panel.height() + 4, 8, border);
+        rounded(context, panel.x(), panel.y(),
+            panel.width(), panel.height(), 7, PANEL_BG);
+        if (!collapsed) {
+            drawChecker(context, panel.x() + 5, panel.y() + 5);
+            drawChecker(context, panel.x() + panel.width() - 14,
+                panel.y() + panel.height() - 14);
+        }
 
         var font = MinecraftClient.getInstance().textRenderer;
-        // FoxCraft is branding rather than a clickable key. The decorative
-        // header doesn't consume controller input or alter keyboard commands.
+        // Branding is decoration, never a controller-hit-test key.
         if (!collapsed) {
-            context.drawText(font, "FoxCraft",
-                panel.x() + 9, panel.y() + 11, ORANGE, false);
+            int brandY = panel.y() + 6;
+            drawFoxBadge(context, panel.x() + 9, brandY);
+            context.drawText(font, "Fox", panel.x() + 25, brandY + 3,
+                ORANGE, false);
+            context.drawText(font, "Craft", panel.x() + 43, brandY + 3,
+                TEXT, false);
         }
         KeyboardLayout.Key heldAlternate = null;
         for (KeyboardLayout.Key key : panel.keys()) {
@@ -218,8 +225,24 @@ public final class VirtualKeyboardOverlay {
             int bg = (pointer.isPressed(key) || leftPointer.isPressed(key) || longHeld)
                 ? KEY_PRESSED
                 : (hovered ? KEY_HOVER : KEY_BG);
-            context.fill(key.x(), key.y(), key.x() + key.width(),
-                key.y() + key.height(), bg);
+            boolean action = key.command() == KeyboardLayout.Command.ENTER;
+            boolean activeLanguage = key.command() == KeyboardLayout.Command.LANGUAGE;
+            boolean shiftKey = key.command() == KeyboardLayout.Command.SHIFT && shift;
+            if (action && !hovered && !longHeld) bg = 0xFFE97510;
+            if (activeLanguage && !hovered && !longHeld) bg = 0xFF984110;
+            if (shiftKey && !hovered && !longHeld) bg = 0xFF704022;
+            // A raised rounded key with thin bevel; pressed keys glow orange.
+            if (hovered || longHeld || pointer.isPressed(key) ||
+                leftPointer.isPressed(key)) {
+                rounded(context, key.x() - 1, key.y() - 1,
+                    key.width() + 2, key.height() + 2, 4, 0xFFFFA237);
+            } else {
+                rounded(context, key.x(), key.y(),
+                    key.width(), key.height(), 4, 0xFF494453);
+            }
+            rounded(context, key.x() + 1, key.y() + 1,
+                Math.max(1, key.width() - 2), Math.max(1, key.height() - 2),
+                3, bg);
 
             float progress = Math.max(pointer.progress(key, now),
                 leftPointer.progress(key, now));
@@ -317,6 +340,51 @@ public final class VirtualKeyboardOverlay {
         // A successful screen fallback also replaces the old QuestCraft
         // keyboard. Do not suppress the native fallback if we drew nothing.
         if (!detached) QuestCraftKeyboardSuppressor.closeWhenScreenFallbackVisible();
+    }
+
+    /** Draw a clipped, softly rounded shape using only stable 1.21.5 DrawContext APIs. */
+    private static void rounded(DrawContext c, int x, int y, int w, int h,
+                                int radius, int color) {
+        if (w <= 0 || h <= 0) return;
+        int rad = Math.min(radius, Math.min(w, h) / 2);
+        c.fill(x + rad, y, x + w - rad, y + h, color);
+        if (h > rad * 2) c.fill(x, y + rad, x + w, y + h - rad, color);
+        for (int row = 0; row < rad; row++) {
+            int inset = (int) Math.ceil(rad - Math.sqrt(
+                Math.max(0, rad * rad - (rad - row - 0.5) * (rad - row - 0.5))));
+            c.fill(x + inset, y + row, x + w - inset, y + row + 1, color);
+            c.fill(x + inset, y + h - row - 1,
+                x + w - inset, y + h - row, color);
+        }
+    }
+
+    private static void drawChecker(DrawContext c, int x, int y) {
+        for (int row = 0; row < 3; row++)
+            for (int col = 0; col < 3 - row; col++)
+                if (((row + col) & 1) == 0)
+                    c.fill(x + col * 3, y + row * 3,
+                        x + col * 3 + 3, y + row * 3 + 3, 0xAAE77720);
+    }
+
+    /** Tiny pixel fox crest, as in the visual reference; no external texture. */
+    private static void drawFoxBadge(DrawContext c, int x, int y) {
+        String[] pixels = {
+            "O....O", "OO..OO", "OOOOOO", "OWOOWO",
+            "OWKKWO", "OWWWWO", ".OWWO."
+        };
+        for (int py = 0; py < pixels.length; py++) {
+            for (int px = 0; px < pixels[py].length(); px++) {
+                int color = switch (pixels[py].charAt(px)) {
+                    case 'O' -> 0xFFF47A19;
+                    case 'W' -> 0xFFFFE6C2;
+                    case 'K' -> 0xFF272129;
+                    default -> 0;
+                };
+                if (color != 0)
+                    c.fill(x + px * 2, y + py * 2,
+                        x + px * 2 + 2, y + py * 2 + 2, color);
+            }
+        }
     }
 
     /**
