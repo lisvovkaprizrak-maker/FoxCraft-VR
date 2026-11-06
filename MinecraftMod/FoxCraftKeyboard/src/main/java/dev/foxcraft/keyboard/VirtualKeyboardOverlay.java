@@ -56,6 +56,22 @@ public final class VirtualKeyboardOverlay {
     private boolean collapsed;
 
     public void render(Screen screen, DrawContext context, int mouseX, int mouseY) {
+        if (screen instanceof ChatScreen && FoxCraftVrPlane.isReady()) return;
+        renderInternal(screen, context, mouseX, mouseY, screen.width, screen.height, false);
+    }
+
+    /** Same keyboard controls, painted on the separate QuestCraft-aligned VR quad. */
+    public void renderDetached(Screen screen, DrawContext context,
+                               int mouseX, int mouseY, int width, int height,
+                               double leftX, double leftY) {
+        renderInternal(screen, context, mouseX, mouseY, width, height, true);
+        leftSample = new VivecraftLeftPointer.Sample(
+            leftX >= 0 && leftY >= 0, leftX, leftY, false);
+    }
+
+    private void renderInternal(Screen screen, DrawContext context,
+                                int mouseX, int mouseY, int width,
+                                int height, boolean detached) {
         if (screen != previousScreen) {
             previousScreen = screen;
             clearSuggestions();
@@ -88,17 +104,17 @@ public final class VirtualKeyboardOverlay {
         // the free area below it instead of being drawn inside the text box.
         int chatInputBottomY = chat
             ? activeField.getY() + activeField.getHeight() : -1;
-        if (panel == null || layoutWidth != screen.width || layoutHeight != screen.height ||
+        if (panel == null || layoutWidth != width || layoutHeight != height ||
             layoutChatInputBottomY != chatInputBottomY ||
             layoutChat != chat || layoutPreferredWidth != preferredWidth ||
             layoutRussian != russian || layoutSymbols != symbols ||
             layoutShift != shift || layoutCollapsed != collapsed) {
-            panel = KeyboardLayout.make(screen.width, screen.height,
-                chat, russian, symbols, shift, collapsed, preferredWidth,
-                suggestions, chatInputBottomY);
-            layoutWidth = screen.width;
+            panel = KeyboardLayout.make(width, height,
+                false, russian, symbols, shift, collapsed, preferredWidth,
+                suggestions, detached ? -1 : chatInputBottomY);
+            layoutWidth = width;
             layoutPreferredWidth = preferredWidth;
-            layoutHeight = screen.height;
+            layoutHeight = height;
             layoutChatInputBottomY = chatInputBottomY;
             layoutChat = chat;
             layoutRussian = russian;
@@ -113,7 +129,7 @@ public final class VirtualKeyboardOverlay {
         pointer.move(panel, mouseX, mouseY, focusedField(screen));
 
         long now = System.nanoTime() / 1_000_000L;
-        updateLeftHand(screen, now);
+        if (!detached) updateLeftHand(screen, now);
         int pulse = (int) (50 + 38 * Math.sin(now / 320.0));
         int border = 0xFF000000 | (Math.min(255, 180 + pulse) << 16) |
             (Math.min(255, 85 + pulse / 3) << 8) | 16;
@@ -259,9 +275,32 @@ public final class VirtualKeyboardOverlay {
         leftDown = pressed;
     }
 
+    /** VR-plane controller input; separate state machines for each hand. */
+    public void vrPressed(Screen screen, double x, double y, int hand) {
+        if (focusedField(screen) != null)
+            handPointer(hand).press(panel, x, y,
+                System.nanoTime() / 1_000_000L, focusedField(screen));
+    }
+
+    public void vrMoved(Screen screen, double x, double y, int hand) {
+        handPointer(hand).move(panel, x, y, focusedField(screen));
+    }
+
+    public void vrReleased(Screen screen, double x, double y, int hand) {
+        KeyboardPointerInput.Release release = handPointer(hand).release(
+            panel, x, y, System.nanoTime() / 1_000_000L, focusedField(screen));
+        if (release.activation() != null && focusedField(screen) != null)
+            applyRelease(screen, release);
+    }
+
+    private KeyboardPointerInput handPointer(int hand) {
+        return hand == 1 ? leftPointer : pointer;
+    }
+
     /** Returns true if the gesture is captured (including key gaps). */
     public boolean mousePressed(Screen screen, double x, double y, int button) {
-        if (screen != previousScreen || button != GLFW.GLFW_MOUSE_BUTTON_LEFT ||
+        if (FoxCraftVrPlane.isReady() ||
+            screen != previousScreen || button != GLFW.GLFW_MOUSE_BUTTON_LEFT ||
             focusedField(screen) == null)
             return false;
         return pointer.press(panel, x, y, System.nanoTime() / 1_000_000L,
@@ -270,6 +309,7 @@ public final class VirtualKeyboardOverlay {
 
     /** A matching release is swallowed even if the pointer left the panel. */
     public boolean mouseReleased(Screen screen, double x, double y, int button) {
+        if (FoxCraftVrPlane.isReady()) return false;
         if (screen != previousScreen) {
             pointer.cancel();
             return false;
