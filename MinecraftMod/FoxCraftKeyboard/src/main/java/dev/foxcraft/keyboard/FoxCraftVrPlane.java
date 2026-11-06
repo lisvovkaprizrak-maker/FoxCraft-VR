@@ -453,7 +453,6 @@ public final class FoxCraftVrPlane {
         Object guiRightClick = null;
         try { guiRightClick = guiClass.getField("KEY_RIGHT_CLICK").get(null); }
         catch (NoSuchFieldException ignored) { }
-        Object shiftClick = guiClass.getField("KEY_SHIFT").get(null);
         Method cursorProject = null;
         for (Method method : guiClass.getMethods()) {
             if (method.getName().equals("getTexCoordsForCursor") &&
@@ -495,29 +494,17 @@ public final class FoxCraftVrPlane {
             Object handed = Enum.valueOf(
                 (Class<? extends Enum>) handType.asSubclass(Enum.class),
                 hand == 0 ? "RIGHT" : "LEFT");
-            // The handed isDown() query and the global GUI isPressed() can
-            // report a mirrored press on some Quest mappings. In particular,
-            // never let a right X/trigger press activate the left pointer.
-            // Verify actual input action + physical origin for primary clicks.
-            boolean downKeyboard = hand == 0 &&
-                FoxCraftLeftTrigger.pressedBinding(provider, handed, keyboardClick);
-            boolean downRightGui = hand == 0 &&
-                FoxCraftLeftTrigger.pressedBinding(provider, handed, regularClick);
-            // Do NOT use KEY_SHIFT.isPressed(): it is an unhanded/global
-            // state and can mirror a right-hand button onto the left ray.
-            // Only accept real left index-trigger actions below.
-            // Quest 3 index trigger is not the side GRIP: stock Vivecraft
-            // often hides the handed keyboard click input when its own GUI
-            // keyboard is suppressed. Check the underlying LEFT-only VR
-            // action as well, without triggering a right-hand mouse click.
-            boolean downLeftTrigger = hand == 1 &&
+            // Use the SAME physical-origin-checked paths for either hand.
+            // Previously the right ray only checked two GUI actions, while
+            // the left also sampled Attack/Use. On Quest that could make a
+            // right trigger click at the left ray, while the left did nothing.
+            // Never sample global Shift or unhanded isDown() for typing.
+            boolean down = tracked &&
                 (FoxCraftLeftTrigger.pressed(provider, handed,
                     keyboardClick, regularClick) ||
                  (guiRightClick != null &&
-                  FoxCraftLeftTrigger.pressed(provider, handed,
-                      keyboardClick, guiRightClick)));
-            boolean down = tracked &&
-                (downKeyboard || downRightGui || downLeftTrigger);
+                  FoxCraftLeftTrigger.pressedBinding(provider, handed,
+                      guiRightClick)));
             boolean accepted = down;
             if (down && !wasPressed[hand]) {
                 accepted = x >= 0 && y >= 0 &&
