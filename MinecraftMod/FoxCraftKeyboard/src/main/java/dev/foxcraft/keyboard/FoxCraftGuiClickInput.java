@@ -14,6 +14,15 @@ import java.lang.reflect.Method;
 public final class FoxCraftGuiClickInput {
     private FoxCraftGuiClickInput() {}
 
+    /** Optional on older QuestCraft/Vivecraft forks; absence is not fatal. */
+    public static Object optionalBinding(Class<?> owner, String field) {
+        try {
+            return owner.getField(field).get(null);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return null;
+        }
+    }
+
     public static boolean pressed(Object provider, Object hand, Object keyboardClick,
                                   Object guiLeftClick, Object guiRightClick) {
         if (provider == null || hand == null) return false;
