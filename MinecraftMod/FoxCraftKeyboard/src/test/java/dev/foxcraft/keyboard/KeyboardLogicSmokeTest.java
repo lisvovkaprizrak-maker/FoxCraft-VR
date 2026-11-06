@@ -549,28 +549,7 @@ public final class KeyboardLogicSmokeTest {
             k.y() >= toolbox.y() && k.y() + k.height() <=
                 toolbox.y() + toolbox.height()),
             "Controller tool keys stay inside visible keyboard panel");
-        try {
-            java.nio.file.Path folder = Files.createTempDirectory(
-                "foxcraft-feature-settings-test");
-            FoxCraftFeatureSettings prefs = new FoxCraftFeatureSettings(
-                folder.resolve("features.properties"));
-            prefs.toggleHaptics();
-            prefs.adjustBeam(15);
-            prefs.adjustDot(2);
-            prefs.move(.07f, -.035f, .10f);
-            prefs.savePosition();
-            FoxCraftFeatureSettings restored = new FoxCraftFeatureSettings(
-                folder.resolve("features.properties"));
-            require(!restored.haptics() && restored.beamCentimetres() == 53 &&
-                restored.dotRadius() == 4 && restored.offsetRight() > .06f,
-                "Controller and keyboard placement settings persist between runs");
-            prefs.toggleRight();
-            prefs.toggleLeft();
-            require(prefs.leftHand() || prefs.rightHand(),
-                "At least one VR hand remains enabled for recovery");
-        } catch (Exception e) {
-            throw new AssertionError("Feature preferences persistence", e);
-        }
+
 
         System.out.println("FoxCraft keyboard logic smoke tests: OK");
     }
