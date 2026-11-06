@@ -50,6 +50,19 @@ public final class KeyboardLogicSmokeTest {
                 enDigits++;
         require(enDigits == 10, "Number row is present in English layout");
 
+        KeyboardLayout.Panel symbolPanel = KeyboardLayout.make(854, 480, true,
+            false, true, false, false);
+        int symbolDigits = 0;
+        for (KeyboardLayout.Key key : symbolPanel.keys())
+            if (key.command() == KeyboardLayout.Command.TYPE &&
+                key.value().matches("[0-9]"))
+                symbolDigits++;
+        require(symbolDigits == 10, "Symbols mode keeps exactly one 1–0 number row");
+        for (String punctuation : new String[]{"@", "#", "/", "?", "\\\\", "|", "{", "}"})
+            require(symbolPanel.keys().stream()
+                .anyMatch(k -> punctuation.equals(k.value())),
+                "Symbols mode includes: " + punctuation);
+
         KeyHoldController hold = new KeyHoldController();
         hold.press(letter, 1000);
         require("й".equals(hold.release(letter, 1449).text()), "449 ms: letter");
