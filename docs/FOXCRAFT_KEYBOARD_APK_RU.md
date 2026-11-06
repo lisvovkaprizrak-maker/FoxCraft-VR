@@ -26,6 +26,26 @@
 
 Локальная альтернатива при наличии Unity 2022.3.62f3 и Android Build Support: собрать Fabric мод, выполнить `python3 tools/stage_foxcraft_ingame_keyboard.py`, переключить Unity на Android, затем выбрать `FoxCraft → Build 1.21.5 keyboard test APK`.
 
+## Проверка ADB без изменения пользовательских данных
+
+После **успешной ручной Unity-сборки** и получения `FoxCraft-1.21.5-UNTESTED.apk` можно проверить APK и гарнитуру инструментом `tools/foxcraft_quest_smoke.py` (нужны Android SDK platform-tools `adb` и `aapt`). Он никогда не удаляет QuestCraft, не очищает игровые данные и не заменяет моды.
+
+```bash
+# Только чтение: проверить подключённый Quest и наличие FoxCraft
+python3 tools/foxcraft_quest_smoke.py
+
+# Проверить, что APK имеет package ID com.foxcraftvr.quest
+python3 tools/foxcraft_quest_smoke.py --apk Builds/FoxCraft-1.21.5-UNTESTED.apk
+
+# ЯВНО установить отдельное приложение (без очистки данных)
+python3 tools/foxcraft_quest_smoke.py --apk Builds/FoxCraft-1.21.5-UNTESTED.apk --install
+
+# ЯВНО запустить FoxCraft и посмотреть его недавние сообщения в Unity logcat
+python3 tools/foxcraft_quest_smoke.py --launch --logs
+```
+
+Если несколько ADB-устройств, указать `--device SERIAL`. Любая установка возможна **только при флаге `--install` и успешной проверке package ID через `aapt`**. Запуск также требует явного `--launch`. Это помощь при ручном тестировании, а не автоматический тест поведения Minecraft/Vivecraft в VR.
+
 ## Проверка на гарнитуре
 
 Для теста обязательно проверить: запуск Minecraft, появление клавиатуры в чате и полях адреса сервера; управление лучом VR-контроллера; короткое нажатие/удержание 450 мс; ввод кириллицы/команд; ввод Ё; закрытие чата; работу после обновления модов; повторный запуск. Пока реального запуска Meta Quest **не было**.
