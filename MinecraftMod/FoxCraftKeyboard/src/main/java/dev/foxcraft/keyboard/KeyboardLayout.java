@@ -12,7 +12,12 @@ public final class KeyboardLayout {
     public enum Command {
         NONE, TYPE, LANGUAGE, LANGUAGE_RU, LANGUAGE_EN, SYMBOLS, SHIFT, SPACE,
         LEFT, RIGHT, BACKSPACE, ENTER, ESCAPE, RESIZE, COLLAPSE, EXPAND, SUGGESTION,
-        SETTINGS, THEME, BACK_TO_KEYS, HISTORY_PREVIOUS, HISTORY_NEXT
+        SETTINGS, THEME, BACK_TO_KEYS, HISTORY_PREVIOUS, HISTORY_NEXT,
+        THEMES_PAGE, SETTINGS_HOME, MICROPHONE, QUICK_MESSAGES, QUICK_MESSAGE,
+        CLIPBOARD, COPY, PASTE, SELECT_ALL, MOVE_MENU, MOVE_STEP,
+        MOVE_GRAB, MOVE_RESET, CONTROLLER_MENU, HAPTIC_TOGGLE, HAPTIC_STRENGTH,
+        CONTROLLER_LEFT_TOGGLE, CONTROLLER_RIGHT_TOGGLE, BEAM_SHORTER,
+        BEAM_LONGER, DOT_SMALLER, DOT_LARGER
     }
 
     public record Key(String label, Command command, String value, String alternate,
@@ -166,11 +171,13 @@ public final class KeyboardLayout {
         // control strip. The logo is decorative, not a clickable key.
         rowY += brandHeight + gap;
         addWeighted(keys, insideX, rowY, insideWidth, headerHeight, gap,
-            new String[]{"АБВ Русский", "ABC English", "123", "!?#", "⚙", "×"},
+            new String[]{"АБВ Русский", "ABC English", "123", "!?#",
+                "МИК", "ФРАЗЫ", "⚙", "×"},
             new Command[]{Command.LANGUAGE_RU, Command.LANGUAGE_EN,
-                Command.SYMBOLS, Command.SYMBOLS, Command.SETTINGS, Command.COLLAPSE},
-            new String[]{"", "", "", "", "", ""},
-            new int[]{4, 4, 2, 2, 2, 2});
+                Command.SYMBOLS, Command.SYMBOLS, Command.MICROPHONE,
+                Command.QUICK_MESSAGES, Command.SETTINGS, Command.COLLAPSE},
+            new String[]{"", "", "", "", "", "", "", ""},
+            new int[]{4, 4, 2, 2, 2, 3, 2, 2});
         rowY += headerHeight + gap;
 
         // These are actual keys, not just a visual label: either VR hand can
@@ -250,6 +257,35 @@ public final class KeyboardLayout {
             x, y + 6 * (rowHeight + gap), width, rowHeight));
         return new Panel(original.x(), original.y(), original.width(),
             original.height(), List.copyOf(options));
+    }
+
+    /**
+     * Tool pages share the same 390px shell and controller hit coordinates as
+     * the main keys. Two columns avoid tiny unreachable rows in compact GUI.
+     */
+    public static Panel toolMenu(Panel original, String[] labels,
+                                 Command[] commands, String[] values) {
+        if (original == null) return null;
+        if (labels.length != commands.length || labels.length != values.length ||
+            labels.length == 0) throw new IllegalArgumentException("Tool key arrays differ");
+        int x = original.x() + 7;
+        int y = original.y() + 30;
+        int width = original.width() - 14;
+        int availableHeight = original.height() - 37;
+        int gap = 3, columns = labels.length > 5 ? 2 : 1;
+        int rows = (labels.length + columns - 1) / columns;
+        int height = Math.max(8, (availableHeight - gap * (rows - 1)) / rows);
+        int keyWidth = (width - gap * (columns - 1)) / columns;
+        List<Key> keys = new ArrayList<>();
+        for (int i = 0; i < labels.length; i++) {
+            int col = i % columns, row = i / columns;
+            keys.add(new Key(labels[i], commands[i], values[i], "",
+                x + col * (keyWidth + gap), y + row * (height + gap),
+                col == columns - 1 ? width - col * (keyWidth + gap) : keyWidth,
+                height));
+        }
+        return new Panel(original.x(), original.y(), original.width(),
+            original.height(), List.copyOf(keys));
     }
 
     /**
