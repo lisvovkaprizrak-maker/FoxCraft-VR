@@ -31,6 +31,9 @@ public final class KeyboardLogicSmokeTest {
                 numbers.append(k.value());
         require("1234567890".contentEquals(numbers), "Permanent number row: " + numbers);
 
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.ESCAPE && "ВЫХ".equals(k.label())),
+            "Russian layout includes an Escape key to close the chat");
         KeyboardLayout.Key letter = key(ru.keys(), "й");
         require("~".equals(letter.alternate()), "Russian Й has ~ legend");
         require("@".equals(key(ru.keys(), "ф").alternate()), "Russian Ф has @ legend");
@@ -39,6 +42,9 @@ public final class KeyboardLogicSmokeTest {
         require(key(ru.keys(), "ъ").value().equals("ъ"),
             "Russian hard sign must be available as a normal key");
         KeyboardLayout.Panel en = KeyboardLayout.make(854, 480, true, false, false, false, false);
+        require(en.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.ESCAPE && "ESC".equals(k.label())),
+            "English layout includes Escape for closing Minecraft screens");
         require("@".equals(key(en.keys(), "q").alternate()), "English Q has @ legend");
         KeyboardLayout.Panel ruShift = KeyboardLayout.make(854, 480, true, true, false, true, false);
         require("Ё".equals(key(ruShift.keys(), "Е").alternate()),
