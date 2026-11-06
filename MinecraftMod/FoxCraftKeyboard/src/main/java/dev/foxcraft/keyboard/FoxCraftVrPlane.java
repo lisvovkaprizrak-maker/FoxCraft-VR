@@ -25,7 +25,9 @@ import java.lang.reflect.Method;
  * Vivecraft 1.21.5 hooks are absent, vanilla screen-embedded FoxCraft remains.
  */
 public final class FoxCraftVrPlane {
-    private static final float SCALE_MULTIPLIER = 0.68f;
+    // Larger physical quad so anti-aliased keys are legible at normal Quest distance.
+// This changes only room-space size, not the fixed logical key layout.
+    private static final float SCALE_MULTIPLIER = 1.05f;
     // Draw the same logical 390px keyboard into a higher-resolution VR
     // framebuffer. The quad's physical scale and controller hit coordinates
     // remain unchanged; only its raster sampling density improves.
@@ -34,7 +36,7 @@ public final class FoxCraftVrPlane {
     private static final float HD_RENDER_SCALE = 1.5f;
     // In menu, keep the detached keyboard BELOW the GUI, not across the
     // world/server list. Chat keeps the user-tested original placement.
-    private static final float MENU_SCALE_MULTIPLIER = 0.48f;
+    private static final float MENU_SCALE_MULTIPLIER = 0.73f;
     private static final float BELOW_MENU = 1.02f;
     private static final float MENU_FORWARD = 0.10f;
     // FoxCraft is a separate layer: the native keyboard remains a fallback.
@@ -60,6 +62,12 @@ public final class FoxCraftVrPlane {
     private static final boolean[] wasPressed = new boolean[2];
     private static final double[] cursorX = new double[]{-100, -100};
     private static final double[] cursorY = new double[]{-100, -100};
+
+    /** Actual Vivecraft GUI projection, not the cosmetic beam direction. */
+    public static boolean isPointingAtKeyboard(int hand) {
+        if (!isReady() || hand < 0 || hand >= 2 || keyboard == null) return false;
+        return keyboard.detachedContains(cursorX[hand], cursorY[hand]);
+    }
 
     private FoxCraftVrPlane() {}
 
