@@ -61,7 +61,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: foxcraft-fabric-for-apk
-          path: Fabric/foxchatkeyboard/FoxChatKeyboard-bridge-0.6.0-fabric-1.21.1.jar
+          path: Fabric/foxchatkeyboard/FoxChatKeyboard-bridge-0.6.1-fabric-1.21.5.jar
           if-no-files-found: error
           retention-days: 7
 
@@ -133,9 +133,9 @@ jobs:
           path: incoming/pojlib
       - name: Validate and stage both Android dependencies
         run: |
-          python3 tools/foxcraft_stage_fabric.py --source incoming/fabric/FoxChatKeyboard-bridge-0.6.0-fabric-1.21.1.jar --replace
+          python3 tools/foxcraft_stage_fabric.py --source incoming/fabric/FoxChatKeyboard-bridge-0.6.1-fabric-1.21.5.jar --replace
           python3 tools/foxcraft_stage_pojlib.py --source incoming/pojlib/Pojlib-release.aar --replace
-          test -s Assets/StreamingAssets/FoxChatKeyboard-bridge-0.6.0.jar
+          test -s Assets/StreamingAssets/FoxChatKeyboard-bridge-0.6.1.jar
           test -s Assets/Plugins/Android/Pojlib-release.aar
       - name: Build separate FoxCraft Android test APK with Unity
         uses: game-ci/unity-builder@v4
