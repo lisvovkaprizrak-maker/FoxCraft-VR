@@ -173,7 +173,7 @@ public final class KeyboardLayout {
         rowY += brandHeight + gap;
         addWeighted(keys, insideX, rowY, insideWidth, headerHeight, gap,
             new String[]{"АБВ Русский", "ABC English", "123", "!?#",
-                "МИК", "ФРАЗЫ", "⚙", "×"},
+                "МИК", "Бинды", "⚙", "×"},
             new Command[]{Command.LANGUAGE_RU, Command.LANGUAGE_EN,
                 Command.SYMBOLS, Command.SYMBOLS, Command.MICROPHONE,
                 Command.QUICK_MESSAGES, Command.SETTINGS, Command.COLLAPSE},
