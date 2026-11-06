@@ -6,7 +6,6 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.SimpleFramebuffer;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 import org.joml.Matrix4f;
@@ -16,8 +15,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 /**
- * Independent Vivecraft room-space surface, placed BETWEEN chat and the
- * original QuestCraft keyboard. Never modifies KeyboardHandler.UI, SHOWING,
+ * Independent Vivecraft room-space surface, placed below the current
+ * Minecraft text GUI (chat or menu), separate from the QuestCraft keyboard. Never modifies KeyboardHandler.UI, SHOWING,
  * FRAMEBUFFER, native key layouts or Vivecraft's controller bindings.
  *
  * This optional bridge is deliberately fail-closed: when the expected
@@ -25,7 +24,7 @@ import java.lang.reflect.Method;
  */
 public final class FoxCraftVrPlane {
     private static final float SCALE_MULTIPLIER = 0.68f;
-    // Use the same chat-relative placement rule as Vivecraft's own keyboard.
+    // Reuse Vivecraft GUI-relative placement for chat and focused menu fields.
     // FoxCraft is a separate layer: the original keyboard is never disabled.
     private static final float BELOW_CHAT = 0.69f;
     private static final float FORWARD_FROM_CHAT = 0.28f;
@@ -85,7 +84,7 @@ public final class FoxCraftVrPlane {
         ready = false;
         if (keyboard == null || disabled) return;
         MinecraftClient client = MinecraftClient.getInstance();
-        if (!(client.currentScreen instanceof ChatScreen)) {
+        if (!VirtualKeyboardOverlay.hasEditableFocus(client.currentScreen)) {
             wasPressed[0] = wasPressed[1] = false;
             releaseBuffer();
             return;
@@ -294,8 +293,8 @@ public final class FoxCraftVrPlane {
         @Override
         public void render(DrawContext draw, int mouseX, int mouseY, float delta) {
             MinecraftClient client = MinecraftClient.getInstance();
-            if (client.currentScreen instanceof ChatScreen actual && keyboard != null)
-                keyboard.renderDetached(actual, draw,
+            if (keyboard != null && VirtualKeyboardOverlay.hasEditableFocus(client.currentScreen))
+                keyboard.renderDetached(client.currentScreen, draw,
                     (int) cursorX[0], (int) cursorY[0], this.width, this.height,
                     cursorX[1], cursorY[1]);
         }
