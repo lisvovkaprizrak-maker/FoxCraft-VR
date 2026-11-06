@@ -50,10 +50,14 @@ public final class FoxCraftVrPlane {
     // Vivecraft MathUtils.LEFT is local +X. Shift toward the player's RIGHT
     // with -X and downward with -Y in the *original GUI's room basis*.
     // Both the rendered quad and getTexCoordsForCursor use this exact pose.
-    private static final float CHAT_RIGHT_SHIFT = 0.17f;
-    private static final float CHAT_DOWN_SHIFT = 0.12f;
-    private static final float MENU_RIGHT_SHIFT = 0.09f;
-    private static final float MENU_DOWN_SHIFT = 0.07f;
+    // These are small intentional comfort offsets, NOT substitutes for
+    // framebuffer alignment. Before the exact HD GUI-scale fix above, much
+    // larger offsets attempted to compensate for rasterization in the
+    // upper-left quadrant and would now push the corrected panel too far.
+    private static final float CHAT_RIGHT_SHIFT = 0.02f;
+    private static final float CHAT_DOWN_SHIFT = 0.03f;
+    private static final float MENU_RIGHT_SHIFT = 0.01f;
+    private static final float MENU_DOWN_SHIFT = 0.02f;
 
     private static VirtualKeyboardOverlay keyboard;
     private static PanelScreen screen;
