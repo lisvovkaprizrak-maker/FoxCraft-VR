@@ -257,6 +257,28 @@ public final class KeyboardLogicSmokeTest {
         }
         require("слово".equals(GestureWordRecognizer.suggest(ru, word, 3).get(0)),
             "Approximate Russian word shape predicts слово");
+        // Hand tracking does not stop precisely at the centre of each key.
+        var imprecise = new java.util.ArrayList<GestureWordRecognizer.Point>();
+        int jitter = 0;
+        for (String ch : new String[]{"п", "р", "и", "в", "е", "т"}) {
+            KeyboardLayout.Key letterKey = key(ru.keys(), ch);
+            double offset = (jitter++ % 2 == 0) ? 3.0 : -3.0;
+            imprecise.add(new GestureWordRecognizer.Point(
+                letterKey.x()+letterKey.width()/2. + offset,
+                letterKey.y()+letterKey.height()/2. - offset));
+        }
+        require("привет".equals(GestureWordRecognizer.suggest(ru, imprecise, 3).get(0)),
+            "Imprecise controller path should still rank привет first");
+
+        KeyboardLayout.Key hardSign = key(ru.keys(), "ъ");
+        KeyboardPointerInput noWord = new KeyboardPointerInput();
+        require(noWord.press(ru, hardSign.x()+2, hardSign.y()+2, 21_050, swipeField),
+            "Unknown word gesture starts normally");
+        noWord.move(ru, yi.x()+2, yi.y()+2, swipeField);
+        KeyboardPointerInput.Release unknownRelease = noWord.release(
+            ru, yi.x()+2, yi.y()+2, 21_180, swipeField);
+        require(unknownRelease.consumed() && unknownRelease.activation() == null,
+            "Unrecognized gesture does not insert intersected gibberish");
         KeyboardLayout.Panel suggestedPanel = KeyboardLayout.make(
             854, 480, true, true, false, false, false, 280,
             java.util.List.of("привет", "приветы", "приветик"));
