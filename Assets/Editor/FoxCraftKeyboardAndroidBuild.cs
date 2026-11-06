@@ -42,6 +42,7 @@ public static class FoxCraftKeyboardAndroidBuild
         string initialVersion = PlayerSettings.bundleVersion;
         int initialCode = PlayerSettings.Android.bundleVersionCode;
         AndroidArchitecture initialArchitectures = PlayerSettings.Android.targetArchitectures;
+        bool initialCustomKeystore = PlayerSettings.Android.useCustomKeystore;
         bool initialExport = EditorUserBuildSettings.exportAsGoogleAndroidProject;
 
         string output = Path.Combine(root, "Builds", OutputFile);
@@ -55,6 +56,10 @@ public static class FoxCraftKeyboardAndroidBuild
             PlayerSettings.bundleVersion = "0.1.0-alpha";
             PlayerSettings.Android.bundleVersionCode = 101;
             PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+            // This is a sideload-only TEST build with a separate package ID.
+            // The source project refers to an unavailable QuestCraft keystore.
+            // Use Unity's debug signing without exposing or changing release keys.
+            PlayerSettings.Android.useCustomKeystore = false;
             EditorUserBuildSettings.exportAsGoogleAndroidProject = false;
 
             BuildReport report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
@@ -79,6 +84,7 @@ public static class FoxCraftKeyboardAndroidBuild
             PlayerSettings.bundleVersion = initialVersion;
             PlayerSettings.Android.bundleVersionCode = initialCode;
             PlayerSettings.Android.targetArchitectures = initialArchitectures;
+            PlayerSettings.Android.useCustomKeystore = initialCustomKeystore;
             EditorUserBuildSettings.exportAsGoogleAndroidProject = initialExport;
         }
     }
