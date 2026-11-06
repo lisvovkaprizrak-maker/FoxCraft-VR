@@ -49,8 +49,8 @@ public final class KeyboardLogicSmokeTest {
         }
 
         KeyboardLayout.Panel ru = KeyboardLayout.make(854, 480, true, true, false, false, false);
-        require(ru.width() == 280 && ru.height() <= 145,
-            "Default Quest keyboard must be smaller than the 428px prototype");
+        require(ru.width() == 280 && ru.height() <= 165,
+            "Compact 280px keyboard includes a 3-candidate correction strip");
         require(ru.keys().stream().anyMatch(k ->
             k.command() == KeyboardLayout.Command.RESIZE && "РАЗМ".equals(k.label())),
             "Headset keyboard contains a size button");
