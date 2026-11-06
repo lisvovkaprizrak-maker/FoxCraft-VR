@@ -57,10 +57,6 @@ class FoxCraftBridgeIntegrationTests(unittest.TestCase):
         self.assertNotIn("android.permission.BIND_INPUT_METHOD", perms)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class FoxCraftInstanceVersionTests(unittest.TestCase):
     def test_unity_fabric_targets_match_minecraft_1215(self):
         import json
@@ -73,3 +69,6 @@ class FoxCraftInstanceVersionTests(unittest.TestCase):
         self.assertIn(f'Instance = "{target}"', installer)
         self.assertIn('JarName = "FoxChatKeyboard-bridge-0.6.1.jar"', installer)
 
+
+if __name__ == "__main__":
+    unittest.main()
