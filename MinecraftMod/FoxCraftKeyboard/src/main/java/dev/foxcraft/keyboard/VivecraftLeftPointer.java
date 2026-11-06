@@ -68,7 +68,13 @@ public final class VivecraftLeftPointer {
                 .getMethod("isDown", handType).invoke(keyboardBinding, leftHand);
             // The standalone plane and the emergency GUI overlay must read
             // the SAME physical left index trigger (Quest 3: Place / Use).
-            Object leftGuiClick = gui.getField("KEY_LEFT_CLICK").get(null);
+            Object leftGuiClick = null;
+            try {
+                leftGuiClick = gui.getField("KEY_LEFT_CLICK").get(null);
+            } catch (NoSuchFieldException ignored) {
+                // Older QuestCraft variants/test doubles may not expose
+                // the optional GUI left-click binding at all.
+            }
             // Keep this optional reflection link: the standalone geometry
             // smoke tests compile VivecraftLeftPointer without Minecraft,
             // whereas the actual Fabric mod includes FoxCraftLeftTrigger.
