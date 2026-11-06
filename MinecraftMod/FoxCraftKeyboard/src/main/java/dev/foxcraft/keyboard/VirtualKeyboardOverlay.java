@@ -237,11 +237,13 @@ public final class VirtualKeyboardOverlay {
                 ? KEY_PRESSED
                 : (hovered ? KEY_HOVER : KEY_BG);
             boolean action = key.command() == KeyboardLayout.Command.ENTER;
-            boolean activeLanguage = key.command() == KeyboardLayout.Command.LANGUAGE;
+            boolean activeLanguage = key.command() == KeyboardLayout.Command.LANGUAGE_RU ||
+                key.command() == KeyboardLayout.Command.LANGUAGE_EN;
             boolean shiftKey = key.command() == KeyboardLayout.Command.SHIFT && shift;
             if (action && !hovered && !longHeld) bg = 0xFFE97510;
             if (activeLanguage && !hovered && !longHeld)
-                bg = (key.label().startsWith(russian ? "АБВ" : "ABC"))
+                bg = ((russian && key.command() == KeyboardLayout.Command.LANGUAGE_RU) ||
+                      (!russian && key.command() == KeyboardLayout.Command.LANGUAGE_EN))
                     ? 0xFFE66C10 : KEY_BG;
             if (shiftKey && !hovered && !longHeld) bg = 0xFF704022;
             if (key.command() == KeyboardLayout.Command.SYMBOLS &&
@@ -598,6 +600,8 @@ public final class VirtualKeyboardOverlay {
             case ENTER -> screen.keyPressed(GLFW.GLFW_KEY_ENTER, 0, 0);
             case ESCAPE -> screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
             case LANGUAGE -> russian = !russian;
+            case LANGUAGE_RU -> { russian = true; symbols = false; }
+            case LANGUAGE_EN -> { russian = false; symbols = false; }
             case SYMBOLS -> symbols = !symbols;
             case RESIZE -> {
                 preferredWidth = KeyboardPreferences.nextWidth(preferredWidth);
