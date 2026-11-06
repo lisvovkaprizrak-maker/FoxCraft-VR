@@ -11,7 +11,7 @@ import java.util.Locale;
 public final class KeyboardLayout {
     public enum Command {
         NONE, TYPE, LANGUAGE, SYMBOLS, SHIFT, SPACE,
-        LEFT, RIGHT, BACKSPACE, ENTER, ESCAPE, RESIZE, COLLAPSE, EXPAND
+        LEFT, RIGHT, BACKSPACE, ENTER, ESCAPE, RESIZE, COLLAPSE, EXPAND, SUGGESTION
     }
 
     public record Key(String label, Command command, String value, String alternate,
@@ -77,6 +77,15 @@ public final class KeyboardLayout {
     public static Panel make(int screenWidth, int screenHeight, boolean chat,
                              boolean russian, boolean symbols, boolean shift,
                              boolean collapsed, int preferredWidth) {
+        return make(screenWidth, screenHeight, chat, russian, symbols, shift,
+            collapsed, preferredWidth, List.of());
+    }
+
+    /** Suggested words appear in a dedicated clickable row under the header. */
+    public static Panel make(int screenWidth, int screenHeight, boolean chat,
+                             boolean russian, boolean symbols, boolean shift,
+                             boolean collapsed, int preferredWidth,
+                             List<String> suggestedWords) {
         if (screenWidth < 220 || screenHeight < 140) return null;
         int width = Math.min(Math.max(220, Math.min(390, preferredWidth)),
             screenWidth - 12);
@@ -84,7 +93,7 @@ public final class KeyboardLayout {
         int rowHeight = Math.max(14, Math.min(19, (screenHeight - 30) / 7));
         int gap = 2;
         int headerHeight = rowHeight + 2;
-        int height = collapsed ? headerHeight + 8 : headerHeight + rowHeight * 5 + gap * 5 + 9;
+        int height = collapsed ? headerHeight + 8 : headerHeight + rowHeight * 6 + gap * 6 + 9;
         int y = chat ? 8 : Math.max(8, screenHeight - height - 8);
         int insideX = x + 5;
         int insideWidth = width - 10;
@@ -108,6 +117,27 @@ public final class KeyboardLayout {
             new String[]{"", "", "", "", ""},
             new int[]{5, 2, 2, 2, 1});
         rowY += headerHeight + gap;
+
+        // These are actual keys, not just a visual label: either VR hand can
+        // replace the last inserted word by selecting an alternative.
+        if (suggestedWords == null || suggestedWords.isEmpty()) {
+            addWeighted(keys, insideX, rowY, insideWidth, rowHeight, gap,
+                new String[]{russian ? "СВАЙП → СЛОВО" : "SWIPE → WORD"},
+                new Command[]{Command.NONE}, new String[]{""}, new int[]{1});
+        } else {
+            String[] labels = new String[3];
+            Command[] commands = new Command[3];
+            String[] values = new String[3];
+            for (int i = 0; i < 3; i++) {
+                String word = i < suggestedWords.size() ? suggestedWords.get(i) : "";
+                labels[i] = word;
+                values[i] = word;
+                commands[i] = word.isEmpty() ? Command.NONE : Command.SUGGESTION;
+            }
+            addWeighted(keys, insideX, rowY, insideWidth, rowHeight, gap,
+                labels, commands, values, new int[]{1, 1, 1});
+        }
+        rowY += rowHeight + gap;
 
         // Dedicated always-visible number row. Letters retain their own long-press legends.
         addLetters(keys, insideX, rowY, insideWidth, rowHeight, gap, DIGITS, null, false);
