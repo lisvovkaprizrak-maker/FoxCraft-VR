@@ -1,0 +1,130 @@
+name: FoxCraft 1.21.5 keyboard test APK (manual)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/foxcraft-keyboard-apk.yml'
+      - 'Assets/Editor/FoxCraftKeyboardAndroidBuild.cs'
+      - 'Assets/Scripts/FoxCraftInGameKeyboardInstaller.cs'
+      - 'Assets/Scripts/InstanceButton.cs'
+      - 'tests/test_keyboard_apk_pipeline.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: foxcraft-keyboard-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify Minecraft 1.21.5 APK configuration
+        run: |
+          python3 -m unittest discover -s tests -p 'test_keyboard_apk_pipeline.py' -v
+          python3 -m unittest discover -s tests -p 'test_stage_foxcraft_ingame_keyboard.py' -v
+      - name: Require configured Unity license for manual Android build
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        shell: bash
+        run: |
+          if [[ -z "$UNITY_LICENSE" && ( -z "$UNITY_EMAIL" || -z "$UNITY_PASSWORD" || -z "$UNITY_SERIAL" ) ]]; then
+            echo "::error::Set UNITY_LICENSE or UNITY_EMAIL, UNITY_PASSWORD and UNITY_SERIAL as GitHub Actions secrets."
+            exit 1
+          fi
+
+  build-apk:
+    # Never spend Unity build minutes or expose license data on a PR.
+    if: github.event_name == 'workflow_dispatch'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout Unity project
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.12.1'
+      - name: Build the matching 1.21.5 Fabric keyboard JAR
+        working-directory: MinecraftMod/FoxCraftKeyboard
+        run: gradle build --no-daemon --stacktrace
+      - name: Validate and stage matching Fabric JAR into Unity
+        run: |
+          python3 tools/stage_foxcraft_ingame_keyboard.py
+          test -s Assets/StreamingAssets/foxcraft-keyboard-0.1.0-alpha.jar
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          path = Path('Assets/Plugins/Android/Pojlib-release.aar')
+          if not path.is_file() or path.stat().st_size < 1000:
+              raise SystemExit('Bundled Pojlib AAR missing. Refusing to create an APK.')
+          with ZipFile(path) as jar:
+              if 'AndroidManifest.xml' not in jar.namelist():
+                  raise SystemExit('Pojlib AAR missing its Android manifest.')
+          print('Pojlib AAR is present; compatibility on Quest remains untested.')
+          PY
+      - name: Build separate FoxCraft test APK using Unity
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          unityVersion: 2022.3.62f3
+          targetPlatform: Android
+          versioning: None
+          buildMethod: FoxCraftKeyboardAndroidBuild.BuildTestApk
+      - name: Verify APK and separate package identifier
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import Path
+          apk = Path('Builds/FoxCraft-1.21.5-UNTESTED.apk')
+          if not apk.is_file() or apk.stat().st_size < 100000:
+              raise SystemExit('Unity APK is missing or too small')
+          with zipfile.ZipFile(apk) as archive:
+              if 'AndroidManifest.xml' not in archive.namelist():
+                  raise SystemExit('Compiled AndroidManifest.xml not present')
+              if not archive.testzip() is None:
+                  raise SystemExit('APK integrity check failed')
+          print('APK archive structure is valid; device operation is untested.')
+          PY
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          AAPT="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
+          if [[ -z "$AAPT" ]]; then
+            echo "::error::Android aapt missing, cannot verify package ID"
+            exit 1
+          fi
+          PACKAGE="$("$AAPT" dump badging Builds/FoxCraft-1.21.5-UNTESTED.apk | sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p" | head -n 1)"
+          if [[ "$PACKAGE" != "com.foxcraftvr.quest" ]]; then
+            echo "::error::Unexpected package ID. Refusing to publish the APK."
+            exit 1
+          fi
+      - name: Upload untested Meta Quest APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoxCraft-Quest-1.21.5-UNTESTED-APK
+          path: Builds/FoxCraft-1.21.5-UNTESTED.apk
+          if-no-files-found: error
+          retention-days: 7
