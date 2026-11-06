@@ -18,6 +18,7 @@ public final class FoxCraftKeyboardClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        FoxCraftVrPlane.attach(keyboard);
         LOGGER.info("FoxCraftKeyboard initialized: Minecraft 1.21.5 VR text overlay registered.");
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
             ScreenEvents.afterRender(screen).register((s, context, mouseX, mouseY, tickDelta) ->
