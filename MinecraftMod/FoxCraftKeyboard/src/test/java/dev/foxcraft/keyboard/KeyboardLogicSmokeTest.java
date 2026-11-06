@@ -277,8 +277,12 @@ public final class KeyboardLogicSmokeTest {
         noWord.move(ru, yi.x()+2, yi.y()+2, swipeField);
         KeyboardPointerInput.Release unknownRelease = noWord.release(
             ru, yi.x()+2, yi.y()+2, 21_180, swipeField);
-        require(unknownRelease.consumed() && unknownRelease.activation() == null,
-            "Unrecognized gesture does not insert intersected gibberish");
+        require(unknownRelease.consumed() &&
+            (unknownRelease.activation() == null ||
+             (!unknownRelease.suggestions().isEmpty() &&
+              unknownRelease.suggestions().get(0).equals(
+                  unknownRelease.activation().text()))),
+            "Uncertain gestures can only insert dictionary suggestions, not raw crossings");
         KeyboardLayout.Panel suggestedPanel = KeyboardLayout.make(
             854, 480, true, true, false, false, false, 280,
             java.util.List.of("привет", "приветы", "приветик"));
