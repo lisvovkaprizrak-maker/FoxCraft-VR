@@ -11,7 +11,8 @@ import java.util.Locale;
 public final class KeyboardLayout {
     public enum Command {
         NONE, TYPE, LANGUAGE, LANGUAGE_RU, LANGUAGE_EN, SYMBOLS, SHIFT, SPACE,
-        LEFT, RIGHT, BACKSPACE, ENTER, ESCAPE, RESIZE, COLLAPSE, EXPAND, SUGGESTION
+        LEFT, RIGHT, BACKSPACE, ENTER, ESCAPE, RESIZE, COLLAPSE, EXPAND, SUGGESTION,
+        SETTINGS, THEME, BACK_TO_KEYS
     }
 
     public record Key(String label, Command command, String value, String alternate,
@@ -167,7 +168,7 @@ public final class KeyboardLayout {
         addWeighted(keys, insideX, rowY, insideWidth, headerHeight, gap,
             new String[]{"АБВ Русский", "ABC English", "123", "!?#", "⚙", "×"},
             new Command[]{Command.LANGUAGE_RU, Command.LANGUAGE_EN,
-                Command.SYMBOLS, Command.SYMBOLS, Command.NONE, Command.COLLAPSE},
+                Command.SYMBOLS, Command.SYMBOLS, Command.SETTINGS, Command.COLLAPSE},
             new String[]{"", "", "", "", "", ""},
             new int[]{4, 4, 2, 2, 2, 2});
         rowY += headerHeight + gap;
@@ -213,6 +214,37 @@ public final class KeyboardLayout {
         return new Panel(x, y, width, height, List.copyOf(keys));
     }
 
+
+    /**
+     * In-keyboard settings page: the ordinary input widget keeps focus while
+     * the VR panel temporarily displays theme choices instead of key rows.
+     * Layout dimensions and hit coordinates match the existing panel exactly.
+     */
+    public static Panel themeMenu(Panel original, KeyboardTheme selected) {
+        if (original == null) return null;
+        int x = original.x() + 7;
+        int y = original.y() + 30;
+        int width = original.width() - 14;
+        int availableHeight = original.height() - 39;
+        if (width < 100 || availableHeight < 70) return original;
+        List<Key> options = new ArrayList<>();
+        int gap = 3;
+        int rows = 7;
+        int rowHeight = Math.max(9, (availableHeight - gap * (rows - 1)) / rows);
+        KeyboardTheme[] themes = KeyboardTheme.values();
+        for (int i = 0; i < themes.length; i++) {
+            int rowY = y + i * (rowHeight + gap);
+            // A visible checkmark identifies the chosen palette. Selection
+            // is non-text input and never writes into chat or menu fields.
+            String name = (selected == themes[i] ? "✓ " : "") + themes[i].title();
+            options.add(new Key(name, Command.THEME, themes[i].name(), "",
+                x, rowY, width, rowHeight));
+        }
+        options.add(new Key("←  К клавиатуре", Command.BACK_TO_KEYS, "", "",
+            x, y + 6 * (rowHeight + gap), width, rowHeight));
+        return new Panel(original.x(), original.y(), original.width(),
+            original.height(), List.copyOf(options));
+    }
 
     /**
      * Dock the emergency Minecraft-GUI keyboard towards a free screen edge.
