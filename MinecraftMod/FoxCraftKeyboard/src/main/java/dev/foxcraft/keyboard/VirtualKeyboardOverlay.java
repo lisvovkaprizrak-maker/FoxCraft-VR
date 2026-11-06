@@ -22,6 +22,10 @@ public final class VirtualKeyboardOverlay {
     private static final int MINI = 0xFFFFBB6D;
 
     private final KeyboardPointerInput pointer = new KeyboardPointerInput();
+    private final KeyboardPointerInput leftPointer = new KeyboardPointerInput();
+    private final VivecraftLeftPointer leftRay = new VivecraftLeftPointer();
+    private boolean leftDown;
+    private VivecraftLeftPointer.Sample leftSample;
     private KeyboardLayout.Panel panel;
     private Screen previousScreen;
     private int layoutWidth = -1;
@@ -40,6 +44,9 @@ public final class VirtualKeyboardOverlay {
         if (screen != previousScreen) {
             previousScreen = screen;
             pointer.cancel();
+            leftPointer.cancel();
+            leftDown = false;
+            leftSample = null;
             collapsed = false;
             panel = null;
         }
@@ -47,6 +54,9 @@ public final class VirtualKeyboardOverlay {
         if (focusedField(screen) == null) {
             panel = null;
             pointer.cancel();
+            leftPointer.cancel();
+            leftDown = false;
+            leftSample = null;
             return;
         }
         boolean chat = screen instanceof ChatScreen;
@@ -70,6 +80,7 @@ public final class VirtualKeyboardOverlay {
         pointer.move(panel, mouseX, mouseY, focusedField(screen));
 
         long now = System.nanoTime() / 1_000_000L;
+        updateLeftHand(screen, now);
         int pulse = (int) (50 + 38 * Math.sin(now / 320.0));
         int border = 0xFF000000 | (Math.min(255, 180 + pulse) << 16) |
             (Math.min(255, 85 + pulse / 3) << 8) | 16;
@@ -87,15 +98,20 @@ public final class VirtualKeyboardOverlay {
         var font = MinecraftClient.getInstance().textRenderer;
         KeyboardLayout.Key heldAlternate = null;
         for (KeyboardLayout.Key key : panel.keys()) {
-            boolean hovered = key.contains(mouseX, mouseY);
-            boolean longHeld = pointer.isHolding(key, now);
+            boolean hovered = key.contains(mouseX, mouseY) ||
+                (leftSample != null && leftSample.valid() &&
+                    key.contains(leftSample.x(), leftSample.y()));
+            boolean longHeld = pointer.isHolding(key, now) ||
+                leftPointer.isHolding(key, now);
             // Immediate key-down feedback, before the long-press threshold.
-            int bg = (pointer.isPressed(key) || longHeld) ? KEY_PRESSED
+            int bg = (pointer.isPressed(key) || leftPointer.isPressed(key) || longHeld)
+                ? KEY_PRESSED
                 : (hovered ? KEY_HOVER : KEY_BG);
             context.fill(key.x(), key.y(), key.x() + key.width(),
                 key.y() + key.height(), bg);
 
-            float progress = pointer.progress(key, now);
+            float progress = Math.max(pointer.progress(key, now),
+                leftPointer.progress(key, now));
             if (progress > 0f) {
                 int bar = Math.max(1, Math.round(key.width() * progress));
                 context.fill(key.x(), key.y() + key.height() - 2,
@@ -143,7 +159,8 @@ public final class VirtualKeyboardOverlay {
 
         // A swipe shows its gathered letters live, but writes none of them
         // into chat until the trigger is released.
-        String preview = pointer.swipePreview();
+        String preview = !leftPointer.swipePreview().isEmpty()
+            ? leftPointer.swipePreview() : pointer.swipePreview();
         if (!preview.isEmpty()) {
             String visible = preview.length() > 26 ? "..." + preview.substring(preview.length() - 26) : preview;
             int previewWidth = Math.min(panel.width() - 12, font.getWidth(visible) + 16);
@@ -158,6 +175,37 @@ public final class VirtualKeyboardOverlay {
         int sweep = panel.x() + (int) ((now / 12L) % Math.max(1, panel.width()));
         context.fill(sweep, panel.y() - 2, Math.min(panel.x() + panel.width(), sweep + 20),
             panel.y(), ORANGE);
+    }
+
+    /**
+     * Vivecraft's normal screen mouse events represent only its primary
+     * GUI pointer. Poll the independent second ray here so either controller
+     * can interact with FoxCraft without duplicating right-hand mouse input.
+     */
+    private void updateLeftHand(Screen screen, long nowMs) {
+        leftSample = leftRay.poll(screen.width, screen.height);
+        if (leftSample == null) {
+            leftPointer.cancel();
+            leftDown = false;
+            return;
+        }
+
+        TextFieldWidget field = focusedField(screen);
+        boolean pressed = leftSample.pressed();
+        double x = leftSample.valid() ? leftSample.x() : -100;
+        double y = leftSample.valid() ? leftSample.y() : -100;
+
+        if (pressed && !leftDown && leftSample.valid()) {
+            leftPointer.press(panel, x, y, nowMs, field);
+        } else if (pressed && leftDown) {
+            leftPointer.move(panel, x, y, field);
+        } else if (!pressed && leftDown) {
+            KeyboardPointerInput.Release release = leftPointer.release(
+                panel, x, y, nowMs, field);
+            if (release.activation() != null && field != null)
+                activate(screen, release.activation());
+        }
+        leftDown = pressed;
     }
 
     /** Returns true if the gesture is captured (including key gaps). */
