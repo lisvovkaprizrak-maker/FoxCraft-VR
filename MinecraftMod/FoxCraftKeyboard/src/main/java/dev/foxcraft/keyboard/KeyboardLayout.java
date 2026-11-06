@@ -10,7 +10,7 @@ import java.util.Locale;
  */
 public final class KeyboardLayout {
     public enum Command {
-        NONE, TYPE, LANGUAGE, SYMBOLS, SHIFT, SPACE,
+        NONE, TYPE, LANGUAGE, LANGUAGE_RU, LANGUAGE_EN, SYMBOLS, SHIFT, SPACE,
         LEFT, RIGHT, BACKSPACE, ENTER, ESCAPE, RESIZE, COLLAPSE, EXPAND, SUGGESTION
     }
 
@@ -162,9 +162,9 @@ public final class KeyboardLayout {
         // control strip. The logo is decorative, not a clickable key.
         rowY += brandHeight + gap;
         addWeighted(keys, insideX, rowY, insideWidth, headerHeight, gap,
-            new String[]{russian ? "АБВ Русский" : "АБВ Русский",
+            new String[]{"АБВ Русский",
                 "ABC English", "123", "!?#", "⚙", "×", "РАЗМ"},
-            new Command[]{Command.LANGUAGE, Command.LANGUAGE,
+            new Command[]{Command.LANGUAGE_RU, Command.LANGUAGE_EN,
                 Command.SYMBOLS, Command.SYMBOLS, Command.NONE,
                 Command.COLLAPSE, Command.RESIZE},
             new String[]{"", "", "", "", "", "", ""},
