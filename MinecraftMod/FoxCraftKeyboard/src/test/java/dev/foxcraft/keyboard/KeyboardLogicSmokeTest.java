@@ -58,7 +58,7 @@ public final class KeyboardLogicSmokeTest {
                 key.value().matches("[0-9]"))
                 symbolDigits++;
         require(symbolDigits == 10, "Symbols mode keeps exactly one 1–0 number row");
-        for (String punctuation : new String[]{"@", "#", "/", "?", "\\\\", "|", "{", "}"})
+        for (String punctuation : new String[]{"@", "#", "/", "?", "\\", "|", "{", "}"})
             require(symbolPanel.keys().stream()
                 .anyMatch(k -> punctuation.equals(k.value())),
                 "Symbols mode includes: " + punctuation);
