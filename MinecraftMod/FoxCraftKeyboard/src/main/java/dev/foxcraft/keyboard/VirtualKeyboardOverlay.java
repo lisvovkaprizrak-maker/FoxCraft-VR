@@ -290,6 +290,10 @@ public final class VirtualKeyboardOverlay {
 
         long now = System.nanoTime() / 1_000_000L;
         if (!detached) updateLeftHand(screen, now);
+        // Backspace is unlike alternate-symbol holds: delete gradually WHILE
+        // pressed, not all at once on release. Both VR hands have independent timers.
+        repeatBackspace(pointer, activeField, now);
+        repeatBackspace(leftPointer, activeField, now);
         int pulse = (int) (50 + 38 * Math.sin(now / 320.0));
         // New Year's theme uses a RED chrome/outline, independent of its
         // golden tree star and other palette accents.
@@ -898,6 +902,13 @@ public final class VirtualKeyboardOverlay {
             }
         }
         leftDown = pressed;
+    }
+
+    private void repeatBackspace(KeyboardPointerInput input, TextFieldWidget field, long nowMs) {
+        if (!input.repeatBackspace(nowMs, field)) return;
+        clearSuggestions();
+        if ("COMPOSE".equals(menuPage)) quickDraft.backspace();
+        else field.eraseCharacters(-1);
     }
 
     /** VR-plane controller input; separate state machines for each hand. */
