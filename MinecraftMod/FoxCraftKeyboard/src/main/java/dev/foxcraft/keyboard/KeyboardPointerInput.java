@@ -8,6 +8,7 @@ public final class KeyboardPointerInput {
     public record Release(boolean consumed, KeyHoldController.Activation activation) {}
 
     private final KeyHoldController hold = new KeyHoldController();
+    private final SwipeGesture swipe = new SwipeGesture();
     private boolean captured;
     private Object focusedFieldToken;
 
@@ -29,6 +30,7 @@ public final class KeyboardPointerInput {
         captured = true;
         focusedFieldToken = focusToken;
         KeyboardLayout.Key key = panel.at(x, y);
+        swipe.begin(key, x, y);
         if (key != null && key.command() != KeyboardLayout.Command.NONE)
             hold.press(key, nowMs);
         else
@@ -44,6 +46,21 @@ public final class KeyboardPointerInput {
         return release(panel, x, y, nowMs, null);
     }
 
+    /** Samples the controller ray while its trigger is held down. */
+    public void move(KeyboardLayout.Panel panel, double x, double y, Object focusToken) {
+        if (!captured) return;
+        if (focusedFieldToken != focusToken) {
+            // The release must still be swallowed, but no text may escape to
+            // a field that became focused halfway through a controller drag.
+            hold.cancel();
+            swipe.cancel();
+            return;
+        }
+        swipe.move(panel, x, y);
+    }
+
+    public String swipePreview() { return captured ? swipe.preview() : ""; }
+
     /** Consumes the release but inserts nothing if focus changed during hold. */
     public Release release(KeyboardLayout.Panel panel, double x, double y,
                            long nowMs, Object focusToken) {
@@ -53,27 +70,37 @@ public final class KeyboardPointerInput {
         focusedFieldToken = null;
         if (originalFocus != focusToken) {
             hold.cancel();
+            swipe.cancel();
             return new Release(true, null);
         }
         KeyboardLayout.Key hovered = panel == null ? null : panel.at(x, y);
+        swipe.move(panel, x, y);
+        if (panel != null && panel.contains(x, y) && swipe.isSwiping()) {
+            KeyboardLayout.Key first = swipe.firstKey();
+            String word = swipe.finish();
+            hold.cancel();
+            return new Release(true, new KeyHoldController.Activation(first, word, false));
+        }
+        swipe.cancel();
         return new Release(true, hold.release(hovered, nowMs));
     }
 
     public float progress(KeyboardLayout.Key key, long nowMs) {
-        return hold.progress(key, nowMs);
+        return swipe.isSwiping() ? 0f : hold.progress(key, nowMs);
     }
 
     public boolean isPressed(KeyboardLayout.Key key) {
-        return captured && hold.isPressed(key);
+        return captured && !swipe.isSwiping() && hold.isPressed(key);
     }
 
     public boolean isHolding(KeyboardLayout.Key key, long nowMs) {
-        return hold.isHolding(key, nowMs);
+        return !swipe.isSwiping() && hold.isHolding(key, nowMs);
     }
 
     public void cancel() {
         captured = false;
         focusedFieldToken = null;
         hold.cancel();
+        swipe.cancel();
     }
 }
