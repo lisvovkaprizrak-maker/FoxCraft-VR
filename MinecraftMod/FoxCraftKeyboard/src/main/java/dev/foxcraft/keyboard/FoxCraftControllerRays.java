@@ -9,7 +9,7 @@ import org.joml.Matrix4f;
 import java.lang.reflect.Method;
 
 /**
- * Optional thin visible pointer beams for both Quest controllers.
+ * Optional Quest-style white pointer beams while FoxCraft is open.
  * Draws using Vivecraft's own controller view transform, without changing
  * input bindings or the vanilla game cursor. Fail closed on incompatible forks.
  */
@@ -23,7 +23,7 @@ public final class FoxCraftControllerRays {
     private FoxCraftControllerRays() {}
 
     public static void render(boolean renderRight, boolean renderLeft) {
-        if (unavailable || !FoxCraftVrPlane.isVrSession()) return;
+        if (unavailable || !FoxCraftVrPlane.isKeyboardActive()) return;
         if (!renderRight && !renderLeft) return;
         try {
             if (setup == null) {
@@ -46,13 +46,12 @@ public final class FoxCraftControllerRays {
                 if (!(Boolean) tracking.invoke(vr, hand)) continue;
                 Matrix4f matrix = new Matrix4f();
                 setup.invoke(null, hand, matrix);
-                // Both rays originate at the controllers' aim axis. A faint
-                // orange right beam and cool-blue left beam distinguish hands.
-                int red = hand == 0 ? 255 : 92;
-                int green = hand == 0 ? 156 : 180;
-                int blue = hand == 0 ? 32 : 255;
-                addLine(consumer, matrix, 0f, 0f, 0.04f,
-                    0f, 0f, 1.8f, red, green, blue);
+                // Vivecraft's controller -Z axis points forward. +Z points
+                // back towards the player's body on Quest controllers.
+                // Match the original Quest pointer: a slim, neutral-white
+                // line from the controller tip towards the keyboard.
+                addLine(consumer, matrix, 0f, 0f, -0.04f,
+                    0f, 0f, -1.4f, 245, 248, 255);
             }
             buffers.draw(RenderLayer.getLines());
         } catch (ReflectiveOperationException | LinkageError | RuntimeException error) {
@@ -70,8 +69,8 @@ public final class FoxCraftControllerRays {
                                 float bx, float by, float bz,
                                 int r, int g, int b) {
         consumer.vertex(matrix, ax, ay, az)
-            .color(r, g, b, 220).normal(0, 1, 0);
+            .color(r, g, b, 230).normal(0, 1, 0);
         consumer.vertex(matrix, bx, by, bz)
-            .color(r, g, b, 160).normal(0, 1, 0);
+            .color(r, g, b, 140).normal(0, 1, 0);
     }
 }
