@@ -458,6 +458,11 @@ public final class VirtualKeyboardOverlay {
             shift = false;
     }
 
+    /** Do not open a VR keyboard unless a real, visible Minecraft text field has focus. */
+    public static boolean hasEditableFocus(Screen screen) {
+        return focusedField(screen) != null;
+    }
+
     private static TextFieldWidget focusedField(Screen screen) {
         if (screen == null) return null;
         Element focused = screen.getFocused();
