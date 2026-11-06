@@ -10,7 +10,7 @@ This folder contains the **Minecraft-side** keyboard, separate from the Unity la
 - Dark background, orange shimmering border, immediate pressed-key glow on VR trigger, and hover/long-press feedback.
 - Minecraft-screen GUI rendering rather than Unity's launcher canvas.
 - **Compact by default** (280 UI pixels versus 428 in the first headset-tested version). Header button **РАЗМ** cycles 280 → 320 → 240 → 280; the width preference is saved to the Fabric config directory and survives Quest restarts.
-- **Trigger-held swipe**: start on a letter, hold the pointing-hand input, cross other letters and release over the panel. The collected letters appear in a preview and are inserted **once on release**; this is deterministic path spelling, not an autocorrect dictionary. Single-key long press still enters its alternate symbol.
+- **Shape-based swipe typing (experimental)**: hold the pointing-hand trigger (or mapped left-hand action), draw an approximate word shape, and release over the keyboard. The game compares the entire stroke with an **offline Russian/English starter dictionary**; passing over an intermediate key does **not** add its letter to the word. The best guess is committed once on release and up to three tap-selectable alternatives appear in a compact suggestion row. Choosing an alternative safely replaces the last guessed word only if the focused field, text and cursor have not changed. A gesture with no viable dictionary match is not inserted as random letters. Tap and long-press symbols are unchanged. This does **not** claim to match the full Yandex Keyboard lexicon or its learning, language-model or personalization quality.
 - **Left-hand VR ray** is projected independently using Vivecraft 1.21.5's GUI geometry, with an orange **L** marker. In the stock Oculus GUI mapping, the **left grip** is the default available input (GUI Shift); the default **left trigger is not mapped to GUI click**, while the right trigger is. For left-trigger use, bind the left trigger to the GUI Shift action in your Vivecraft controller bindings. The optional Vivecraft Keyboard Click action is supported when its keyboard action set is active; it is not active just because FoxCraft's overlay is shown. Don't override or replace Oculus bindings automatically. Hardware verification of both hands is pending.
 
 ## Device feedback (2026-11-06)
@@ -21,7 +21,7 @@ and successfully using it to type. This is a **user-reported basic headset
 smoke test**, not an independently collected run log or a full acceptance
 test. No Windows PC was needed for that manual JAR installation.
 
-Still **not individually confirmed** by the user: all RU/EN and symbol keys,
+Still **not individually confirmed** by the user: the new shape-based gesture recognition, suggestion selection, all RU/EN and symbol keys,
 450 ms long press, Ё/ё, cursor movement, ESC, focus switching, multiplayer
 text fields, controller edge cases, or long-session stability. A separate
 standalone **FoxCraft Unity APK has not yet been produced or tested**.
