@@ -99,6 +99,20 @@ public final class KeyboardLayout {
                              boolean russian, boolean symbols, boolean shift,
                              boolean collapsed, int preferredWidth,
                              List<String> suggestedWords, int chatInputBottomY) {
+        return make(screenWidth, screenHeight, chat, russian, symbols, shift,
+            collapsed, preferredWidth, suggestedWords, chatInputBottomY, false);
+    }
+
+    /**
+     * Center a dedicated VR-plane layout on its transparent framebuffer.
+     * Its world-space anchor is the center of the visible keys, rather than
+     * the center of a large invisible part of a screen-sized framebuffer.
+     */
+    public static Panel make(int screenWidth, int screenHeight, boolean chat,
+                             boolean russian, boolean symbols, boolean shift,
+                             boolean collapsed, int preferredWidth,
+                             List<String> suggestedWords, int chatInputBottomY,
+                             boolean centerOnVrPlane) {
         if (screenWidth < 220 || screenHeight < 140) return null;
         int width = Math.min(Math.max(220, Math.min(390, preferredWidth)),
             screenWidth - 12);
@@ -108,7 +122,9 @@ public final class KeyboardLayout {
         int headerHeight = rowHeight + 2;
         int height = collapsed ? headerHeight + 8 : headerHeight + rowHeight * 6 + gap * 6 + 9;
         int y;
-        if (chat) {
+        if (centerOnVrPlane) {
+            y = Math.max(8, (screenHeight - height) / 2);
+        } else if (chat) {
             // Prefer the free space below the chat input, like a separate
             // QuestCraft-style floating keyboard. If there is not enough room,
             // place it above the field rather than covering the input itself.
