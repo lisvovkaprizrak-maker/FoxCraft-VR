@@ -513,6 +513,18 @@ public final class KeyboardLogicSmokeTest {
             "English Shift still capitalises swipe");
         require("привет".equals(KeyboardLayout.swipeWord("привет", true, false, false)),
             "Middle-of-line Russian swipe stays lowercase without Shift");
+        require("".equals(KeyboardLayout.leadingSwipeSpace("", 0)),
+            "First swipe in an empty field must not start with a space");
+        require(" ".equals(KeyboardLayout.leadingSwipeSpace("Привет", 6)),
+            "A second swipe follows the first with exactly one separator");
+        require(" ".equals(KeyboardLayout.leadingSwipeSpace("Привет", 6)),
+            "A swipe after manually typed text also requires one separator");
+        require("".equals(KeyboardLayout.leadingSwipeSpace("Привет ", 7)),
+            "A manual space before a swipe must never be doubled");
+        require(" ".equals(KeyboardLayout.leadingSwipeSpace("Привет,", 7)),
+            "A swipe following punctuation needs a separator");
+        require("".equals(KeyboardLayout.leadingSwipeSpace("Привет", 0)),
+            "Inserting at the beginning of existing text cannot prepend whitespace");
         require(" ".equals(KeyboardLayout.trailingWordSpace("Привет", 6)),
             "Explicit punctuation may insert one trailing space");
         require("".equals(KeyboardLayout.trailingWordSpace("Привет уже", 6)),
@@ -677,6 +689,23 @@ public final class KeyboardLogicSmokeTest {
         draft.insert(" мир");
         require("Привет мир".equals(draft.message()),
             "Typing words must not insert automatic spaces");
+        draft.clear();
+        draft.insertSwipeWord("Привет");
+        require("Привет".equals(draft.message()),
+            "First compose swipe must not insert leading whitespace");
+        draft.insertSwipeWord("мир");
+        require("Привет мир".equals(draft.message()),
+            "Compose swipes are separated by one space");
+        draft.insert("!");
+        draft.insertSwipeWord("всем");
+        require("Привет мир! всем".equals(draft.message()),
+            "Manual typing followed by swipe must also be separated");
+        draft.insert(" ");
+        draft.insertSwipeWord("друзья");
+        require("Привет мир! всем друзья".equals(draft.message()),
+            "Existing space must not be duplicated in composer");
+        draft.clear();
+        draft.insert("Привет мир");
         draft.dot();
         require("Привет мир. ".equals(draft.message()),
             "Dot must add one space after the sentence");

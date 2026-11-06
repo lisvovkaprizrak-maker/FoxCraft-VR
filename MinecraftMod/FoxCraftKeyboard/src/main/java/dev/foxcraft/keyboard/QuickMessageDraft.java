@@ -36,6 +36,12 @@ public final class QuickMessageDraft {
         setCursor(at + value.length());
     }
 
+    /** Swipe words are separated from any preceding text, not just swipes. */
+    public void insertSwipeWord(String word) {
+        if (word == null || word.isEmpty()) return;
+        insert(KeyboardLayout.leadingSwipeSpace(active().toString(), cursor()) + word);
+    }
+
     public boolean atStartOfLine() {
         return active().substring(0, cursor()).isBlank();
     }

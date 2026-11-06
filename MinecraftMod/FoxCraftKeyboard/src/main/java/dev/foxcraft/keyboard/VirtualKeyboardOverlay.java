@@ -36,7 +36,7 @@ public final class VirtualKeyboardOverlay {
     private String suggestionSnapshot = "";
     private String lastInsertedWord = "";
     private String lastInsertedSuffix = "";
-    // True only when the second consecutive swipe inserted a separator.
+    // True when this swipe introduced an automatic separator (used for undo).
     private boolean lastSwipeLeadingSpace;
     private int suggestionCursor = -1;
     private boolean leftDown;
@@ -1017,17 +1017,15 @@ public final class VirtualKeyboardOverlay {
             // Swipes edit the selected local draft field, never the live chat.
             String word = KeyboardLayout.swipeWord(result.text(), russian, shift,
                 quickDraft.atStartOfLine());
-            quickDraft.insert(word);
+            quickDraft.insertSwipeWord(word);
             shift = false;
             panel = null;
             return;
         }
         if (result.key().command() == KeyboardLayout.Command.TYPE &&
             !release.suggestions().isEmpty()) {
-            // A separator is added ONLY between two consecutive swipes.
-            // The existing snapshot proves the prior swipe hasn't been edited
-            // or followed by a manual key, a cursor move or a suggestion.
-            boolean previousSwipe = validLastSwipe(field);
+            // Separate a swipe from ANY preceding text, including manually
+            // typed words; the field's cursor determines whether a space is needed.
             clearSuggestions();
             int before = field.getCursor();
             boolean atStartOfLine = before == 0 ||
@@ -1039,12 +1037,12 @@ public final class VirtualKeyboardOverlay {
                 .map(word -> KeyboardLayout.swipeWord(word, russian, shift,
                     atStartOfLine)).toList();
             shift = false;
-            // No trailing auto-space: one space is inserted BEFORE the next
-            // swipe word, and only when the previous gesture was also a swipe.
-            boolean leadingSpace = previousSwipe && before > 0 &&
-                !Character.isWhitespace(field.getText().charAt(before - 1));
+            // Only insert a separator before the new word if one is missing.
+            // This also handles ordinary typed text followed by a swipe.
+            String separator = KeyboardLayout.leadingSwipeSpace(field.getText(), before);
+            boolean leadingSpace = !separator.isEmpty();
             String suffix = "";
-            String inserted = (leadingSpace ? " " : "") + chosen;
+            String inserted = separator + chosen;
             field.write(inserted);
             int after = field.getCursor();
             String actual = field.getText();

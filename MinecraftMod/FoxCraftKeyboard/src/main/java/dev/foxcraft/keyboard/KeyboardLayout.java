@@ -465,6 +465,15 @@ public final class KeyboardLayout {
             word.substring(1);
     }
 
+    /** Put a space BEFORE a swipe word whenever preceding text needs one.
+     * Works for ordinary typing followed by a swipe as well as two swipes.
+     * Never prepend a space in an empty field, at the beginning of text,
+     * or when the cursor already follows whitespace. */
+    public static String leadingSwipeSpace(String text, int cursor) {
+        return text != null && cursor > 0 && cursor <= text.length() &&
+            !Character.isWhitespace(text.charAt(cursor - 1)) ? " " : "";
+    }
+
     /** Do not insert two automatic spaces when typing in an existing line. */
     public static String trailingWordSpace(String text, int cursor) {
         if (text != null && cursor >= 0 && cursor < text.length() &&
