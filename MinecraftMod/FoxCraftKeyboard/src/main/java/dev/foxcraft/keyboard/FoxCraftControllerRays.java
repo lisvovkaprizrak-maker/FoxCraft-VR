@@ -56,12 +56,19 @@ public final class FoxCraftControllerRays {
                 // target. Aim our SHORT cosmetic beam exactly along that same
                 // line, not along a guessed fixed -Z controller axis.
                 Vector3f eyeRelativeHit = FoxCraftVrPlane.controllerHitRelativeToEye(hand);
-                if (eyeRelativeHit == null) continue;
                 Matrix4f matrix = new Matrix4f();
                 setup.invoke(null, hand, matrix);
-                Vector3f targetInController = new Matrix4f(matrix).invert()
-                    .transformPosition(eyeRelativeHit, new Vector3f());
-                drawTaperedPointer(consumer, matrix, targetInController);
+                // Never hide the laser merely because its ray currently misses
+                // the keyboard. The player needs the straight visible guide to
+                // find the panel. Prefer the exact hit direction when available.
+                Vector3f localDirection = new Vector3f(0f, 0f, -1f);
+                if (eyeRelativeHit != null) {
+                    Vector3f hit = new Matrix4f(matrix).invert()
+                        .transformPosition(eyeRelativeHit, new Vector3f());
+                    if (hit.isFinite() && hit.lengthSquared() > 0.01f)
+                        localDirection.set(hit);
+                }
+                drawTaperedPointer(consumer, matrix, localDirection);
             }
             buffers.draw(RenderLayer.getLines());
         } catch (ReflectiveOperationException | LinkageError | RuntimeException error) {
@@ -82,10 +89,13 @@ public final class FoxCraftControllerRays {
     private static void drawTaperedPointer(VertexConsumer consumer,
                                            Matrix4f matrix, Vector3f localTarget) {
         float distance = localTarget.length();
-        if (!(distance > START_OFFSET + GAP_BEFORE_KEYBOARD)) return;
+        if (!(distance > 0.001f) || !localTarget.isFinite()) return;
         Vector3f direction = localTarget.normalize(new Vector3f());
-        float end = Math.min(MAX_BEAM_LENGTH, distance - GAP_BEFORE_KEYBOARD);
-        if (end <= START_OFFSET + 0.03f) return;
+        // The visible pointer is intentionally short, even if the click ray
+        // intersects the panel farther away. When no hit is available, still
+        // show the normal straight pointer for calibration.
+        float end = Math.min(MAX_BEAM_LENGTH,
+            Math.max(START_OFFSET + 0.05f, distance - GAP_BEFORE_KEYBOARD));
         Vector3f start = new Vector3f(direction).mul(START_OFFSET);
         Vector3f finish = new Vector3f(direction).mul(end);
         Vector3f midpoint = new Vector3f(start).add(finish).mul(0.5f);
