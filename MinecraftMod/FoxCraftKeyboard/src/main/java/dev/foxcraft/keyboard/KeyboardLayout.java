@@ -220,7 +220,7 @@ public final class KeyboardLayout {
      * the VR panel temporarily displays theme choices instead of key rows.
      * Layout dimensions and hit coordinates match the existing panel exactly.
      */
-    public static Panel themeMenu(Panel original, KeyboardTheme selected) {
+    public static Panel themeMenu(Panel original, String selected) {
         if (original == null) return null;
         int x = original.x() + 7;
         int y = original.y() + 30;
@@ -231,13 +231,14 @@ public final class KeyboardLayout {
         int gap = 3;
         int rows = 7;
         int rowHeight = Math.max(9, (availableHeight - gap * (rows - 1)) / rows);
-        KeyboardTheme[] themes = KeyboardTheme.values();
-        for (int i = 0; i < themes.length; i++) {
+        // Keep the standalone geometry smoke test dependency-free; theme
+        // rendering and palette definitions are handled by KeyboardTheme.
+        String[] ids = {"CLASSIC", "MIDNIGHT", "OCEAN", "SAKURA", "AURORA", "NEW_YEAR"};
+        String[] names = {"FoxCraft", "Полночь", "Океан", "Сакура", "Сияние", "Новый год"};
+        for (int i = 0; i < ids.length; i++) {
             int rowY = y + i * (rowHeight + gap);
-            // A visible checkmark identifies the chosen palette. Selection
-            // is non-text input and never writes into chat or menu fields.
-            String name = (selected == themes[i] ? "✓ " : "") + themes[i].title();
-            options.add(new Key(name, Command.THEME, themes[i].name(), "",
+            String name = (ids[i].equals(selected) ? "✓ " : "") + names[i];
+            options.add(new Key(name, Command.THEME, ids[i], "",
                 x, rowY, width, rowHeight));
         }
         options.add(new Key("←  К клавиатуре", Command.BACK_TO_KEYS, "", "",
