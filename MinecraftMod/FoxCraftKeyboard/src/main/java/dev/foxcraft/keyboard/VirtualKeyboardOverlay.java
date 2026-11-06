@@ -207,7 +207,10 @@ public final class VirtualKeyboardOverlay {
         long now = System.nanoTime() / 1_000_000L;
         if (!detached) updateLeftHand(screen, now);
         int pulse = (int) (50 + 38 * Math.sin(now / 320.0));
-        int border = accent;
+        // New Year's theme uses a RED chrome/outline, independent of its
+        // golden tree star and other palette accents.
+        int chrome = theme == KeyboardTheme.NEW_YEAR ? 0xFFE23B50 : accent;
+        int border = chrome;
 
         // HD-inspired multilayer chassis: diffuse light, cool top rim,
         // smooth alpha-covered corners and a restrained charcoal gradient.
@@ -215,7 +218,7 @@ public final class VirtualKeyboardOverlay {
             int alpha = Math.max(1, (20 - layer * 2));
             rounded(context, panel.x() - layer, panel.y() - layer,
                 panel.width() + layer * 2, panel.height() + layer * 2,
-                14 + layer, (alpha << 24) | (accent & 0x00FFFFFF));
+                14 + layer, (alpha << 24) | (chrome & 0x00FFFFFF));
         }
         rounded(context, panel.x() - 2, panel.y() - 2,
             panel.width() + 4, panel.height() + 4, 13, border);
@@ -229,7 +232,7 @@ public final class VirtualKeyboardOverlay {
                 10, ((8 - strip) << 24) | (theme == KeyboardTheme.CLASSIC ? 0x00B3A5C2 : (accent & 0x00FFFFFF)));
         }
         context.fill(panel.x() + 21, panel.y() - 2,
-            panel.x() + panel.width() - 21, panel.y() - 1, ((accent & 0x00FFFFFF) | 0x66000000));
+            panel.x() + panel.width() - 21, panel.y() - 1, ((chrome & 0x00FFFFFF) | 0x66000000));
         // Raised center crest: the reference keyboard has a fox-shaped top
         // silhouette rather than a simple uniformly rounded rectangle.
         if (!collapsed) {
@@ -265,11 +268,10 @@ public final class VirtualKeyboardOverlay {
                 context.drawText(font, ("Craft"), brandX + 38, brandY + 4,
                     textColor, true);
             } else {
-                String title = settingsOpen ? "ТЕМЫ" : theme.title();
-                int titleWidth = font.getWidth(title);
-                context.drawText(font, title,
-                    panel.x() + (panel.width() - titleWidth) / 2,
-                    brandY + 6, accent, false);
+                // Alternative themes display the user's requested animated
+                // illustration INSTEAD of a plain theme name. Classic logo
+                // stays untouched; this crest does not receive input events.
+                KeyboardHeaderArt.render(context, panel, theme, now);
             }
         }
         KeyboardLayout.Key heldAlternate = null;
@@ -307,12 +309,12 @@ public final class VirtualKeyboardOverlay {
                 key.width(), key.height(), 5, 0x55000000);
             if (lit) {
                 rounded(context, key.x() - 2, key.y() - 2,
-                    key.width() + 4, key.height() + 4, 7, (0x55000000 | (accent & 0x00FFFFFF)));
+                    key.width() + 4, key.height() + 4, 7, (0x55000000 | (chrome & 0x00FFFFFF)));
                 rounded(context, key.x() - 1, key.y() - 1,
-                    key.width() + 2, key.height() + 2, 6, accent);
+                    key.width() + 2, key.height() + 2, 6, chrome);
             } else {
                 rounded(context, key.x(), key.y(),
-                    key.width(), key.height(), 6, (theme == KeyboardTheme.CLASSIC ? 0xFF494553 : accent));
+                    key.width(), key.height(), 6, (theme == KeyboardTheme.CLASSIC ? 0xFF494553 : chrome));
             }
             rounded(context, key.x() + 1, key.y() + 1,
                 Math.max(1, key.width() - 2), Math.max(1, key.height() - 2),
@@ -420,7 +422,7 @@ public final class VirtualKeyboardOverlay {
         int glow = (int) (30 + 20 * (1 + Math.sin(now / 500.0)));
         context.fill(panel.x() + 12, panel.y() + panel.height() - 2,
             panel.x() + panel.width() - 12, panel.y() + panel.height() - 1,
-            (Math.min(255, glow) << 24) | (accent & 0x00FFFFFF));
+            (Math.min(255, glow) << 24) | (chrome & 0x00FFFFFF));
         // A successful screen fallback also replaces the old QuestCraft
         // keyboard. Do not suppress the native fallback if we drew nothing.
         if (!detached) QuestCraftKeyboardSuppressor.closeWhenScreenFallbackVisible();
@@ -532,17 +534,42 @@ public final class VirtualKeyboardOverlay {
         return true;
     }
 
-    /** Non-fox seasonal decor, deliberately confined to the panel corners. */
+    /**
+     * Actual FALLING snowflakes, not the old stationary decoration dots.
+     * All pixels remain inside the chassis and are painted before keycaps,
+     * so falling snow can never obscure a letter or an active hit marker.
+     */
     private static void drawSnowDots(DrawContext c, KeyboardLayout.Panel p, long now) {
-        int twinkle = (int) ((now / 430) % 3);
-        for (int i = 0; i < 9; i++) {
-            int x = i < 5 ? p.x() + 12 + i * 9
-                : p.x() + p.width() - 12 - (i - 5) * 9;
-            int y = i < 5 ? p.y() + 7 + (i % 3) * 4
-                : p.y() + p.height() - 10 - (i % 3) * 4;
-            int alpha = ((i + twinkle) % 3 == 0) ? 0xD0 : 0x80;
-            c.fill(x, y, x + 2, y + 2, (alpha << 24) | 0x00F5FFFF);
+        int w = p.width() - 14;
+        int h = p.height() - 14;
+        if (w < 10 || h < 10) return;
+        for (int i = 0; i < 28; i++) {
+            int speed = 80 + (i % 4) * 31;
+            int x = p.x() + 7 + (int) Math.floorMod(
+                i * 83L + (long) (5 * Math.sin(now / 750.0 + i)), w);
+            int y = p.y() + 7 + (int) Math.floorMod(
+                i * 37L + now / speed, h);
+            int color = (i % 4 == 0 ? 0xD0FFFFFF : 0x99DEF4FF);
+            // Six-spoke snowflake silhouette, including diagonal branches.
+            snowPixel(c, p, x, y, color);
+            for (int d = 1; d <= 3; d++) {
+                snowPixel(c, p, x + d, y, color);
+                snowPixel(c, p, x - d, y, color);
+                snowPixel(c, p, x, y + d, color);
+                snowPixel(c, p, x, y - d, color);
+            }
+            for (int direction : new int[]{-1, 1}) {
+                snowPixel(c, p, x + direction * 2, y - 1, color);
+                snowPixel(c, p, x + direction * 2, y + 1, color);
+                snowPixel(c, p, x - 1, y + direction * 2, color);
+                snowPixel(c, p, x + 1, y + direction * 2, color);
+            }
         }
+    }
+
+    private static void snowPixel(DrawContext c, KeyboardLayout.Panel p,
+                                  int x, int y, int color) {
+        if (clearAmbientPixel(p, x, y)) c.fill(x, y, x + 1, y + 1, color);
     }
 
     /** Quest-style small white circular contact point with a faint cool glow. */
