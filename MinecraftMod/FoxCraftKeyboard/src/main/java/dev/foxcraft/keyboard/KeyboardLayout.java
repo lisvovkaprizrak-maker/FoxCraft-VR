@@ -11,7 +11,7 @@ import java.util.Locale;
 public final class KeyboardLayout {
     public enum Command {
         NONE, TYPE, LANGUAGE, SYMBOLS, SHIFT, SPACE,
-        LEFT, RIGHT, BACKSPACE, ENTER, ESCAPE, COLLAPSE, EXPAND
+        LEFT, RIGHT, BACKSPACE, ENTER, ESCAPE, RESIZE, COLLAPSE, EXPAND
     }
 
     public record Key(String label, Command command, String value, String alternate,
@@ -69,10 +69,17 @@ public final class KeyboardLayout {
     public static Panel make(int screenWidth, int screenHeight, boolean chat,
                              boolean russian, boolean symbols, boolean shift,
                              boolean collapsed) {
+        return make(screenWidth, screenHeight, chat, russian, symbols, shift,
+            collapsed, 280);
+    }
+
+    /** Size is adjustable in VR without changing Minecraft's GUI scaling. */
+    public static Panel make(int screenWidth, int screenHeight, boolean chat,
+                             boolean russian, boolean symbols, boolean shift,
+                             boolean collapsed, int preferredWidth) {
         if (screenWidth < 220 || screenHeight < 140) return null;
-        // Compact Quest layout: ~25% narrower and ~20% shorter than the
-        // first headset-tested prototype, without reducing the number row.
-        int width = Math.min(320, screenWidth - 12);
+        int width = Math.min(Math.max(220, Math.min(390, preferredWidth)),
+            screenWidth - 12);
         int x = (screenWidth - width) / 2;
         int rowHeight = Math.max(14, Math.min(19, (screenHeight - 30) / 7));
         int gap = 2;
@@ -94,10 +101,12 @@ public final class KeyboardLayout {
         }
 
         addWeighted(keys, insideX, rowY, insideWidth, headerHeight, gap,
-            new String[]{"FOXCRAFT", russian ? "РУС" : "ENG", symbols ? "АБВ" : "123", "×"},
-            new Command[]{Command.NONE, Command.LANGUAGE, Command.SYMBOLS, Command.COLLAPSE},
-            new String[]{"", "", "", ""},
-            new int[]{6, 2, 2, 1});
+            new String[]{"FOXCRAFT", russian ? "РУС" : "ENG",
+                symbols ? "АБВ" : "123", "РАЗМ", "×"},
+            new Command[]{Command.NONE, Command.LANGUAGE, Command.SYMBOLS,
+                Command.RESIZE, Command.COLLAPSE},
+            new String[]{"", "", "", "", ""},
+            new int[]{5, 2, 2, 2, 1});
         rowY += headerHeight + gap;
 
         // Dedicated always-visible number row. Letters retain their own long-press legends.
