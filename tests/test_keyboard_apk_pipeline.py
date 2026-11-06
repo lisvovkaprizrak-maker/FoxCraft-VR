@@ -82,7 +82,7 @@ class KeyboardApkPipelineTests(unittest.TestCase):
         settings = (ROOT / "ProjectSettings/EditorBuildSettings.asset").read_text(
             encoding="utf-8"
         )
-        self.assertIn("- enabled: 1\\n    path: Assets/Scenes/Main.unity", settings)
+        self.assertIn("- enabled: 1\n    path: Assets/Scenes/Main.unity", settings)
         self.assertTrue((ROOT / "Assets/Scenes/Main.unity").is_file())
 
     def test_android_manifest_preserves_pojlib_vr_activity(self):
