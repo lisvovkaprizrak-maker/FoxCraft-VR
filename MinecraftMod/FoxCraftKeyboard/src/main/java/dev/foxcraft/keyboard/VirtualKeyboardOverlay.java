@@ -127,6 +127,7 @@ public final class VirtualKeyboardOverlay {
                                 int mouseX, int mouseY, int width,
                                 int height, boolean detached,
                                 double detachedLeftX, double detachedLeftY) {
+        FoxCraftVoiceInput.poll();
         if (screen != previousScreen) {
             previousScreen = screen;
             clearSuggestions();
