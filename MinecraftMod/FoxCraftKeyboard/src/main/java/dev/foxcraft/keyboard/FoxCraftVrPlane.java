@@ -43,6 +43,13 @@ public final class FoxCraftVrPlane {
     private static final float BELOW_CHAT = 0.69f;
     private static final float FORWARD_FROM_CHAT = 0.28f;
     private static final float TOWARDS_PLAYER = 0.065f;
+    // Vivecraft MathUtils.LEFT is local +X. Shift toward the player's RIGHT
+    // with -X and downward with -Y in the *original GUI's room basis*.
+    // Both the rendered quad and getTexCoordsForCursor use this exact pose.
+    private static final float CHAT_RIGHT_SHIFT = 0.17f;
+    private static final float CHAT_DOWN_SHIFT = 0.12f;
+    private static final float MENU_RIGHT_SHIFT = 0.09f;
+    private static final float MENU_DOWN_SHIFT = 0.07f;
 
     private static VirtualKeyboardOverlay keyboard;
     private static PanelScreen screen;
@@ -199,9 +206,16 @@ public final class FoxCraftVrPlane {
             float forward = inChat ? FORWARD_FROM_CHAT : MENU_FORWARD;
             rotation = new Matrix4f(guiRot)
                 .rotateX((float) Math.toRadians(-30.0));
+            float xCorrection = inChat ? CHAT_RIGHT_SHIFT : MENU_RIGHT_SHIFT;
+            float yCorrection = inChat ? CHAT_DOWN_SHIFT : MENU_DOWN_SHIFT;
             position = new Vector3f(guiPos)
                 .sub(guiRot.transformDirection(new Vector3f(0, 1, 0),
-                    new Vector3f()).mul(down * guiScale))
+                    new Vector3f()).mul((down + yCorrection) * guiScale))
+                // +X in Vivecraft's GUI basis means LEFT, not RIGHT.
+                // Apply the offset to the shared room-space position, never
+                // only to the drawn quad: projected controller UVs follow it.
+                .sub(guiRot.transformDirection(new Vector3f(1, 0, 0),
+                    new Vector3f()).mul(xCorrection * guiScale))
                 .add(guiRot.transformDirection(new Vector3f(0, 0, 1),
                     new Vector3f()).mul(forward * guiScale))
                 .add(rotation.transformDirection(new Vector3f(0, 0, 1),
