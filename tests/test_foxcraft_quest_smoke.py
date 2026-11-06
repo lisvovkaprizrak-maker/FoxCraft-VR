@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from io import StringIO
+from contextlib import redirect_stdout
 from tempfile import TemporaryDirectory
 import sys
 import unittest
@@ -72,6 +74,30 @@ class QuestSmokeTests(unittest.TestCase):
             with patch.object(module, "command") as called:
                 self.assertEqual(module.main(), 1)
                 called.assert_not_called()
+
+    def test_logs_include_java_mod_marker_without_exposing_other_apps(self):
+        log_lines = (
+            "11-06 I/Other: token=should-not-appear\\n"
+            "11-06 I/Java: [FoxCraftKeyboard] initialized for Minecraft 1.21.5\\n"
+            "11-06 I/Unity: [FoxCraft] Starting Minecraft through Pojlib\\n"
+            "11-06 I/Other: private chat message\\n"
+        )
+        with patch.object(sys, "argv", ["foxcraft_quest_smoke.py", "--logs"]):
+            with patch.object(module.shutil, "which", return_value="/adb"):
+                with patch.object(module, "choose_device", return_value="QuestA"):
+                    with patch.object(module, "command", side_effect=[
+                        "package:/data/app/foxcraft/base.apk\\n", log_lines
+                    ]) as called:
+                        output = StringIO()
+                        with redirect_stdout(output):
+                            self.assertEqual(module.main(), 0)
+
+        self.assertEqual(called.call_args_list[-1].args[0],
+                         ["/adb", "-s", "QuestA", "logcat", "-d", "-t", "1200"])
+        self.assertIn("FoxCraftKeyboard", output.getvalue())
+        self.assertIn("[FoxCraft] Starting Minecraft", output.getvalue())
+        self.assertNotIn("should-not-appear", output.getvalue())
+        self.assertNotIn("private chat message", output.getvalue())
 
     def test_launch_is_explicit_and_package_specific(self):
         with patch.object(sys, "argv", ["foxcraft_quest_smoke.py", "--launch"]):
