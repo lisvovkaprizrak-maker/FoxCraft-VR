@@ -96,7 +96,7 @@ public final class TestHarness {
         String log = Files.readString(Path.of(args[0], "config",
             "questchatkeyboard-bridge-status.txt"));
         for (String marker : new String[] {
-            "BRIDGE_INITIALIZED v0.6.0", "END_CLIENT_TICK_CALLBACK_RECEIVED",
+            "BRIDGE_INITIALIZED v" + args[1], "END_CLIENT_TICK_CALLBACK_RECEIVED",
             "CHAT_OPENED REQUEST_SENT", "CHAT_CLOSED REQUEST_SENT",
             "TEXT_APPLIED_TO_CHAT_FIELD", "CHAT_ENTER_HANDLER_CALLED",
             "INVALID_OR_STALE_RESPONSE_SKIPPED" })
