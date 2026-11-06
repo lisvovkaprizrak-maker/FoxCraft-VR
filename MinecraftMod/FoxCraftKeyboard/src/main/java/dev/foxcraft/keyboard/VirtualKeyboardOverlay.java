@@ -1,5 +1,6 @@
 package dev.foxcraft.keyboard;
 
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.DrawContext;
@@ -64,7 +65,10 @@ public final class VirtualKeyboardOverlay {
     private boolean collapsed;
     private boolean settingsOpen;
     private boolean layoutSettingsOpen;
-    private KeyboardTheme theme = KeyboardTheme.CLASSIC;
+    private final KeyboardThemePreferences themePrefs =
+        new KeyboardThemePreferences(FabricLoader.getInstance().getConfigDir()
+            .resolve("foxcraft-keyboard-theme.txt"));
+    private KeyboardTheme theme = themePrefs.load();
     private boolean suppressMinecraftGuiClick;
 
     /**
@@ -716,6 +720,7 @@ public final class VirtualKeyboardOverlay {
             case BACK_TO_KEYS -> { settingsOpen = false; panel = null; }
             case THEME -> {
                 theme = KeyboardTheme.fromName(result.key().value());
+                themePrefs.save(theme);
                 // Keep the settings page open so another theme can be previewed.
                 panel = null;
             }
