@@ -79,8 +79,13 @@ public final class VivecraftLeftPointer {
             // smoke tests compile VivecraftLeftPointer without Minecraft,
             // whereas the actual Fabric mod includes FoxCraftLeftTrigger.
             // No right-hand clicks can activate this left-hand path.
+            Object rightGuiClick = null;
+            try { rightGuiClick = gui.getField("KEY_RIGHT_CLICK").get(null); }
+            catch (NoSuchFieldException ignored) { }
             boolean rawLeftTrigger = rawTrigger(provider, leftHand,
-                keyboardBinding, leftGuiClick);
+                keyboardBinding, leftGuiClick) ||
+                (rightGuiClick != null && rawTrigger(provider, leftHand,
+                    keyboardBinding, rightGuiClick));
 
             // Stock Oculus GUI bindings map left grip to GUI Shift, while
             // only right trigger clicks the mouse. Left grip is a useful
