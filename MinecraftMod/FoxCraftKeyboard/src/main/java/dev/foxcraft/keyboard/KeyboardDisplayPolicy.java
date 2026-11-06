@@ -18,6 +18,16 @@ public final class KeyboardDisplayPolicy {
                                             boolean chatScreen,
                                             boolean roomPanelReady,
                                             boolean editableFocus) {
-        return editableFocus && !roomPanelReady;
+        return showScreenOverlay(vrSession, chatScreen, roomPanelReady,
+            editableFocus, false);
+    }
+
+    /** A menu needs explicit user input; Minecraft can auto-focus search. */
+    public static boolean showScreenOverlay(boolean vrSession,
+                                            boolean chatScreen,
+                                            boolean roomPanelReady,
+                                            boolean editableFocus,
+                                            boolean menuRequested) {
+        return editableFocus && !roomPanelReady && (chatScreen || menuRequested);
     }
 }
