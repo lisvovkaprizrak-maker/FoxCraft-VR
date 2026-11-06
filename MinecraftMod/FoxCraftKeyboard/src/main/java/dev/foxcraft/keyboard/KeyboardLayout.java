@@ -208,6 +208,51 @@ public final class KeyboardLayout {
         return new Panel(x, y, width, height, List.copyOf(keys));
     }
 
+
+    /**
+     * Dock the emergency Minecraft-GUI keyboard towards a free screen edge.
+     * Menu lists are normally central: a corner dock is less disruptive than
+     * the old bottom-centre overlay. Never cover the currently edited field.
+     */
+    public static Panel dockForMenu(Panel panel, int screenWidth, int screenHeight,
+                                    int fieldX, int fieldY, int fieldWidth,
+                                    int fieldHeight) {
+        if (panel == null) return null;
+        int margin = 8;
+        int leftX = margin;
+        int rightX = Math.max(margin, screenWidth - panel.width() - margin);
+        boolean fieldOnLeft = fieldX + fieldWidth / 2 < screenWidth / 2;
+        int x = fieldOnLeft ? rightX : leftX;
+        int y = Math.max(margin, screenHeight - panel.height() - margin);
+        if (overlaps(x, y, panel.width(), panel.height(),
+                     fieldX, fieldY, fieldWidth, fieldHeight)) {
+            int below = fieldY + fieldHeight + margin;
+            int above = fieldY - panel.height() - margin;
+            if (below + panel.height() + margin <= screenHeight) y = below;
+            else if (above >= margin) y = above;
+            else {
+                // Try the opposite edge before allowing any overlap.
+                int alternateX = fieldOnLeft ? leftX : rightX;
+                if (!overlaps(alternateX, y, panel.width(), panel.height(),
+                              fieldX, fieldY, fieldWidth, fieldHeight)) x = alternateX;
+            }
+        }
+        int dx = x - panel.x(), dy = y - panel.y();
+        List<Key> translated = new ArrayList<>(panel.keys().size());
+        for (Key k : panel.keys()) {
+            translated.add(new Key(k.label(), k.command(), k.value(),
+                k.alternate(), k.x() + dx, k.y() + dy, k.width(), k.height()));
+        }
+        return new Panel(x, y, panel.width(), panel.height(),
+                         List.copyOf(translated));
+    }
+
+    private static boolean overlaps(int ax, int ay, int aw, int ah,
+                                    int bx, int by, int bw, int bh) {
+        return ax < bx + bw && ax + aw > bx &&
+               ay < by + bh && ay + ah > by;
+    }
+
     private static void addLetters(List<Key> keys, int x, int y, int width,
                                    int height, int gap, String[] row, String[] legends,
                                    boolean upper) {
