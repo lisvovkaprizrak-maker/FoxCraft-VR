@@ -448,6 +448,11 @@ public final class FoxCraftVrPlane {
         Class<?> handType = Class.forName("org.vivecraft.client_vr.provider.ControllerType");
         Object keyboardClick = guiClass.getField("KEY_KEYBOARD_CLICK").get(null);
         Object regularClick = guiClass.getField("KEY_LEFT_CLICK").get(null);
+        // On some QuestCraft bindings, the left index trigger represents
+        // "use/place" and maps to the GUI right-click action, not GUI left-click.
+        Object guiRightClick = null;
+        try { guiRightClick = guiClass.getField("KEY_RIGHT_CLICK").get(null); }
+        catch (NoSuchFieldException ignored) { }
         Object shiftClick = guiClass.getField("KEY_SHIFT").get(null);
         Method cursorProject = null;
         for (Method method : guiClass.getMethods()) {
@@ -506,8 +511,11 @@ public final class FoxCraftVrPlane {
             // keyboard is suppressed. Check the underlying LEFT-only VR
             // action as well, without triggering a right-hand mouse click.
             boolean downLeftTrigger = hand == 1 &&
-                FoxCraftLeftTrigger.pressed(provider, handed,
-                    keyboardClick, regularClick);
+                (FoxCraftLeftTrigger.pressed(provider, handed,
+                    keyboardClick, regularClick) ||
+                 (guiRightClick != null &&
+                  FoxCraftLeftTrigger.pressed(provider, handed,
+                      keyboardClick, guiRightClick)));
             boolean down = tracked &&
                 (downKeyboard || downRightGui || downLeftGrip ||
                     downLeftTrigger);
