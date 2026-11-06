@@ -35,6 +35,7 @@ public final class VirtualKeyboardOverlay {
     private TextFieldWidget suggestionField;
     private String suggestionSnapshot = "";
     private String lastInsertedWord = "";
+    private String lastInsertedSuffix = "";
     private int suggestionCursor = -1;
     private boolean leftDown;
     private VivecraftLeftPointer.Sample leftSample;
@@ -344,12 +345,17 @@ public final class VirtualKeyboardOverlay {
                 heldAlternate = key;
             }
 
-            // Miniature legends make alternative long-press characters discoverable.
+            // Alternate legends are completely INSIDE the rounded keycap.
+            // Small Russian keys need a 5px inset so even the antialiased
+            // glyph and its shadow cannot touch or cross the orange border.
+            int labelInset = 5;
             if (!key.alternate().isEmpty() && key.height() >= 18) {
-                int glyphWidth = font.getWidth((key.alternate()));
-                context.drawText(font,
-                    (key.alternate()), key.x() + key.width() - glyphWidth - 2,
-                    key.y() + 1, legendColor, false);
+                int glyphWidth = font.getWidth(key.alternate());
+                if (glyphWidth <= key.width() - 2 * labelInset) {
+                    context.drawText(font, key.alternate(),
+                        key.x() + key.width() - glyphWidth - labelInset,
+                        key.y() + 3, legendColor, false);
+                }
             }
 
             String caption = longHeld ? key.alternate() : key.label();
@@ -363,8 +369,21 @@ public final class VirtualKeyboardOverlay {
                     caption = caption.substring(0, caption.length()-1) + "…";
             }
             if (key.command() == KeyboardLayout.Command.THEME) caption = "      " + caption;
-            int captionWidth = font.getWidth((caption));
-            int tx = key.x() + Math.max(1, (key.width() - captionWidth) / 2);
+            // All labels obey a safe inner box, not merely the outer key
+            // rectangle. Avoid text extending into neighbouring borders.
+            int maxCaptionWidth = Math.max(3, key.width() - 2 * labelInset);
+            if (font.getWidth(caption) > maxCaptionWidth) {
+                String fullCaption = caption;
+                while (caption.length() > 1 &&
+                    font.getWidth(caption) > maxCaptionWidth)
+                    caption = caption.substring(0, caption.length() - 1);
+                if (!caption.equals(fullCaption) && caption.length() > 1 &&
+                    font.getWidth(caption + "…") <= maxCaptionWidth)
+                    caption += "…";
+            }
+            int captionWidth = font.getWidth(caption);
+            int tx = key.x() + Math.max(labelInset,
+                (key.width() - captionWidth) / 2);
             int ty = key.y() + Math.max(1, (key.height() - 8) / 2) +
                 (!key.alternate().isEmpty() && key.height() >= 18 ? 3 : 0);
             context.drawText(font,
@@ -679,12 +698,15 @@ public final class VirtualKeyboardOverlay {
     }
 
     /** VR-plane controller input; separate state machines for each hand. */
-    public void vrPressed(Screen screen, double x, double y, int hand) {
-        // Controller state can be ready a frame before the detached layout.
-        if (panel == null) return;
-        if (focusedField(screen) != null)
-            handPointer(hand).press(panel, x, y,
-                System.nanoTime() / 1_000_000L, focusedField(screen));
+    public boolean vrPressed(Screen screen, double x, double y, int hand) {
+        // The first controller event may arrive before this frame's detached
+        // keyboard is painted. Let the poller retry instead of latching an
+        // unhandled trigger forever until the user releases it.
+        if (panel == null || !layoutDetached || !shouldDisplayForScreen(screen))
+            return false;
+        TextFieldWidget field = focusedField(screen);
+        return field != null && handPointer(hand).press(panel, x, y,
+            System.nanoTime() / 1_000_000L, field);
     }
 
     public void vrMoved(Screen screen, double x, double y, int hand) {
@@ -776,32 +798,32 @@ public final class VirtualKeyboardOverlay {
         if (result.key().command() == KeyboardLayout.Command.TYPE &&
             !release.suggestions().isEmpty()) {
             clearSuggestions();
-            String chosen = shift ? capitalize(result.text()) : result.text();
-            List<String> choices = shift
-                ? release.suggestions().stream()
-                    .map(VirtualKeyboardOverlay::capitalize).toList()
-                : release.suggestions();
+            // Capitalise the first letter of every Russian swipe result,
+            // then append one space (unless the following character already
+            // is whitespace). Preserve that suffix when correcting the word.
+            String chosen = KeyboardLayout.swipeWord(result.text(), russian, shift);
+            List<String> choices = release.suggestions().stream()
+                .map(word -> KeyboardLayout.swipeWord(word, russian, shift))
+                .toList();
             shift = false;
             int before = field.getCursor();
-            field.write(chosen);
+            String suffix = KeyboardLayout.trailingWordSpace(field.getText(), before);
+            String inserted = chosen + suffix;
+            field.write(inserted);
             int after = field.getCursor();
             String actual = field.getText();
-            if (after - before == chosen.length() &&
+            if (after - before == inserted.length() &&
                 after <= actual.length() &&
-                actual.substring(before, after).equals(chosen)) {
+                actual.substring(before, after).equals(inserted)) {
                 suggestions = choices;
                 suggestionField = field;
                 suggestionSnapshot = actual;
                 suggestionCursor = after;
                 lastInsertedWord = chosen;
+                lastInsertedSuffix = suffix;
                 panel = null;
             }
         } else activate(screen, result);
-    }
-
-    private static String capitalize(String word) {
-        return word.isEmpty() ? word :
-            word.substring(0, 1).toUpperCase(Locale.ROOT) + word.substring(1);
     }
 
     private void clearSuggestions() {
@@ -811,6 +833,7 @@ public final class VirtualKeyboardOverlay {
         suggestionSnapshot = "";
         suggestionCursor = -1;
         lastInsertedWord = "";
+        lastInsertedSuffix = "";
     }
 
     private void activate(Screen screen, KeyHoldController.Activation result) {
@@ -823,19 +846,42 @@ public final class VirtualKeyboardOverlay {
                 field.getText().equals(suggestionSnapshot) &&
                 field.getCursor() == suggestionCursor &&
                 field.getSelectedText().isEmpty() &&
-                suggestionCursor >= lastInsertedWord.length() &&
-                field.getText().substring(suggestionCursor - lastInsertedWord.length(),
-                    suggestionCursor).equals(lastInsertedWord) &&
+                suggestionCursor >= lastInsertedWord.length() + lastInsertedSuffix.length() &&
+                field.getText().substring(suggestionCursor -
+                    lastInsertedWord.length() - lastInsertedSuffix.length(),
+                    suggestionCursor).equals(lastInsertedWord + lastInsertedSuffix) &&
                 suggestions.contains(candidate)) {
-                field.eraseCharacters(-lastInsertedWord.length());
-                field.write(candidate);
+                field.eraseCharacters(-(lastInsertedWord.length() + lastInsertedSuffix.length()));
+                field.write(candidate + lastInsertedSuffix);
             }
             clearSuggestions();
             return;
         }
         clearSuggestions();
         switch (result.key().command()) {
-            case TYPE, SPACE -> field.write(result.text());
+            case TYPE -> {
+                if (".".equals(result.text())) {
+                    // A swipe appends a space. A following period belongs
+                    // immediately after that word, followed by exactly one
+                    // new space: "Привет. ", not "Привет .  ".
+                    if (KeyboardLayout.trimSpaceBeforeDot(field.getText(),
+                        field.getCursor()))
+                        field.eraseCharacters(-1);
+                    field.write("." + KeyboardLayout.trailingWordSpace(
+                        field.getText(), field.getCursor()));
+                } else {
+                    field.write(result.text());
+                }
+            }
+            case SPACE -> field.write(" ");
+            case HISTORY_PREVIOUS -> {
+                if (screen instanceof ChatScreen)
+                    screen.keyPressed(GLFW.GLFW_KEY_UP, 0, 0);
+            }
+            case HISTORY_NEXT -> {
+                if (screen instanceof ChatScreen)
+                    screen.keyPressed(GLFW.GLFW_KEY_DOWN, 0, 0);
+            }
             case BACKSPACE -> field.eraseCharacters(-1);
             case LEFT -> field.moveCursor(-1, false);
             case RIGHT -> field.moveCursor(1, false);
