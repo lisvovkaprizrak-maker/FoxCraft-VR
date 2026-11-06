@@ -65,6 +65,10 @@ public final class VirtualKeyboardOverlay {
         }
         if (panel == null) return;
 
+        // Vivecraft routes controller ray movement through the Minecraft
+        // screen mouse coordinates, including while the trigger is held.
+        pointer.move(panel, mouseX, mouseY, focusedField(screen));
+
         long now = System.nanoTime() / 1_000_000L;
         int pulse = (int) (50 + 38 * Math.sin(now / 320.0));
         int border = 0xFF000000 | (Math.min(255, 180 + pulse) << 16) |
@@ -135,6 +139,19 @@ public final class VirtualKeyboardOverlay {
             context.drawText(font, symbol,
                 popupX + (width - font.getWidth(symbol)) / 2,
                 popupY + 5, TEXT, false);
+        }
+
+        // A swipe shows its gathered letters live, but writes none of them
+        // into chat until the trigger is released.
+        String preview = pointer.swipePreview();
+        if (!preview.isEmpty()) {
+            String visible = preview.length() > 26 ? "..." + preview.substring(preview.length() - 26) : preview;
+            int previewWidth = Math.min(panel.width() - 12, font.getWidth(visible) + 16);
+            int previewX = panel.x() + (panel.width() - previewWidth) / 2;
+            int previewY = Math.max(1, panel.y() - 23);
+            context.fill(previewX, previewY, previewX + previewWidth, previewY + 20, KEY_BG);
+            context.drawText(font, visible,
+                previewX + 8, previewY + 5, ORANGE, false);
         }
 
         // Gentle orange flow on the outer edge, advanced with monotonic time.
