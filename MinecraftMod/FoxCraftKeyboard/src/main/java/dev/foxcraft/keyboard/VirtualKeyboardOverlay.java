@@ -280,6 +280,16 @@ public final class VirtualKeyboardOverlay {
             context.drawText(font, "L", lx + 6, ly - 5, MINI, false);
         }
 
+        // The right controller is the primary GUI pointer. In detached VR
+        // mode its position is projected independently of the left marker.
+        // Draw both so missing native QuestCraft rays are immediately obvious.
+        if (panel.contains(mouseX, mouseY)) {
+            context.fill(mouseX - 3, mouseY - 3,
+                mouseX + 4, mouseY + 4, ORANGE);
+            context.drawText(font, "R", mouseX + 6, mouseY - 5,
+                ORANGE, false);
+        }
+
         // A swipe shows its gathered letters live, but writes none of them
         // into chat until the trigger is released.
         String preview = !leftPointer.swipePreview().isEmpty()
