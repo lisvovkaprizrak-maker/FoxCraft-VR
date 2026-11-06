@@ -59,3 +59,17 @@ class FoxCraftBridgeIntegrationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FoxCraftInstanceVersionTests(unittest.TestCase):
+    def test_unity_fabric_targets_match_minecraft_1215(self):
+        import json
+        metadata = json.loads((ROOT / "Fabric/foxchatkeyboard/src/main/resources/fabric.mod.json").read_text(encoding="utf-8"))
+        target = metadata["depends"]["minecraft"]
+        self.assertEqual(target, "1.21.5")
+        unity_bridge = (ROOT / "Assets/Scripts/QuestChatKeyboardOverlayBridge.cs").read_text(encoding="utf-8")
+        installer = (ROOT / "Assets/Scripts/FoxCraftFabricModInstaller.cs").read_text(encoding="utf-8")
+        self.assertIn(f'InstanceName = "{target}"', unity_bridge)
+        self.assertIn(f'Instance = "{target}"', installer)
+        self.assertIn('JarName = "FoxChatKeyboard-bridge-0.6.1.jar"', installer)
+
