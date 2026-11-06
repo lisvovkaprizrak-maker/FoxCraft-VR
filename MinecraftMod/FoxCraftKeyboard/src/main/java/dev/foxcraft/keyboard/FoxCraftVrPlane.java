@@ -11,6 +11,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.lwjgl.opengl.GL11;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -113,6 +114,7 @@ public final class FoxCraftVrPlane {
             return;
         }
         Framebuffer old = null;
+        int[] oldViewport = null;
         try {
             // IMPORTANT: KeyboardHandler.SHOWING is false when the player sees
             // "Click to open keyboard". FoxCraft must still appear below chat.
@@ -190,7 +192,9 @@ public final class FoxCraftVrPlane {
             // RenderHelper draws the unchanged GUI geometry to our
             // double-resolution target; explicit viewport avoids relying on
             // the window's lower-resolution eye/GUI framebuffer size.
-            RenderSystem.viewport(0, 0, hdWidth, hdHeight);
+            oldViewport = new int[4];
+            GL11.glGetIntegerv(GL11.GL_VIEWPORT, oldViewport);
+            GL11.glViewport(0, 0, hdWidth, hdHeight);
             DrawContext draw = new DrawContext(client,
                 client.getBufferBuilders().getEntityVertexConsumers());
 
@@ -219,6 +223,11 @@ public final class FoxCraftVrPlane {
         } finally {
             if (old != null)
                 ((VrFramebufferAccess) client).foxcraft$setRenderTarget(old);
+            // VR stereo eye and desktop GUI must inherit their exact previous
+            // viewport, not our supersampled offscreen keyboard dimensions.
+            if (oldViewport != null)
+                GL11.glViewport(oldViewport[0], oldViewport[1],
+                    oldViewport[2], oldViewport[3]);
         }
     }
 
