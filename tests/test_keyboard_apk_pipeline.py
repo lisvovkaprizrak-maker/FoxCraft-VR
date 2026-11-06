@@ -117,12 +117,14 @@ class KeyboardApkPipelineTests(unittest.TestCase):
         self.assertIn("unityVersion: 2022.3.62f3", workflow)
         self.assertIn("FoxCraft-Quest-1.21.5-UNTESTED-APK", workflow)
         self.assertIn("if-no-files-found: error", workflow)
-        self.assertIn('com.foxcraftvr.quest', workflow)
+        apk_verifier = (ROOT / "tools/verify_foxcraft_test_apk.py").read_text(encoding="utf-8")
+        self.assertIn('PACKAGE = "com.foxcraftvr.quest"', apk_verifier)
+        self.assertIn('tools/verify_foxcraft_test_apk.py Builds/FoxCraft-1.21.5-UNTESTED.apk', workflow)
         self.assertIn("tools/stage_foxcraft_ingame_keyboard.py", workflow)
         self.assertIn("tools/check_foxcraft_pojlib_api.py", workflow)
         self.assertLess(workflow.index("Build the matching 1.21.5 Fabric keyboard JAR"),
                         workflow.index("Build separate FoxCraft test APK using Unity"))
-        self.assertLess(workflow.index("Verify APK and separate package identifier"),
+        self.assertLess(workflow.index("Verify signed APK, ARM64, launch activity and embedded Fabric keyboard"),
                         workflow.index("Upload untested Meta Quest APK"))
 
 
