@@ -19,6 +19,9 @@ public sealed class FoxCraftVoiceBridge : MonoBehaviour
     private float nextHeartbeat;
     private string currentId;
     private AndroidJavaObject recognizer;
+    // Keep a managed reference while Android holds the Java callback. On
+    // Quest GC runs independently of SpeechRecognizer's Java lifetime.
+    private VoiceEvents recognitionEvents;
     private bool listening;
 
     public static void RegisterGameDirectory(string gameDirectory)
@@ -128,7 +131,8 @@ public sealed class FoxCraftVoiceBridge : MonoBehaviour
                 }
                 recognizer = speech.CallStatic<AndroidJavaObject>(
                     "createSpeechRecognizer", activity);
-                recognizer.Call("setRecognitionListener", new VoiceEvents(this, id));
+                recognitionEvents = new VoiceEvents(this, id);
+                recognizer.Call("setRecognitionListener", recognitionEvents);
                 using (AndroidJavaObject intent = new AndroidJavaObject(
                     "android.content.Intent", "android.speech.action.RECOGNIZE_SPEECH"))
                 {
@@ -212,6 +216,7 @@ public sealed class FoxCraftVoiceBridge : MonoBehaviour
         }
         listening = false;
         currentId = null;
+        recognitionEvents = null;
         AndroidJavaObject old = recognizer;
         recognizer = null;
         if (old != null)
