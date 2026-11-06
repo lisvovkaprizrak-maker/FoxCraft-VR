@@ -70,12 +70,14 @@ public final class KeyboardLayout {
                              boolean russian, boolean symbols, boolean shift,
                              boolean collapsed) {
         if (screenWidth < 220 || screenHeight < 140) return null;
-        int width = Math.min(428, screenWidth - 12);
+        // Compact Quest layout: ~25% narrower and ~20% shorter than the
+        // first headset-tested prototype, without reducing the number row.
+        int width = Math.min(320, screenWidth - 12);
         int x = (screenWidth - width) / 2;
-        int rowHeight = Math.max(14, Math.min(23, (screenHeight - 36) / 7));
-        int gap = 3;
+        int rowHeight = Math.max(14, Math.min(19, (screenHeight - 30) / 7));
+        int gap = 2;
         int headerHeight = rowHeight + 2;
-        int height = collapsed ? headerHeight + 10 : headerHeight + rowHeight * 5 + gap * 5 + 12;
+        int height = collapsed ? headerHeight + 8 : headerHeight + rowHeight * 5 + gap * 5 + 9;
         int y = chat ? 8 : Math.max(8, screenHeight - height - 8);
         int insideX = x + 5;
         int insideWidth = width - 10;
