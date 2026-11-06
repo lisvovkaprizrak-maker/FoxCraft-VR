@@ -155,12 +155,12 @@ public final class KeyboardLayout {
         }
 
         addWeighted(keys, insideX, rowY, insideWidth, headerHeight, gap,
-            new String[]{"FOXCRAFT", russian ? "РУС" : "ENG",
-                symbols ? "АБВ" : "123", "РАЗМ", "×"},
+            new String[]{"FoxCraft", russian ? "РУС" : "ENG",
+                symbols ? "АБВ" : "123", "РАЗМ", "⚙", "×"},
             new Command[]{Command.NONE, Command.LANGUAGE, Command.SYMBOLS,
-                Command.RESIZE, Command.COLLAPSE},
-            new String[]{"", "", "", "", ""},
-            new int[]{5, 2, 2, 2, 1});
+                Command.RESIZE, Command.NONE, Command.COLLAPSE},
+            new String[]{"", "", "", "", "", ""},
+            new int[]{5, 2, 2, 2, 1, 1});
         rowY += headerHeight + gap;
 
         // These are actual keys, not just a visual label: either VR hand can
