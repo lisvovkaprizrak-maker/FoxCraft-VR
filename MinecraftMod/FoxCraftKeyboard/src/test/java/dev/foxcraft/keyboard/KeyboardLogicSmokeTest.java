@@ -96,12 +96,18 @@ public final class KeyboardLogicSmokeTest {
             "Long press on Е selects Ё exactly once");
 
         KeyboardPointerInput pointer = new KeyboardPointerInput();
+        require(!pointer.isPressed(letter), "Idle key is not visually pressed");
         require(pointer.press(ru, letter.x() + 1, letter.y() + 1, 7000),
             "Controller left-button press is captured");
+        require(pointer.isPressed(letter),
+            "Pressed key highlights immediately before 450 ms hold");
+        require(!pointer.isPressed(key(ru.keys(), "ц")),
+            "Only the active key highlights");
         KeyboardPointerInput.Release quick = pointer.release(
             ru, letter.x() + 1, letter.y() + 1, 7200);
         require(quick.consumed() && quick.activation() != null &&
             "й".equals(quick.activation().text()), "Pointer tap types a letter exactly once");
+        require(!pointer.isPressed(letter), "Key highlight resets after release");
         require(!pointer.release(ru, letter.x() + 1, letter.y() + 1, 7200).consumed(),
             "A second release without a new press is ignored");
 
