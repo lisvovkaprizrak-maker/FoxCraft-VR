@@ -13,6 +13,28 @@ public static class FoxCraftInGameKeyboardInstaller
 {
     private const string ModJarName = "foxcraft-keyboard-0.1.0-alpha.jar";
 
+    /// <summary>
+    /// A Minecraft version number alone does not imply the Fabric loader.
+    /// Pojlib exposes the actual Java mainClass on each instance; gate the
+    /// installation so a 1.21.5 Forge/vanilla profile remains untouched.
+    /// </summary>
+    public static bool UsesFabricLoader(AndroidJavaObject instance)
+    {
+        if (instance == null) return false;
+        try
+        {
+            string mainClass = instance.Get<string>("mainClass");
+            return !String.IsNullOrEmpty(mainClass) &&
+                mainClass.StartsWith("net.fabricmc.loader.", StringComparison.Ordinal) &&
+                mainClass.EndsWith(".KnotClient", StringComparison.Ordinal);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning("[FoxCraft] Cannot verify Fabric loader: " + ex.GetType().Name);
+            return false;
+        }
+    }
+
     public static IEnumerator EnsureInstalled(AndroidJavaObject instance, Action<bool> complete)
     {
         if (Application.platform != RuntimePlatform.Android || instance == null ||
