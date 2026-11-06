@@ -66,12 +66,13 @@ public final class QuickMessageDraft {
         setCursor(0);
     }
 
-    /** A note is optional but, if filled, becomes part of the sent chat line. */
+    /**
+     * Right-hand field is the visible button title (previously "Заметка").
+     * Only the left-hand message/command is inserted into Minecraft chat.
+     * Example: /home -> chat; "Домой" -> bind key caption.
+     */
     public String outgoing() {
-        String body = message.toString().trim();
-        String extra = note.toString().trim();
-        if (body.isEmpty()) return "";
-        return extra.isEmpty() ? body : body + " — " + extra;
+        return message.toString().trim();
     }
 
     public boolean canSend() {
