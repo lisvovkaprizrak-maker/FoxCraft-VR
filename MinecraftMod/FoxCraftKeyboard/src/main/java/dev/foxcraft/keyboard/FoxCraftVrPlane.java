@@ -24,8 +24,12 @@ import java.lang.reflect.Method;
  */
 public final class FoxCraftVrPlane {
     private static final float SCALE_MULTIPLIER = 0.68f;
-    // Reuse Vivecraft GUI-relative placement for chat and focused menu fields.
-    // FoxCraft is a separate layer: the original keyboard is never disabled.
+    // In menu, keep the detached keyboard BELOW the GUI, not across the
+    // world/server list. Chat keeps the user-tested original placement.
+    private static final float MENU_SCALE_MULTIPLIER = 0.48f;
+    private static final float BELOW_MENU = 1.02f;
+    private static final float MENU_FORWARD = 0.10f;
+    // FoxCraft is a separate layer: the native keyboard remains a fallback.
     private static final float BELOW_CHAT = 0.69f;
     private static final float FORWARD_FROM_CHAT = 0.28f;
     private static final float TOWARDS_PLAYER = 0.065f;
@@ -84,8 +88,9 @@ public final class FoxCraftVrPlane {
         ready = false;
         if (keyboard == null || disabled) return;
         MinecraftClient client = MinecraftClient.getInstance();
-        if (!VirtualKeyboardOverlay.hasEditableFocus(client.currentScreen)) {
+        if (!keyboard.shouldDisplayForScreen(client.currentScreen)) {
             wasPressed[0] = wasPressed[1] = false;
+            ready = false;
             releaseBuffer();
             return;
         }
@@ -107,16 +112,20 @@ public final class FoxCraftVrPlane {
             // Equivalent to QuestCraft's chat-relative keyboard positioning:
             // project down the GUI's local up axis and slightly toward player.
             // Neither KeyboardHandler.SHOWING nor its framebuffer is modified.
+            boolean inChat = client.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen;
+            float down = inChat ? BELOW_CHAT : BELOW_MENU;
+            float forward = inChat ? FORWARD_FROM_CHAT : MENU_FORWARD;
             rotation = new Matrix4f(guiRot)
                 .rotateX((float) Math.toRadians(-30.0));
             position = new Vector3f(guiPos)
                 .sub(guiRot.transformDirection(new Vector3f(0, 1, 0),
-                    new Vector3f()).mul(BELOW_CHAT * guiScale))
+                    new Vector3f()).mul(down * guiScale))
                 .add(guiRot.transformDirection(new Vector3f(0, 0, 1),
-                    new Vector3f()).mul(FORWARD_FROM_CHAT * guiScale))
+                    new Vector3f()).mul(forward * guiScale))
                 .add(rotation.transformDirection(new Vector3f(0, 0, 1),
                     new Vector3f()).mul(TOWARDS_PLAYER * guiScale));
-            scale = Math.max(0.25f, guiScale * SCALE_MULTIPLIER);
+            scale = Math.max(0.25f, guiScale *
+                (inChat ? SCALE_MULTIPLIER : MENU_SCALE_MULTIPLIER));
             int w = guiClass.getField("GUI_WIDTH").getInt(null);
             int h = guiClass.getField("GUI_HEIGHT").getInt(null);
             int sw = guiClass.getField("SCALED_WIDTH_MAX").getInt(null);
@@ -296,7 +305,7 @@ public final class FoxCraftVrPlane {
         @Override
         public void render(DrawContext draw, int mouseX, int mouseY, float delta) {
             MinecraftClient client = MinecraftClient.getInstance();
-            if (keyboard != null && VirtualKeyboardOverlay.hasEditableFocus(client.currentScreen))
+            if (keyboard != null && keyboard.shouldDisplayForScreen(client.currentScreen))
                 keyboard.renderDetached(client.currentScreen, draw,
                     (int) cursorX[0], (int) cursorY[0], this.width, this.height,
                     cursorX[1], cursorY[1]);
