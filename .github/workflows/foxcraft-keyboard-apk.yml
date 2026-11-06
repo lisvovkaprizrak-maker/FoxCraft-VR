@@ -77,11 +77,25 @@ jobs:
           path = Path('Assets/Plugins/Android/Pojlib-release.aar')
           if not path.is_file() or path.stat().st_size < 1000:
               raise SystemExit('Bundled Pojlib AAR missing. Refusing to create an APK.')
+          from io import BytesIO
           with ZipFile(path) as jar:
               if 'AndroidManifest.xml' not in jar.namelist():
                   raise SystemExit('Pojlib AAR missing its Android manifest.')
-          print('Pojlib AAR is present; compatibility on Quest remains untested.')
+              if 'classes.jar' not in jar.namelist():
+                  raise SystemExit('Pojlib AAR missing classes.jar')
+              with ZipFile(BytesIO(jar.read('classes.jar'))) as classes:
+                  expected = {
+                      'pojlib/API.class',
+                      'pojlib/util/Constants.class',
+                      'pojlib/util/json/MinecraftInstances$Instance.class',
+                  }
+                  if not expected.issubset(classes.namelist()):
+                      raise SystemExit('Pojlib API/Instance/Constants Java classes are missing.')
+          print('Pojlib AAR Java classes exist; Quest compatibility remains untested.')
           PY
+          unzip -p Assets/Plugins/Android/Pojlib-release.aar classes.jar > /tmp/foxcraft-pojlib-classes.jar
+          javap -classpath /tmp/foxcraft-pojlib-classes.jar pojlib.API | grep -q 'public static void prelaunch('
+          javap -classpath /tmp/foxcraft-pojlib-classes.jar pojlib.util.Constants | grep -q 'public static java.lang.String USER_HOME'
       - name: Build separate FoxCraft test APK using Unity
         uses: game-ci/unity-builder@v4
         env:
