@@ -35,6 +35,7 @@ public class InstanceButton : MonoBehaviour
 
         if (JNIStorage.apiClass.GetStatic<bool>("gameReady") && !gameReady) {
             gameReady = true;
+            Debug.Log("[FoxCraft] Pojlib reports Minecraft gameReady.");
             async Task FinishAnim()
             {
                 await Task.Delay(200);
@@ -130,6 +131,8 @@ public class InstanceButton : MonoBehaviour
             yield break;
         }
 
+        Debug.Log("[FoxCraft] Pojlib prelaunch completed successfully.");
+
         // Only Fabric 1.21.5 receives the separate Minecraft keyboard mod.
         // This must happen after Pojlib's mod sync, before launchInstance.
         if (String.Equals(selected.versionName, "1.21.5", StringComparison.Ordinal) &&
@@ -142,7 +145,12 @@ public class InstanceButton : MonoBehaviour
                 Debug.LogWarning("[FoxCraft] Keyboard JAR is not installed. " +
                     "Minecraft can still start without this optional feature.");
         }
+        else
+        {
+            Debug.Log("[FoxCraft] Skipped in-game keyboard: this profile is not Fabric 1.21.5.");
+        }
 
+        Debug.Log("[FoxCraft] Starting Minecraft through Pojlib.");
         SynchronizationContext mainThread = SynchronizationContext.Current;
         Thread launchWorker = new Thread(() =>
         {
