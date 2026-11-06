@@ -74,6 +74,17 @@ public final class FoxCraftVrPlane {
         }
     }
 
+    /**
+     * Beams are visible only during an active FoxCraft text-editing session,
+     * never in the regular game, world lists or other non-editing menus.
+     * The same focus/request rule drives both detached and 2D keyboards.
+     */
+    public static boolean isKeyboardActive() {
+        if (!isVrSession() || keyboard == null) return false;
+        MinecraftClient client = MinecraftClient.getInstance();
+        return keyboard.shouldDisplayForScreen(client.currentScreen);
+    }
+
     /** Prevent secondary 2D chat clicks while pointing at FoxCraft in VR. */
     public static boolean interceptsMainGuiMouse() {
         return isReady() && keyboard != null &&
