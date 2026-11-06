@@ -16,8 +16,8 @@ cp build/classes/com/questchatkeyboard/bridge/*.class build/package/com/questcha
 cp src/main/resources/fabric.mod.json build/package/fabric.mod.json
 (
   cd build/package
-  jar --create --file=../../FoxChatKeyboard-bridge-0.6.0-fabric-1.21.1.jar --no-manifest .
+  jar --create --file=../../FoxChatKeyboard-bridge-0.6.1-fabric-1.21.5.jar --no-manifest .
 )
-echo "Built Fabric/foxchatkeyboard/FoxChatKeyboard-bridge-0.6.0-fabric-1.21.1.jar"
+echo "Built Fabric/foxchatkeyboard/FoxChatKeyboard-bridge-0.6.1-fabric-1.21.5.jar"
 # This is NOT an Android APK. This source-only compile checks Java syntax,
 # while tests use simulated Minecraft APIs, not real Fabric/Minecraft runtime.
