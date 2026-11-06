@@ -28,6 +28,18 @@
 
 **Важно:** ни одна из этих проверок не создаёт рабочий APK, пока вручную не запущена сборка в настоящем Unity с лицензией и Android Build Support.
 
+## Дополнительный контроль готового APK
+
+Перед публикацией тестового Android-пакета GitHub Actions запускает:
+
+```bash
+python3 tools/verify_foxcraft_test_apk.py Builds/FoxCraft-1.21.5-UNTESTED.apk
+```
+
+Проверяется **фактически собранный** APK: целостность ZIP, пакет `com.foxcraftvr.quest`, экспортированная стартовая активность `pojlib.UnityPlayerActivity`, ARM64 runtime Unity, подпись через `apksigner`, а также наличие и содержимое вложенного `foxcraft-keyboard-0.1.0-alpha.jar` (Fabric ID, Minecraft 1.21.5, классы игрового ввода). Используются `aapt` и `apksigner` из Android SDK Build Tools. Проверки вызываются **после реальной Unity-сборки** и до публикации APK; их отдельные unit-тесты не собирают APK.
+
+Если проверка не проходит, артефакт APK не публикуется. Даже полностью проверенная структура APK **не подтверждает работу VR-контроллеров в Meta Quest**.
+
 ## Как собрать APK (после ревью и подготовки окружения)
 
 1. Выполнить проверку PR #4 и убедиться в зелёном статусе `FoxCraft Minecraft keyboard` и `FoxCraft 1.21.5 keyboard test APK (manual)` (последний пока проверяет только настройки, без Unity).
