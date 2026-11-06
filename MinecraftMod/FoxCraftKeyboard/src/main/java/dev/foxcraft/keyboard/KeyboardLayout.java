@@ -14,7 +14,8 @@ public final class KeyboardLayout {
         LEFT, RIGHT, BACKSPACE, ENTER, ESCAPE, RESIZE, COLLAPSE, EXPAND, SUGGESTION,
         SETTINGS, THEME, BACK_TO_KEYS, HISTORY_PREVIOUS, HISTORY_NEXT,
         THEMES_PAGE, SETTINGS_HOME, MICROPHONE, QUICK_MESSAGES, QUICK_MESSAGE,
-        QUICK_COMPOSE, QUICK_EDIT, QUICK_PAGE_PREVIOUS, QUICK_PAGE_NEXT,
+        QUICK_COMPOSE, QUICK_EDIT, QUICK_ADD, QUICK_DELETE,
+        QUICK_PAGE_PREVIOUS, QUICK_PAGE_NEXT,
         COMPOSE_MESSAGE, COMPOSE_NOTE, COMPOSE_SEND, COMPOSE_CLEAR,
         CLIPBOARD, COPY, PASTE, SELECT_ALL, MOVE_MENU, MOVE_STEP,
         MOVE_GRAB, MOVE_RESET, CONTROLLER_MENU, HAPTIC_TOGGLE, HAPTIC_STRENGTH,
@@ -35,7 +36,9 @@ public final class KeyboardLayout {
         }
         public Key at(double px, double py) {
             for (Key key : keys)
-                if (key.command() == Command.QUICK_EDIT && key.contains(px, py)) return key;
+                if ((key.command() == Command.QUICK_EDIT ||
+                     key.command() == Command.QUICK_DELETE) && key.contains(px, py))
+                    return key;
             for (Key key : keys)
                 if (key.contains(px, py)) return key;
             return null;
@@ -294,43 +297,61 @@ public final class KeyboardLayout {
     }
 
 
-    /** Thirty editable binds in five pages of six; gear hitboxes overlay cards. */
+    /**
+     * Variable number of custom binds, six per page. Each occupied card has
+     * an independent edit gear in the upper-right and delete cross upper-left.
+     * Empty slots are simply not hit-testable; + creates the next real bind.
+     */
     public static Panel quickBindingsMenu(Panel original, String[] labels, int page) {
+        return quickBindingsMenu(original, labels, page, 5);
+    }
+
+    public static Panel quickBindingsMenu(Panel original, String[] labels,
+                                          int page, int totalPages) {
         if (original == null) return null;
-        if (labels == null || labels.length != 6 || page < 0 || page >= 5)
-            throw new IllegalArgumentException("Expected six labels and page 0..4");
+        if (labels == null || labels.length > 6 || page < 0 ||
+            totalPages < 1 || page >= totalPages)
+            throw new IllegalArgumentException("Invalid bind page");
         int x = original.x() + 7, y = original.y() + 30;
         int width = original.width() - 14, height = original.height() - 37;
         int gap = 4, rowHeight = Math.max(13, (height - 3 * gap) / 4);
         int columnWidth = (width - gap) / 2;
         List<Key> keys = new ArrayList<>();
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < labels.length; i++) {
             int col = i % 2, row = i / 2;
             int cellX = x + col * (columnWidth + gap);
             int cellY = y + row * (rowHeight + gap);
             int cellWidth = col == 1 ? width - columnWidth - gap : columnWidth;
             String caption = (page * 6 + i + 1) + ". " +
-                (labels[i] == null || labels[i].isBlank() ? "Пустой бинд" : labels[i]);
+                (labels[i] == null || labels[i].isBlank()
+                    ? "Без названия" : labels[i]);
             keys.add(new Key(caption, Command.QUICK_MESSAGE,
-                Integer.toString(page * 6 + i), "", cellX, cellY,
-                cellWidth, rowHeight));
+                Integer.toString(page * 6 + i), "",
+                cellX, cellY, cellWidth, rowHeight));
         }
-        for (int i = 0; i < 6; i++) {
+        // Cards are added first, then their overlay controls. Priority is
+        // explicitly checked in Panel.at before the full-card hitboxes.
+        for (int i = 0; i < labels.length; i++) {
             int col = i % 2, row = i / 2;
             int cellX = x + col * (columnWidth + gap);
             int cellY = y + row * (rowHeight + gap);
             int cellWidth = col == 1 ? width - columnWidth - gap : columnWidth;
+            int buttonHeight = Math.min(18, Math.max(10, rowHeight - 4));
+            keys.add(new Key("", Command.QUICK_DELETE,
+                Integer.toString(page * 6 + i), "",
+                cellX + 2, cellY + 2, 21, buttonHeight));
             keys.add(new Key("", Command.QUICK_EDIT,
                 Integer.toString(page * 6 + i), "",
-                cellX + cellWidth - 23, cellY + 2, 21,
-                Math.min(18, Math.max(10, rowHeight - 4))));
+                cellX + cellWidth - 23, cellY + 2, 21, buttonHeight));
         }
         addWeighted(keys, x, y + 3 * (rowHeight + gap), width, rowHeight, 3,
-            new String[]{"◀", (page + 1) + " / 5", "▶", "НОВЫЙ", "НАЗАД"},
+            new String[]{"◀", (page + 1) + " / " + totalPages, "▶",
+                "+ БИНД", "НАЗАД"},
             new Command[]{Command.QUICK_PAGE_PREVIOUS, Command.NONE,
-                Command.QUICK_PAGE_NEXT, Command.QUICK_COMPOSE,
+                Command.QUICK_PAGE_NEXT, Command.QUICK_ADD,
                 Command.BACK_TO_KEYS},
-            new String[]{"", "", "", "", ""}, new int[]{2, 2, 2, 3, 3});
+            new String[]{"", "", "", "", ""},
+            new int[]{2, 2, 2, 3, 3});
         return new Panel(original.x(), original.y(), original.width(),
             original.height(), List.copyOf(keys));
     }
@@ -369,7 +390,7 @@ public final class KeyboardLayout {
         addWeighted(keys, innerX, header.y(), innerWidth, header.height(), gap,
             new String[]{(editingNote ? "ТЕКСТ: " : "▸ ТЕКСТ: ") +
                     (messageTail.isBlank() ? "…" : messageTail),
-                (editingNote ? "▸ ЗАМЕТКА: " : "ЗАМЕТКА: ") +
+                (editingNote ? "▸ НАЗВАНИЕ: " : "НАЗВАНИЕ: ") +
                     (noteTail.isBlank() ? "…" : noteTail),
                 savingBind ? "СОХРАНИТЬ" : "ОТПРАВИТЬ"},
             new Command[]{Command.COMPOSE_MESSAGE, Command.COMPOSE_NOTE,
