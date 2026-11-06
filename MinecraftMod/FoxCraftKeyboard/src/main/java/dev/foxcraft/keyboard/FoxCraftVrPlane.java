@@ -3,7 +3,6 @@ package dev.foxcraft.keyboard;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.SimpleFramebuffer;
 import net.minecraft.client.gui.DrawContext;
@@ -447,12 +446,6 @@ public final class FoxCraftVrPlane {
         Object data = player.getClass().getField("vrdata_room_pre").get(player);
         Class<?> handType = Class.forName("org.vivecraft.client_vr.provider.ControllerType");
         Object keyboardClick = guiClass.getField("KEY_KEYBOARD_CLICK").get(null);
-        Object regularClick = guiClass.getField("KEY_LEFT_CLICK").get(null);
-        // On some QuestCraft bindings, the left index trigger represents
-        // "use/place" and maps to the GUI right-click action, not GUI left-click.
-        Object guiRightClick = null;
-        try { guiRightClick = guiClass.getField("KEY_RIGHT_CLICK").get(null); }
-        catch (NoSuchFieldException ignored) { }
         Method cursorProject = null;
         for (Method method : guiClass.getMethods()) {
             if (method.getName().equals("getTexCoordsForCursor") &&
@@ -494,17 +487,12 @@ public final class FoxCraftVrPlane {
             Object handed = Enum.valueOf(
                 (Class<? extends Enum>) handType.asSubclass(Enum.class),
                 hand == 0 ? "RIGHT" : "LEFT");
-            // Use the SAME physical-origin-checked paths for either hand.
-            // Previously the right ray only checked two GUI actions, while
-            // the left also sampled Attack/Use. On Quest that could make a
-            // right trigger click at the left ray, while the left did nothing.
-            // Never sample global Shift or unhanded isDown() for typing.
-            boolean down = tracked &&
-                (FoxCraftLeftTrigger.pressed(provider, handed,
-                    keyboardClick, regularClick) ||
-                 (guiRightClick != null &&
-                  FoxCraftLeftTrigger.pressedBinding(provider, handed,
-                      guiRightClick)));
+            // Roll back FoxCraft-specific button remaps: sample ONLY the
+            // existing Vivecraft keyboard-click binding for this hand.
+            // Do not synthesize a press from GUI Shift, attack, use, or
+            // the global (unhanded) GUI click state.
+            boolean down = tracked && (Boolean) keyboardClick.getClass()
+                .getMethod("isDown", handType).invoke(keyboardClick, handed);
             boolean accepted = down;
             if (down && !wasPressed[hand]) {
                 accepted = x >= 0 && y >= 0 &&
