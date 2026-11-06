@@ -1,6 +1,7 @@
 package dev.foxcraft.keyboard;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.FilterMode;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.gl.Framebuffer;
@@ -27,7 +28,9 @@ public final class FoxCraftVrPlane {
     // Draw the same logical 390px keyboard into a higher-resolution VR
     // framebuffer. The quad's physical scale and controller hit coordinates
     // remain unchanged; only its raster sampling density improves.
-    private static final int HD_RENDER_SCALE = 2;
+    // Keep supersampling moderate on mobile VR GPUs and limit framebuffer
+    // sizes to avoid running out of texture memory in QuestCraft.
+    private static final float HD_RENDER_SCALE = 1.5f;
     // In menu, keep the detached keyboard BELOW the GUI, not across the
     // world/server list. Chat keeps the user-tested original placement.
     private static final float MENU_SCALE_MULTIPLIER = 0.48f;
@@ -149,8 +152,10 @@ public final class FoxCraftVrPlane {
             // Supersample both axes to keep the same world-space aspect ratio.
             // GUI_WIDTH/HEIGHT are pixel framebuffer dimensions; SCALED_WIDTH_MAX
             // and SCALED_HEIGHT_MAX remain the logical GUI layout dimensions.
-            int hdWidth = Math.multiplyExact(w, HD_RENDER_SCALE);
-            int hdHeight = Math.multiplyExact(h, HD_RENDER_SCALE);
+            float hdScale = Math.max(1.0f,
+                Math.min(HD_RENDER_SCALE, 4096.0f / Math.max(w, h)));
+            int hdWidth = Math.round(w * hdScale);
+            int hdHeight = Math.round(h * hdScale);
             if (target == null || bufferWidth != hdWidth || bufferHeight != hdHeight) {
                 // Do NOT call releaseBuffer() here: that method also resets
                 // position and rotation computed just above. The first VR
@@ -161,6 +166,9 @@ public final class FoxCraftVrPlane {
                 screen = null; // Reinitialise the panel at the new GUI size.
                 target = new SimpleFramebuffer("FoxCraft VR keyboard HD",
                     hdWidth, hdHeight, true);
+                // Smooth bilinear sampling of the actual in-game VR surface,
+                // not just a separate marketing mock-up.
+                target.setFilter(FilterMode.LINEAR, false);
                 bufferWidth = hdWidth;
                 bufferHeight = hdHeight;
             }
