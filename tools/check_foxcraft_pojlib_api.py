@@ -91,13 +91,13 @@ def verify_aar(path: Path) -> None:
         )
         missing_methods = [
             name for name in required_methods
-            if re.search(r"\\b" + re.escape(name) + r"\\(", api) is None
+            if re.search(r"\b" + re.escape(name) + r"\(", api) is None
         ]
         if missing_methods:
             raise ValueError("Missing bundled Pojlib launcher API methods: " +
                              ", ".join(missing_methods))
         for field in ("gameReady", "model"):
-            if re.search(r"\\b" + field + r";", api) is None:
+            if re.search(r"\b" + field + r";", api) is None:
                 raise ValueError("Missing bundled Pojlib launcher API field: " + field)
 
     print("Pojlib API preflight OK: game lifecycle, instance management, loader metadata and required Unity JNI fields")
