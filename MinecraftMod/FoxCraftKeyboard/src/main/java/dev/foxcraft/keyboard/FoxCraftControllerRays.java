@@ -49,6 +49,10 @@ public final class FoxCraftControllerRays {
                 if ((hand == 0 && !renderRight) ||
                     (hand == 1 && !renderLeft)) continue;
                 if (!(Boolean) tracking.invoke(vr, hand)) continue;
+                // Do not display a beam that has no corresponding interaction
+                // hit on FoxCraft's actual VR panel. Previously both beams
+                // continued through the world even when they missed all keys.
+                if (!FoxCraftVrPlane.isPointingAtKeyboard(hand)) continue;
                 Matrix4f matrix = new Matrix4f();
                 setup.invoke(null, hand, matrix);
                 // Keep Quest's tested forward (-Z) direction. The visual ray
