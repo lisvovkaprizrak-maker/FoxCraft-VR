@@ -450,7 +450,7 @@ public final class VirtualKeyboardOverlay {
         // Gentle animated light travelling along both side rails.
         for (int side = 0; side < 2; side++) {
             int x = side == 0 ? p.x() + 3 : p.x() + width - 4;
-            int phase = Math.floorMod(tick + side * (height / 2L), height - 12);
+            int phase = (int) Math.floorMod(tick + side * (height / 2L), height - 12);
             int y = p.y() + 6 + phase;
             c.fill(x, y, x + 1, y + 5, 0xA0000000 | rgb);
             c.fill(x, y - 2, x + 1, y, 0x44000000 | rgb);
@@ -466,7 +466,7 @@ public final class VirtualKeyboardOverlay {
             lastY = k.y();
             int gutterY = k.y() + k.height();
             if (gutterY >= p.y() + height - 3) continue;
-            int x = p.x() + 8 + Math.floorMod(tick + row * 71L,
+            int x = p.x() + 8 + (int) Math.floorMod(tick + row * 71L,
                 Math.max(1, width - 16));
             if (clearAmbientPixel(p, x, gutterY)) {
                 c.fill(x, gutterY, x + 2, gutterY + 1,
@@ -482,36 +482,36 @@ public final class VirtualKeyboardOverlay {
         for (int i = 0; i < number; i++) {
             long t = now / (theme == KeyboardTheme.SAKURA ? 49L : 39L);
             long seed = i * 97L + theme.ordinal() * 53L;
-            int localX = 6 + Math.floorMod(seed, width - 12);
-            int localY = 6 + Math.floorMod(seed * 3L, height - 12);
+            int localX = 6 + (int) Math.floorMod(seed, width - 12);
+            int localY = 6 + (int) Math.floorMod(seed * 3L, height - 12);
             int light = 0x78000000 | rgb;
             switch (theme) {
                 case CLASSIC -> {
-                    localX = 6 + Math.floorMod(seed + (t / 6), width - 12);
-                    localY = 6 + Math.floorMod(seed * 3L - t, height - 12);
+                    localX = 6 + (int) Math.floorMod(seed + (t / 6), width - 12);
+                    localY = 6 + (int) Math.floorMod(seed * 3L - t, height - 12);
                 }
                 case MIDNIGHT -> {
                     light = (((now / 240L + i) % 4 == 0 ? 0xCC : 0x55) << 24)
                         | 0x00E7EAFF;
                 }
                 case OCEAN -> {
-                    localY = 6 + Math.floorMod(seed * 3L - t, height - 12);
+                    localY = 6 + (int) Math.floorMod(seed * 3L - t, height - 12);
                     light = 0x7A000000 | 0x0097FFFF;
                 }
                 case SAKURA -> {
-                    localX = 6 + Math.floorMod(seed + t / 3, width - 12);
-                    localY = 6 + Math.floorMod(seed * 3L + t, height - 12);
+                    localX = 6 + (int) Math.floorMod(seed + t / 3, width - 12);
+                    localY = 6 + (int) Math.floorMod(seed * 3L + t, height - 12);
                     light = 0x98000000 | 0x00FFD4EB;
                 }
                 case AURORA -> {
-                    localX = 6 + Math.floorMod(seed + t * 2L, width - 12);
-                    localY = 6 + Math.floorMod(seed * 3L +
+                    localX = 6 + (int) Math.floorMod(seed + t * 2L, width - 12);
+                    localY = 6 + (int) Math.floorMod(seed * 3L +
                         (long) (7 * Math.sin(now / 500.0 + i)), height - 12);
                     light = 0x81000000 | 0x0085FFD5;
                 }
                 case NEW_YEAR -> {
-                    localX = 6 + Math.floorMod(seed + t / 8, width - 12);
-                    localY = 6 + Math.floorMod(seed * 3L + t, height - 12);
+                    localX = 6 + (int) Math.floorMod(seed + t / 8, width - 12);
+                    localY = 6 + (int) Math.floorMod(seed * 3L + t, height - 12);
                     light = 0xB5000000 | 0x00F0FCFF;
                 }
             }
