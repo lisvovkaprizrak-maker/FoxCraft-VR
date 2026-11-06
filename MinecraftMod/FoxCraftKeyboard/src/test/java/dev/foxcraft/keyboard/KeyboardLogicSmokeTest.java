@@ -52,11 +52,15 @@ public final class KeyboardLogicSmokeTest {
         require(ru.width() == 280 && ru.height() <= 165,
             "Compact 280px keyboard includes a 3-candidate correction strip");
         KeyboardLayout.Panel chatAnchored = KeyboardLayout.make(
+            854, 480, true, true, false, false, false, 280, List.of(), 250);
+        require(chatAnchored.y() >= 258,
+            "Chat keyboard should float below the active chat input field");
+        require(chatAnchored.y() >= 250 + 8,
+            "Chat keyboard must not overlap the chat text box");
+        KeyboardLayout.Panel chatFallbackAbove = KeyboardLayout.make(
             854, 480, true, true, false, false, false, 280, List.of(), 455);
-        require(chatAnchored.y() > 8,
-            "Chat keyboard must not be pinned to the top of the chat history");
-        require(chatAnchored.y() + chatAnchored.height() <= 447,
-            "Chat keyboard must end above the active chat input field");
+        require(chatFallbackAbove.y() + chatFallbackAbove.height() <= 447,
+            "If there is no room below, keyboard stays above the input field");
         KeyboardLayout.Panel fallbackChat = KeyboardLayout.make(
             854, 480, true, true, false, false, false);
         require(fallbackChat.y() > 8,
