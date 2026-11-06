@@ -10,6 +10,19 @@ This folder contains the **Minecraft-side** keyboard, separate from the Unity la
 - Dark background, orange shimmering border and hover/long-press feedback.
 - Minecraft-screen GUI rendering rather than Unity's launcher canvas.
 
+## Device feedback (2026-11-06)
+
+A tester reports installing the Fabric JAR directly on a Meta Quest, opening
+Minecraft/QuestCraft in the headset, seeing the **orange FoxCraft keyboard**,
+and successfully using it to type. This is a **user-reported basic headset
+smoke test**, not an independently collected run log or a full acceptance
+test. No Windows PC was needed for that manual JAR installation.
+
+Still **not individually confirmed** by the user: all RU/EN and symbol keys,
+450 ms long press, Ё/ё, cursor movement, ESC, focus switching, multiplayer
+text fields, controller edge cases, or long-session stability. A separate
+standalone **FoxCraft Unity APK has not yet been produced or tested**.
+
 ## Run logic smoke tests without Minecraft
 
 Install **JDK 21**. From this directory:
@@ -51,14 +64,14 @@ A **separate** Unity Android test route for **Minecraft 1.21.5** is now on this 
 - `.github/workflows/foxcraft-keyboard-apk.yml` runs lightweight Python checks on the PR; it **does not** build Unity or an APK on pull requests.
 - A manual `workflow_dispatch` (available once that workflow exists on the default branch) compiles the Fabric mod, stages its verified JAR into Unity, checks the existing Pojlib AAR, builds the ARM64 Android APK with `FoxCraftKeyboardAndroidBuild.BuildTestApk`, and validates the resulting package ID `com.foxcraftvr.quest` before uploading the **UNTESTED** APK artifact.
 - Unity requires version `2022.3.62f3`, Android Build Support and a valid Unity licence configured privately in GitHub Actions; do not commit credentials.
-- Unity tests and actual Meta Quest interaction **have not run**. A green preflight status is not an APK build.
+- Unity APK tests **have not run**. The Fabric JAR has user-reported basic headset operation; a green preflight status is not an APK build.
 
 Русскоязычная инструкция: `docs/FOXCRAFT_KEYBOARD_APK_RU.md`.
 
 ## Remaining validation
 
 - Confirm Fabric and Yarn compile against pinned dependencies.
-- Confirm Vivecraft VR-controller pointer clicks trigger Minecraft screen mouse press/release. The pointer state machine has automated Java tests, but actual Quest controller event wiring still requires hardware validation.
+- User reports successful basic keyboard operation on Meta Quest; independently confirm controller edge cases, long-press release and pointer drag behavior. The pointer state machine has automated Java tests.
 - Confirm focused fields in chat, slash commands and the multiplayer-server UI.
 - Test Cyrillic font support, Enter and Escape behavior, long-press duration and responsive size on the headset.
 - Package and activate the compiled mod as a core mod in the correct QuestCraft instance.
