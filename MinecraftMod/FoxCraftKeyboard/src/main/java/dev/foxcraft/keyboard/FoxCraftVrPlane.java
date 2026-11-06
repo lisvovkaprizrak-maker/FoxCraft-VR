@@ -170,7 +170,8 @@ public final class FoxCraftVrPlane {
                     hdWidth, hdHeight, true);
                 // Smooth bilinear sampling of the actual in-game VR surface,
                 // not just a separate marketing mock-up.
-                target.setFilter(FilterMode.LINEAR, false);
+                target.getColorAttachment().setTextureFilter(
+                    FilterMode.LINEAR, FilterMode.LINEAR, false);
                 bufferWidth = hdWidth;
                 bufferHeight = hdHeight;
             }
