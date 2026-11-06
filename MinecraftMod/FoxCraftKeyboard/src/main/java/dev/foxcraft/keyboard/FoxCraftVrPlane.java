@@ -2,6 +2,7 @@ package dev.foxcraft.keyboard;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.SimpleFramebuffer;
 import net.minecraft.client.gui.DrawContext;
@@ -229,8 +230,8 @@ public final class FoxCraftVrPlane {
                 hand == 0 ? "RIGHT" : "LEFT");
             boolean downKeyboard = (Boolean) keyboardClick.getClass()
                 .getMethod("isDown", handType).invoke(keyboardClick, handed);
-            boolean downFallback = (Boolean) (hand == 0 ? regularClick : guiShift)
-                .getClass().getMethod("isDown").invoke(hand == 0 ? regularClick : guiShift);
+            boolean downFallback = ((KeyBinding) (hand == 0 ? regularClick : guiShift))
+                .isPressed();
             boolean down = tracked && (downKeyboard || downFallback);
             if (down && !wasPressed[hand] && x >= 0 && y >= 0)
                 keyboard.vrPressed(original, x, y, hand);
@@ -262,7 +263,8 @@ public final class FoxCraftVrPlane {
             MinecraftClient client = MinecraftClient.getInstance();
             if (client.currentScreen instanceof ChatScreen actual && keyboard != null)
                 keyboard.renderDetached(actual, draw,
-                    (int) cursorX[0], (int) cursorY[0], this.width, this.height);
+                    (int) cursorX[0], (int) cursorY[0], this.width, this.height,
+                    cursorX[1], cursorY[1]);
         }
     }
 }
