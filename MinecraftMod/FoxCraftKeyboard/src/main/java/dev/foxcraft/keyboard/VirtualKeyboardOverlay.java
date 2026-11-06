@@ -62,6 +62,9 @@ public final class VirtualKeyboardOverlay {
     private boolean symbols;
     private boolean shift;
     private boolean collapsed;
+    private boolean settingsOpen;
+    private boolean layoutSettingsOpen;
+    private KeyboardTheme theme = KeyboardTheme.CLASSIC;
     private boolean suppressMinecraftGuiClick;
 
     /**
@@ -113,6 +116,7 @@ public final class VirtualKeyboardOverlay {
             leftSample = null;
             suppressMinecraftGuiClick = false;
             collapsed = false;
+            settingsOpen = false;
             panel = null;
         }
 
@@ -153,10 +157,14 @@ public final class VirtualKeyboardOverlay {
             layoutChat != chat || layoutDetached != detached ||
             layoutPreferredWidth != preferredWidth ||
             layoutRussian != russian || layoutSymbols != symbols ||
-            layoutShift != shift || layoutCollapsed != collapsed) {
+            layoutShift != shift || layoutCollapsed != collapsed ||
+            layoutSettingsOpen != settingsOpen) {
             panel = KeyboardLayout.make(width, height,
                 chat && !detached, russian, symbols, shift, collapsed,
                 preferredWidth, suggestions, chatInputBottomY, detached);
+            if (settingsOpen && panel != null) {
+                panel = KeyboardLayout.themeMenu(panel, theme);
+            }
             if (!chat && !detached && panel != null) {
                 panel = KeyboardLayout.dockForMenu(panel, width, height,
                     activeField.getX(), activeField.getY(),
@@ -177,8 +185,16 @@ public final class VirtualKeyboardOverlay {
             layoutSymbols = symbols;
             layoutShift = shift;
             layoutCollapsed = collapsed;
+            layoutSettingsOpen = settingsOpen;
         }
         if (panel == null) return;
+        int panelBg = theme.panel();
+        int keyBg = theme.key();
+        int keyHover = theme.hover();
+        int keyPressed = theme.pressed();
+        int accent = theme.accent();
+        int textColor = theme.text();
+        int legendColor = theme.legend();
 
         // Vivecraft routes controller ray movement through the Minecraft
         // screen mouse coordinates, including while the trigger is held.
@@ -187,8 +203,7 @@ public final class VirtualKeyboardOverlay {
         long now = System.nanoTime() / 1_000_000L;
         if (!detached) updateLeftHand(screen, now);
         int pulse = (int) (50 + 38 * Math.sin(now / 320.0));
-        int border = 0xFF000000 | (Math.min(255, 180 + pulse) << 16) |
-            (Math.min(255, 85 + pulse / 3) << 8) | 16;
+        int border = accent;
 
         // HD-inspired multilayer chassis: diffuse light, cool top rim,
         // smooth alpha-covered corners and a restrained charcoal gradient.
@@ -196,21 +211,21 @@ public final class VirtualKeyboardOverlay {
             int alpha = Math.max(1, (20 - layer * 2));
             rounded(context, panel.x() - layer, panel.y() - layer,
                 panel.width() + layer * 2, panel.height() + layer * 2,
-                14 + layer, (alpha << 24) | 0x00FF7514);
+                14 + layer, (alpha << 24) | (accent & 0x00FFFFFF));
         }
         rounded(context, panel.x() - 2, panel.y() - 2,
             panel.width() + 4, panel.height() + 4, 13, border);
         rounded(context, panel.x(), panel.y(),
-            panel.width(), panel.height(), 12, PANEL_BG);
+            panel.width(), panel.height(), 12, panelBg);
         // A soft vertical charcoal finish similar to the reference photo.
         for (int strip = 0; strip < 6; strip++) {
             int inset = 3 + strip;
             rounded(context, panel.x() + inset, panel.y() + inset,
                 panel.width() - 2 * inset, Math.max(2, panel.height() / 4),
-                10, ((8 - strip) << 24) | 0x00B3A5C2);
+                10, ((8 - strip) << 24) | (theme == KeyboardTheme.CLASSIC ? 0x00B3A5C2 : (accent & 0x00FFFFFF)));
         }
         context.fill(panel.x() + 21, panel.y() - 2,
-            panel.x() + panel.width() - 21, panel.y() - 1, 0x997C90C9);
+            panel.x() + panel.width() - 21, panel.y() - 1, ((accent & 0x00FFFFFF) | 0x66000000));
         // Raised center crest: the reference keyboard has a fox-shaped top
         // silhouette rather than a simple uniformly rounded rectangle.
         if (!collapsed) {
@@ -219,12 +234,14 @@ public final class VirtualKeyboardOverlay {
             rounded(context, crestX - 3, panel.y() - 5,
                 crestW + 6, 27, 10, border);
             rounded(context, crestX - 1, panel.y() - 3,
-                crestW + 2, 26, 9, PANEL_BG);
+                crestW + 2, 26, 9, panelBg);
         }
-        if (!collapsed) {
+        if (!collapsed && theme == KeyboardTheme.CLASSIC) {
             drawChecker(context, panel.x() + 5, panel.y() + 5);
             drawChecker(context, panel.x() + panel.width() - 14,
                 panel.y() + panel.height() - 14);
+        } else if (!collapsed && theme == KeyboardTheme.NEW_YEAR) {
+            drawSnowDots(context, panel, now);
         }
 
         var font = MinecraftClient.getInstance().textRenderer;
@@ -232,11 +249,19 @@ public final class VirtualKeyboardOverlay {
         if (!collapsed) {
             int brandY = panel.y() + 4;
             int brandX = panel.x() + (panel.width() - 92) / 2;
-            drawFoxBadge(context, brandX, brandY);
-            context.drawText(font, ("Fox"), brandX + 20, brandY + 4,
-                ORANGE, true);
-            context.drawText(font, ("Craft"), brandX + 38, brandY + 4,
-                TEXT, true);
+            if (theme == KeyboardTheme.CLASSIC) {
+                drawFoxBadge(context, brandX, brandY);
+                context.drawText(font, ("Fox"), brandX + 20, brandY + 4,
+                    accent, true);
+                context.drawText(font, ("Craft"), brandX + 38, brandY + 4,
+                    textColor, true);
+            } else {
+                String title = settingsOpen ? "ТЕМЫ" : theme.title();
+                int titleWidth = font.getWidth(title);
+                context.drawText(font, title,
+                    panel.x() + (panel.width() - titleWidth) / 2,
+                    brandY + 6, accent, false);
+            }
         }
         KeyboardLayout.Key heldAlternate = null;
         for (KeyboardLayout.Key key : panel.keys()) {
@@ -247,20 +272,24 @@ public final class VirtualKeyboardOverlay {
                 leftPointer.isHolding(key, now);
             // Immediate key-down feedback, before the long-press threshold.
             int bg = (pointer.isPressed(key) || leftPointer.isPressed(key) || longHeld)
-                ? KEY_PRESSED
-                : (hovered ? KEY_HOVER : KEY_BG);
+                ? keyPressed
+                : (hovered ? keyHover : keyBg);
             boolean action = key.command() == KeyboardLayout.Command.ENTER;
             boolean activeLanguage = key.command() == KeyboardLayout.Command.LANGUAGE_RU ||
                 key.command() == KeyboardLayout.Command.LANGUAGE_EN;
             boolean shiftKey = key.command() == KeyboardLayout.Command.SHIFT && shift;
-            if (action && !hovered && !longHeld) bg = 0xFFE97510;
+            if (action && !hovered && !longHeld) bg = theme.enter();
             if (activeLanguage && !hovered && !longHeld)
                 bg = ((russian && key.command() == KeyboardLayout.Command.LANGUAGE_RU) ||
                       (!russian && key.command() == KeyboardLayout.Command.LANGUAGE_EN))
-                    ? 0xFFE66C10 : KEY_BG;
-            if (shiftKey && !hovered && !longHeld) bg = 0xFF704022;
+                    ? theme.enter() : keyBg;
+            if (shiftKey && !hovered && !longHeld) bg = keyHover;
             if (key.command() == KeyboardLayout.Command.SYMBOLS &&
-                !hovered && !longHeld && symbols) bg = 0xFFAA4C11;
+                !hovered && !longHeld && symbols) bg = keyHover;
+            if (key.command() == KeyboardLayout.Command.THEME) {
+                KeyboardTheme option = KeyboardTheme.fromName(key.value());
+                bg = option == theme ? option.hover() : option.key();
+            }
             // Rounded raised keycaps with a soft contact shadow, edge
             // highlight and amber bloom only under pointer/press.
             boolean lit = hovered || longHeld || pointer.isPressed(key) ||
@@ -269,16 +298,21 @@ public final class VirtualKeyboardOverlay {
                 key.width(), key.height(), 5, 0x55000000);
             if (lit) {
                 rounded(context, key.x() - 2, key.y() - 2,
-                    key.width() + 4, key.height() + 4, 7, 0x55FF8B20);
+                    key.width() + 4, key.height() + 4, 7, (0x55000000 | (accent & 0x00FFFFFF)));
                 rounded(context, key.x() - 1, key.y() - 1,
-                    key.width() + 2, key.height() + 2, 6, 0xFFFFBD62);
+                    key.width() + 2, key.height() + 2, 6, accent);
             } else {
                 rounded(context, key.x(), key.y(),
-                    key.width(), key.height(), 6, 0xFF494553);
+                    key.width(), key.height(), 6, (theme == KeyboardTheme.CLASSIC ? 0xFF494553 : accent));
             }
             rounded(context, key.x() + 1, key.y() + 1,
                 Math.max(1, key.width() - 2), Math.max(1, key.height() - 2),
                 5, bg);
+            if (key.command() == KeyboardLayout.Command.THEME) {
+                KeyboardTheme option = KeyboardTheme.fromName(key.value());
+                rounded(context, key.x() + 4, key.y() + 3,
+                    14, Math.max(4, key.height() - 6), 3, option.accent());
+            }
             // Subtle glossy top edge gives dimension even without textures.
             if (key.width() >= 10 && key.height() >= 8)
                 context.fill(key.x() + 5, key.y() + 1,
@@ -291,11 +325,11 @@ public final class VirtualKeyboardOverlay {
                 int bar = Math.max(1, Math.round(key.width() * progress));
                 context.fill(key.x(), key.y() + key.height() - 2,
                     Math.min(key.x() + key.width(), key.x() + bar),
-                    key.y() + key.height(), ORANGE);
+                    key.y() + key.height(), accent);
             }
             if (longHeld) {
                 context.fill(key.x(), key.y(), key.x() + key.width(),
-                    key.y() + 2, ORANGE);
+                    key.y() + 2, accent);
                 heldAlternate = key;
             }
 
@@ -304,7 +338,7 @@ public final class VirtualKeyboardOverlay {
                 int glyphWidth = font.getWidth((key.alternate()));
                 context.drawText(font,
                     (key.alternate()), key.x() + key.width() - glyphWidth - 2,
-                    key.y() + 1, MINI, false);
+                    key.y() + 1, legendColor, false);
             }
 
             String caption = longHeld ? key.alternate() : key.label();
@@ -317,12 +351,13 @@ public final class VirtualKeyboardOverlay {
                 if (!caption.equals(full) && caption.length() > 1)
                     caption = caption.substring(0, caption.length()-1) + "…";
             }
+            if (key.command() == KeyboardLayout.Command.THEME) caption = "      " + caption;
             int captionWidth = font.getWidth((caption));
             int tx = key.x() + Math.max(1, (key.width() - captionWidth) / 2);
             int ty = key.y() + Math.max(1, (key.height() - 8) / 2) +
                 (!key.alternate().isEmpty() && key.height() >= 18 ? 3 : 0);
             context.drawText(font,
-                (caption), tx, ty, TEXT, false);
+                (caption), tx, ty, textColor, false);
         }
 
         // The symbol is displayed above the held key before release; the game
@@ -333,11 +368,11 @@ public final class VirtualKeyboardOverlay {
             int popupX = heldAlternate.x() + (heldAlternate.width() - popupWidth) / 2;
             int popupY = Math.max(1, heldAlternate.y() - 24);
             context.fill(popupX - 2, popupY - 2,
-                popupX + popupWidth + 2, popupY + 20, ORANGE);
-            context.fill(popupX, popupY, popupX + popupWidth, popupY + 18, KEY_BG);
+                popupX + popupWidth + 2, popupY + 20, accent);
+            context.fill(popupX, popupY, popupX + popupWidth, popupY + 18, keyBg);
             context.drawText(font, (symbol),
                 popupX + (popupWidth - font.getWidth((symbol))) / 2,
-                popupY + 5, TEXT, false);
+                popupY + 5, textColor, false);
         }
 
         // Explicit left-hand marker helps verify that the second controller
@@ -367,16 +402,16 @@ public final class VirtualKeyboardOverlay {
             int previewWidth = Math.min(panel.width() - 12, font.getWidth((visible)) + 16);
             int previewX = panel.x() + (panel.width() - previewWidth) / 2;
             int previewY = Math.max(1, panel.y() - 23);
-            context.fill(previewX, previewY, previewX + previewWidth, previewY + 20, KEY_BG);
+            context.fill(previewX, previewY, previewX + previewWidth, previewY + 20, keyBg);
             context.drawText(font, (visible),
-                previewX + 8, previewY + 5, ORANGE, false);
+                previewX + 8, previewY + 5, accent, false);
         }
 
         // Light stays on the chassis edge; no moving bar crossing the logo.
         int glow = (int) (30 + 20 * (1 + Math.sin(now / 500.0)));
         context.fill(panel.x() + 12, panel.y() + panel.height() - 2,
             panel.x() + panel.width() - 12, panel.y() + panel.height() - 1,
-            (Math.min(255, glow) << 24) | 0x00FF8D20);
+            (Math.min(255, glow) << 24) | (accent & 0x00FFFFFF));
         // A successful screen fallback also replaces the old QuestCraft
         // keyboard. Do not suppress the native fallback if we drew nothing.
         if (!detached) QuestCraftKeyboardSuppressor.closeWhenScreenFallbackVisible();
@@ -390,6 +425,19 @@ public final class VirtualKeyboardOverlay {
      * Curved pixels blend with the backdrop at fractional coverage instead
      * of snapping each arc edge to a solid one-pixel staircase.
      */
+    /** Non-fox seasonal decor, deliberately confined to the panel corners. */
+    private static void drawSnowDots(DrawContext c, KeyboardLayout.Panel p, long now) {
+        int twinkle = (int) ((now / 430) % 3);
+        for (int i = 0; i < 9; i++) {
+            int x = i < 5 ? p.x() + 12 + i * 9
+                : p.x() + p.width() - 12 - (i - 5) * 9;
+            int y = i < 5 ? p.y() + 7 + (i % 3) * 4
+                : p.y() + p.height() - 10 - (i % 3) * 4;
+            int alpha = ((i + twinkle) % 3 == 0) ? 0xD0 : 0x80;
+            c.fill(x, y, x + 2, y + 2, (alpha << 24) | 0x00F5FFFF);
+        }
+    }
+
     /** Quest-style small white circular contact point with a faint cool glow. */
     private static void drawAimCircle(DrawContext context, int x, int y) {
         // Anti-aliased-looking fringe within a small 7px footprint.
@@ -663,9 +711,16 @@ public final class VirtualKeyboardOverlay {
             case LANGUAGE_RU -> { russian = true; symbols = false; }
             case LANGUAGE_EN -> { russian = false; symbols = false; }
             case SYMBOLS -> symbols = !symbols;
-            case RESIZE -> { /* Kept for compatibility; resizing is disabled. */ }
+            case RESIZE -> { /* Fixed size; intentionally disabled. */ }
+            case SETTINGS -> { settingsOpen = true; panel = null; }
+            case BACK_TO_KEYS -> { settingsOpen = false; panel = null; }
+            case THEME -> {
+                theme = KeyboardTheme.fromName(result.key().value());
+                // Keep the settings page open so another theme can be previewed.
+                panel = null;
+            }
             case SHIFT -> shift = !shift;
-            case COLLAPSE -> collapsed = true;
+            case COLLAPSE -> { collapsed = true; settingsOpen = false; }
             case EXPAND -> collapsed = false;
             default -> { }
         }
