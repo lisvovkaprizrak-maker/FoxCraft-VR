@@ -24,12 +24,13 @@ class KeyboardApkPipelineTests(unittest.TestCase):
         self.assertIn('Path.Combine(resolvedGame, "mods")', installer)
         self.assertIn('SHA256.Create()', installer)
 
-    def test_pojlib_void_prelaunch_happens_before_keyboard_staging_and_launch(self):
+    def test_bundled_pojlib_boolean_prelaunch_before_staging_and_launch(self):
         launcher = (ROOT / "Assets/Scripts/InstanceButton.cs").read_text(encoding="utf-8")
-        self.assertIn('CallStatic("prelaunch",', launcher)
-        self.assertNotIn('CallStatic<bool>("prelaunch"', launcher)
+        self.assertIn('CallStatic<bool>("prelaunch",', launcher)
+        self.assertIn('Pojlib prelaunch checks failed', launcher)
+        self.assertNotIn('CallStatic("prelaunch",', launcher)
         self.assertLess(
-            launcher.index('CallStatic("prelaunch",'),
+            launcher.index('CallStatic<bool>("prelaunch",'),
             launcher.index('FoxCraftInGameKeyboardInstaller.EnsureInstalled('),
         )
         self.assertLess(
@@ -69,6 +70,7 @@ class KeyboardApkPipelineTests(unittest.TestCase):
         self.assertIn("if-no-files-found: error", workflow)
         self.assertIn('com.foxcraftvr.quest', workflow)
         self.assertIn("tools/stage_foxcraft_ingame_keyboard.py", workflow)
+        self.assertIn("tools/check_foxcraft_pojlib_api.py", workflow)
         self.assertLess(workflow.index("Build the matching 1.21.5 Fabric keyboard JAR"),
                         workflow.index("Build separate FoxCraft test APK using Unity"))
         self.assertLess(workflow.index("Verify APK and separate package identifier"),
