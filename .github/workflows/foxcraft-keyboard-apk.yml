@@ -12,6 +12,8 @@ on:
       - 'tools/foxcraft_quest_smoke.py'
       - 'tests/test_foxcraft_quest_smoke.py'
       - 'tests/unity-compile/**'
+      - 'tools/verify_foxcraft_test_apk.py'
+      - 'tests/test_verify_foxcraft_test_apk.py'
   workflow_dispatch:
 
 permissions:
@@ -46,6 +48,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_keyboard_apk_pipeline.py' -v
           python3 -m unittest discover -s tests -p 'test_stage_foxcraft_ingame_keyboard.py' -v
           python3 -m unittest discover -s tests -p 'test_foxcraft_quest_smoke.py' -v
+          python3 -m unittest discover -s tests -p 'test_verify_foxcraft_test_apk.py' -v
       - name: Require configured Unity license for manual Android build
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -124,33 +127,8 @@ jobs:
           targetPlatform: Android
           versioning: None
           buildMethod: FoxCraftKeyboardAndroidBuild.BuildTestApk
-      - name: Verify APK and separate package identifier
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import zipfile
-          from pathlib import Path
-          apk = Path('Builds/FoxCraft-1.21.5-UNTESTED.apk')
-          if not apk.is_file() or apk.stat().st_size < 100000:
-              raise SystemExit('Unity APK is missing or too small')
-          with zipfile.ZipFile(apk) as archive:
-              if 'AndroidManifest.xml' not in archive.namelist():
-                  raise SystemExit('Compiled AndroidManifest.xml not present')
-              if not archive.testzip() is None:
-                  raise SystemExit('APK integrity check failed')
-          print('APK archive structure is valid; device operation is untested.')
-          PY
-          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-          AAPT="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
-          if [[ -z "$AAPT" ]]; then
-            echo "::error::Android aapt missing, cannot verify package ID"
-            exit 1
-          fi
-          PACKAGE="$("$AAPT" dump badging Builds/FoxCraft-1.21.5-UNTESTED.apk | sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p" | head -n 1)"
-          if [[ "$PACKAGE" != "com.foxcraftvr.quest" ]]; then
-            echo "::error::Unexpected package ID. Refusing to publish the APK."
-            exit 1
-          fi
+      - name: Verify signed APK, ARM64, launch activity and embedded Fabric keyboard
+        run: python3 tools/verify_foxcraft_test_apk.py Builds/FoxCraft-1.21.5-UNTESTED.apk
       - name: Upload untested Meta Quest APK
         uses: actions/upload-artifact@v4
         with:
