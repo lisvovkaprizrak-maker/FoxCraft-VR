@@ -55,6 +55,12 @@ public final class VirtualKeyboardOverlay {
     private boolean symbols;
     private boolean shift;
     private boolean collapsed;
+    private boolean suppressMinecraftGuiClick;
+
+    /** The detached controller ray is only valid inside our visible panel. */
+    public boolean detachedContains(double x, double y) {
+        return layoutDetached && panel != null && panel.contains(x, y);
+    }
 
     public void render(Screen screen, DrawContext context, int mouseX, int mouseY) {
         if (screen instanceof ChatScreen && FoxCraftVrPlane.isReady()) return;
@@ -80,6 +86,7 @@ public final class VirtualKeyboardOverlay {
             leftPointer.cancel();
             leftDown = false;
             leftSample = null;
+            suppressMinecraftGuiClick = false;
             collapsed = false;
             panel = null;
         }
@@ -302,9 +309,14 @@ public final class VirtualKeyboardOverlay {
 
     /** Returns true if the gesture is captured (including key gaps). */
     public boolean mousePressed(Screen screen, double x, double y, int button) {
-        if (FoxCraftVrPlane.isReady() ||
-            screen != previousScreen || button != GLFW.GLFW_MOUSE_BUTTON_LEFT ||
-            focusedField(screen) == null)
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) return false;
+        if (FoxCraftVrPlane.isReady()) {
+            // Vivecraft may also project the same trigger to the original
+            // Minecraft GUI. Do not let it click through our separate VR quad.
+            suppressMinecraftGuiClick = FoxCraftVrPlane.interceptsMainGuiMouse();
+            return suppressMinecraftGuiClick;
+        }
+        if (screen != previousScreen || focusedField(screen) == null)
             return false;
         return pointer.press(panel, x, y, System.nanoTime() / 1_000_000L,
             focusedField(screen));
@@ -312,7 +324,14 @@ public final class VirtualKeyboardOverlay {
 
     /** A matching release is swallowed even if the pointer left the panel. */
     public boolean mouseReleased(Screen screen, double x, double y, int button) {
-        if (FoxCraftVrPlane.isReady()) return false;
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) return false;
+        if (FoxCraftVrPlane.isReady() || suppressMinecraftGuiClick) {
+            boolean suppress = suppressMinecraftGuiClick ||
+                FoxCraftVrPlane.interceptsMainGuiMouse();
+            suppressMinecraftGuiClick = false;
+            if (suppress) return true;
+            if (FoxCraftVrPlane.isReady()) return false;
+        }
         if (screen != previousScreen) {
             pointer.cancel();
             return false;
