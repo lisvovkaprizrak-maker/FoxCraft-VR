@@ -1,10 +1,35 @@
 package dev.foxcraft.keyboard;
 
 import java.util.List;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.io.IOException;
 
 /** Pure JDK 21 test; no Minecraft, Fabric, or Unity runtime required. */
 public final class KeyboardLogicSmokeTest {
     public static void main(String[] args) {
+        try {
+            Path tmp = Files.createTempDirectory("foxcraft-keyboard-pref-test");
+            Path settings = tmp.resolve("size.txt");
+            KeyboardPreferences pref = new KeyboardPreferences(settings);
+            require(pref.loadWidth() == 280, "New VR players default to compact size");
+            pref.saveWidth(240);
+            require(pref.loadWidth() == 240, "Small size persists across sessions");
+            pref.saveWidth(320);
+            require(new KeyboardPreferences(settings).loadWidth() == 320,
+                "Large size reloads in a fresh keyboard session");
+            require(KeyboardPreferences.nextWidth(320) == 240 &&
+                KeyboardPreferences.nextWidth(240) == 280 &&
+                KeyboardPreferences.nextWidth(280) == 320,
+                "Size control cycles through the three available widths");
+            Files.writeString(settings, "not-an-option");
+            require(pref.loadWidth() == 280, "Invalid saved size safely resets");
+            Files.deleteIfExists(settings);
+            Files.deleteIfExists(tmp);
+        } catch (IOException e) {
+            throw new AssertionError("Keyboard preference file test failed", e);
+        }
+
         require(KeyboardLayout.make(219, 200, true, true, false, false, false) == null,
             "Small screens should disable the keyboard");
 
