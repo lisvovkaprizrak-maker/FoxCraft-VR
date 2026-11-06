@@ -22,12 +22,19 @@ public final class KeyboardDisplayPolicy {
             editableFocus, false);
     }
 
+    /** Also used by the Vivecraft room-space panel. */
+    public static boolean showRequested(boolean chatScreen,
+                                        boolean editableFocus,
+                                        boolean menuRequested) {
+        return editableFocus && (chatScreen || menuRequested);
+    }
+
     /** A menu needs explicit user input; Minecraft can auto-focus search. */
     public static boolean showScreenOverlay(boolean vrSession,
                                             boolean chatScreen,
                                             boolean roomPanelReady,
                                             boolean editableFocus,
                                             boolean menuRequested) {
-        return editableFocus && !roomPanelReady && (chatScreen || menuRequested);
+        return !roomPanelReady && showRequested(chatScreen, editableFocus, menuRequested);
     }
 }
