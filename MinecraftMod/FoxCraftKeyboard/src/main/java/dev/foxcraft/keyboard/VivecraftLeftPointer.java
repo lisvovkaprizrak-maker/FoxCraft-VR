@@ -64,10 +64,12 @@ public final class VivecraftLeftPointer {
             @SuppressWarnings({"unchecked", "rawtypes"})
             Object leftHand = Enum.valueOf((Class<? extends Enum>) handType.asSubclass(Enum.class),
                 "LEFT");
-            // No custom QuestCraft mappings: use native handed keyboard click.
-            // GUI Shift / global GUI click must never press this left ray.
-            boolean nativeLeftClick = (Boolean) keyboardBinding.getClass()
-                .getMethod("isDown", handType).invoke(keyboardBinding, leftHand);
+            // The detached panel and 2D fallback use identical, origin-
+            // verified click rules. No shift/grip or game-action remapping.
+            Object guiLeftClick = FoxCraftGuiClickInput.optionalBinding(gui, "KEY_LEFT_CLICK");
+            Object guiRightClick = FoxCraftGuiClickInput.optionalBinding(gui, "KEY_RIGHT_CLICK");
+            boolean nativeLeftClick = FoxCraftGuiClickInput.pressed(
+                provider, leftHand, keyboardBinding, guiLeftClick, guiRightClick);
             boolean valid = u >= 0 && u <= 1 && v >= 0 && v <= 1;
             return new Sample(valid, u * guiWidth, v * guiHeight,
                 nativeLeftClick);
