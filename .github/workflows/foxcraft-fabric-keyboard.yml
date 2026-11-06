@@ -50,6 +50,7 @@ jobs:
             src/main/java/dev/foxcraft/keyboard/GestureWordRecognizer.java \
             src/main/java/dev/foxcraft/keyboard/KeyboardPreferences.java \
             src/main/java/dev/foxcraft/keyboard/KeyboardPointerInput.java \
+            src/main/java/dev/foxcraft/keyboard/FoxCraftGuiClickInput.java \
             src/main/java/dev/foxcraft/keyboard/VivecraftLeftPointer.java \
             src/test/java/dev/foxcraft/keyboard/KeyboardLogicSmokeTest.java
           java -cp build/smoke dev.foxcraft.keyboard.KeyboardLogicSmokeTest
@@ -57,6 +58,7 @@ jobs:
         run: |
           mkdir -p build/vr-bridge
           javac -encoding UTF-8 -d build/vr-bridge \
+            src/main/java/dev/foxcraft/keyboard/FoxCraftGuiClickInput.java \
             src/main/java/dev/foxcraft/keyboard/VivecraftLeftPointer.java \
             src/test/vrbridge/org/vivecraft/client_vr/ClientDataHolderVR.java \
             src/test/vrbridge/org/vivecraft/client_vr/provider/ControllerType.java \
