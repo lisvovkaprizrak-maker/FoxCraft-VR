@@ -13,6 +13,13 @@ public final class KeyboardPointerInput {
     private final SwipeGesture swipe = new SwipeGesture();
     private boolean captured;
     private Object focusedFieldToken;
+    // Each pointer owns its Backspace timer; a second controller cannot share it.
+    private KeyboardLayout.Key backspaceKey;
+    private KeyboardLayout.Key hoveredKey;
+    private long nextBackspaceMs;
+    private boolean backspaceRepeated;
+    public static final long BACKSPACE_DELAY_MS = 450;
+    public static final long BACKSPACE_INTERVAL_MS = 85;
 
     /**
      * Returns true if the pointer pressed anywhere inside the keyboard panel,
@@ -32,6 +39,11 @@ public final class KeyboardPointerInput {
         captured = true;
         focusedFieldToken = focusToken;
         KeyboardLayout.Key key = panel.at(x, y);
+        hoveredKey = key;
+        backspaceKey = key != null && key.command() == KeyboardLayout.Command.BACKSPACE
+            ? key : null;
+        nextBackspaceMs = nowMs + BACKSPACE_DELAY_MS;
+        backspaceRepeated = false;
         swipe.begin(key, x, y);
         if (key != null && key.command() != KeyboardLayout.Command.NONE)
             hold.press(key, nowMs);
@@ -56,9 +68,22 @@ public final class KeyboardPointerInput {
             // a field that became focused halfway through a controller drag.
             hold.cancel();
             swipe.cancel();
+            backspaceKey = null;
+            hoveredKey = null;
             return;
         }
+        hoveredKey = panel == null ? null : panel.at(x, y);
         swipe.move(panel, x, y);
+    }
+
+    /** One deletion per elapsed repeat interval; never catch up in a burst after frame lag. */
+    public boolean repeatBackspace(long nowMs, Object focusToken) {
+        if (!captured || focusedFieldToken != focusToken || backspaceKey == null ||
+            !backspaceKey.equals(hoveredKey) || !hold.isPressed(backspaceKey) ||
+            swipe.isSwiping() || nowMs < nextBackspaceMs) return false;
+        backspaceRepeated = true;
+        nextBackspaceMs = nowMs + BACKSPACE_INTERVAL_MS;
+        return true;
     }
 
     public String swipePreview() { return captured ? swipe.preview() : ""; }
@@ -70,7 +95,16 @@ public final class KeyboardPointerInput {
         captured = false;
         Object originalFocus = focusedFieldToken;
         focusedFieldToken = null;
+        boolean didRepeat = backspaceRepeated;
+        backspaceKey = null;
+        hoveredKey = null;
+        backspaceRepeated = false;
         if (originalFocus != focusToken) {
+            hold.cancel();
+            swipe.cancel();
+            return new Release(true, null, List.of());
+        }
+        if (didRepeat) {
             hold.cancel();
             swipe.cancel();
             return new Release(true, null, List.of());
@@ -104,6 +138,9 @@ public final class KeyboardPointerInput {
     public void cancel() {
         captured = false;
         focusedFieldToken = null;
+        backspaceKey = null;
+        hoveredKey = null;
+        backspaceRepeated = false;
         hold.cancel();
         swipe.cancel();
     }
