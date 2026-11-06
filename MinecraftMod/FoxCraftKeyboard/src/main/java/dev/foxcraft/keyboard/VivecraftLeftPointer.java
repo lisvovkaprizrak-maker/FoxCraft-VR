@@ -100,6 +100,9 @@ public final class VivecraftLeftPointer {
             unavailable = true;
             return null;
         } catch (ReflectiveOperationException | LinkageError | ClassCastException e) {
+            // Opt-in diagnostics for the standalone bridge test only.
+            if (Boolean.getBoolean("foxcraft.vrBridgeDiagnostics"))
+                e.printStackTrace();
             // Some QuestCraft forks change Vivecraft internals. Never break
             // the already-tested right-controller path if reflection differs.
             unavailable = true;
