@@ -8,6 +8,7 @@ on:
       - 'Assets/Scripts/FoxCraftInGameKeyboardInstaller.cs'
       - 'Assets/Scripts/InstanceButton.cs'
       - 'tests/test_keyboard_apk_pipeline.py'
+      - 'tools/check_foxcraft_pojlib_api.py'
   workflow_dispatch:
 
 permissions:
@@ -26,6 +27,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify bundled Pojlib JNI API signatures
+        run: python3 tools/check_foxcraft_pojlib_api.py
       - name: Verify Minecraft 1.21.5 APK configuration
         run: |
           python3 -m unittest discover -s tests -p 'test_keyboard_apk_pipeline.py' -v
