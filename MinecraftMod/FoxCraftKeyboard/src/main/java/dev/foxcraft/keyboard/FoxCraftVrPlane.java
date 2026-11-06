@@ -240,7 +240,6 @@ public final class FoxCraftVrPlane {
         Class<?> handType = Class.forName("org.vivecraft.client_vr.provider.ControllerType");
         Object keyboardClick = guiClass.getField("KEY_KEYBOARD_CLICK").get(null);
         Object regularClick = guiClass.getField("KEY_LEFT_CLICK").get(null);
-        Object guiShift = guiClass.getField("KEY_SHIFT").get(null);
         Method cursorProject = null;
         for (Method method : guiClass.getMethods()) {
             if (method.getName().equals("getTexCoordsForCursor") &&
@@ -274,9 +273,12 @@ public final class FoxCraftVrPlane {
                 hand == 0 ? "RIGHT" : "LEFT");
             boolean downKeyboard = (Boolean) keyboardClick.getClass()
                 .getMethod("isDown", handType).invoke(keyboardClick, handed);
-            boolean downFallback = ((KeyBinding) (hand == 0 ? regularClick : guiShift))
-                .isPressed();
-            boolean down = tracked && (downKeyboard || downFallback);
+            // GUI Shift is a modifier, not the left-hand trigger.
+            // Treating it as a click steals input and makes the off hand
+            // appear to be the only active controller.
+            // Preserve the normal Vivecraft right-hand GUI click binding.
+            boolean downRightGui = hand == 0 && ((KeyBinding) regularClick).isPressed();
+            boolean down = tracked && (downKeyboard || downRightGui);
             if (down && !wasPressed[hand] && x >= 0 && y >= 0)
                 keyboard.vrPressed(original, x, y, hand);
             else if (!down && wasPressed[hand])
