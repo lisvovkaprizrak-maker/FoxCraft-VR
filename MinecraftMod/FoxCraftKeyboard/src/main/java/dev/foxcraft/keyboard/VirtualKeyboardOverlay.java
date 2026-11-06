@@ -9,6 +9,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import org.lwjgl.glfw.GLFW;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * In-game keyboard rendered into vanilla Minecraft screens. Vivecraft handles
@@ -282,21 +283,32 @@ public final class VirtualKeyboardOverlay {
         if (result.key().command() == KeyboardLayout.Command.TYPE &&
             !release.suggestions().isEmpty()) {
             clearSuggestions();
+            String chosen = shift ? capitalize(result.text()) : result.text();
+            List<String> choices = shift
+                ? release.suggestions().stream()
+                    .map(VirtualKeyboardOverlay::capitalize).toList()
+                : release.suggestions();
+            shift = false;
             int before = field.getCursor();
-            field.write(result.text());
+            field.write(chosen);
             int after = field.getCursor();
             String actual = field.getText();
-            if (after - before == result.text().length() &&
+            if (after - before == chosen.length() &&
                 after <= actual.length() &&
-                actual.substring(before, after).equals(result.text())) {
-                suggestions = release.suggestions();
+                actual.substring(before, after).equals(chosen)) {
+                suggestions = choices;
                 suggestionField = field;
                 suggestionSnapshot = actual;
                 suggestionCursor = after;
-                lastInsertedWord = result.text();
+                lastInsertedWord = chosen;
                 panel = null;
             }
         } else activate(screen, result);
+    }
+
+    private static String capitalize(String word) {
+        return word.isEmpty() ? word :
+            word.substring(0, 1).toUpperCase(Locale.ROOT) + word.substring(1);
     }
 
     private void clearSuggestions() {
