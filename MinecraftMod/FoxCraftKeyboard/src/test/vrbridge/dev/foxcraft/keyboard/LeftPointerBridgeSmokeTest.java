@@ -23,15 +23,20 @@ public final class LeftPointerBridgeSmokeTest {
             "GUI Shift/grip must not generate phantom left pointer presses");
         GuiHandler.KEY_SHIFT.leftGripPressed = false;
 
-        // The isolated ray-projection smoke test intentionally contains no
-        // Minecraft/OpenXR action provider; even a handed isDown(LEFT)
-        // must NOT bypass the verified-origin input bridge. Actual index
-        // trigger activation is tested in LeftTriggerOriginSmokeTest.
+        // The original QuestCraft/Vivecraft per-hand keyboard click is the
+        // only active input. Left works on its own native binding.
         GuiHandler.KEY_KEYBOARD_CLICK.leftPressed = true;
         VivecraftLeftPointer.Sample mapped = pointer.poll(800, 400);
-        require(mapped != null && !mapped.pressed(),
-            "Unverified isDown(LEFT) must not create mirrored controller press");
+        require(mapped != null && mapped.pressed(),
+            "Native left keyboard-click must activate left pointer");
         GuiHandler.KEY_KEYBOARD_CLICK.leftPressed = false;
+
+        // A right-hand keyboard click must never appear on the left pointer.
+        GuiHandler.KEY_KEYBOARD_CLICK.rightPressed = true;
+        VivecraftLeftPointer.Sample right = pointer.poll(800, 400);
+        require(right != null && !right.pressed(),
+            "Native right keyboard-click must not activate left pointer");
+        GuiHandler.KEY_KEYBOARD_CLICK.rightPressed = false;
 
         GuiHandler.cursorX = -1;
         VivecraftLeftPointer.Sample outside = pointer.poll(800, 400);
