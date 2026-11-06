@@ -163,7 +163,7 @@ public final class VirtualKeyboardOverlay {
                 chat && !detached, russian, symbols, shift, collapsed,
                 preferredWidth, suggestions, chatInputBottomY, detached);
             if (settingsOpen && panel != null) {
-                panel = KeyboardLayout.themeMenu(panel, theme);
+                panel = KeyboardLayout.themeMenu(panel, theme.name());
             }
             if (!chat && !detached && panel != null) {
                 panel = KeyboardLayout.dockForMenu(panel, width, height,
