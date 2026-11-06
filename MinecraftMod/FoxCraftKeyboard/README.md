@@ -35,12 +35,16 @@ mkdir -p build/smoke
 javac -encoding UTF-8 -d build/smoke \
   src/main/java/dev/foxcraft/keyboard/KeyboardLayout.java \
   src/main/java/dev/foxcraft/keyboard/KeyHoldController.java \
+  src/main/java/dev/foxcraft/keyboard/SwipeGesture.java \
+  src/main/java/dev/foxcraft/keyboard/GestureWordRecognizer.java \
+  src/main/java/dev/foxcraft/keyboard/KeyboardPreferences.java \
   src/main/java/dev/foxcraft/keyboard/KeyboardPointerInput.java \
+  src/main/java/dev/foxcraft/keyboard/VivecraftLeftPointer.java \
   src/test/java/dev/foxcraft/keyboard/KeyboardLogicSmokeTest.java
 java -cp build/smoke dev.foxcraft.keyboard.KeyboardLogicSmokeTest
 ```
 
-These tests verify the number row, Russian/English punctuation alternates, uppercase `Ё`, panel geometry, the 450 ms hold threshold, and VR pointer capture including key gaps, drag-away and focus-loss cancellation.
+These tests verify the number row, Russian/English punctuation alternates, uppercase `Ё`, panel geometry, the 450 ms hold threshold, offline word-shape recognition, correction choices, and VR pointer capture including key gaps, drag-away and focus-loss cancellation.
 
 ## Build the Minecraft mod
 
