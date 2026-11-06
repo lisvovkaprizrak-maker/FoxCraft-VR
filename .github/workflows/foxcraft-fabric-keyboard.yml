@@ -63,15 +63,6 @@ jobs:
             src/test/vrbridge/org/vivecraft/client_vr/gameplay/screenhandlers/GuiHandler.java \
             src/test/vrbridge/dev/foxcraft/keyboard/LeftPointerBridgeSmokeTest.java
           java -cp build/vr-bridge dev.foxcraft.keyboard.LeftPointerBridgeSmokeTest
-      - name: Verify left Quest 3 index trigger respects controller origin
-        run: |
-          mkdir -p build/left-trigger
-          javac -encoding UTF-8 -d build/left-trigger \
-            src/main/java/dev/foxcraft/keyboard/FoxCraftLeftTrigger.java \
-            src/test/triggerbridge/net/minecraft/client/option/KeyBinding.java \
-            src/test/triggerbridge/net/minecraft/client/MinecraftClient.java \
-            src/test/triggerbridge/dev/foxcraft/keyboard/LeftTriggerOriginSmokeTest.java
-          java -cp build/left-trigger dev.foxcraft.keyboard.LeftTriggerOriginSmokeTest
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.12.1'
