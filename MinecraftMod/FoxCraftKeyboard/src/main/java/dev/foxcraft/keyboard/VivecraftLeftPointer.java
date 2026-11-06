@@ -66,8 +66,8 @@ public final class VivecraftLeftPointer {
                 "LEFT");
             // The detached panel and 2D fallback use identical, origin-
             // verified click rules. No shift/grip or game-action remapping.
-            Object guiLeftClick = gui.getField("KEY_LEFT_CLICK").get(null);
-            Object guiRightClick = gui.getField("KEY_RIGHT_CLICK").get(null);
+            Object guiLeftClick = FoxCraftGuiClickInput.optionalBinding(gui, "KEY_LEFT_CLICK");
+            Object guiRightClick = FoxCraftGuiClickInput.optionalBinding(gui, "KEY_RIGHT_CLICK");
             boolean nativeLeftClick = FoxCraftGuiClickInput.pressed(
                 provider, leftHand, keyboardBinding, guiLeftClick, guiRightClick);
             boolean valid = u >= 0 && u <= 1 && v >= 0 && v <= 1;
