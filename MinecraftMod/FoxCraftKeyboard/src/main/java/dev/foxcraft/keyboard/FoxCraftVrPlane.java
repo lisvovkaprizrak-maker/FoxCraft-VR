@@ -55,6 +55,12 @@ public final class FoxCraftVrPlane {
         return ready;
     }
 
+    /** Prevent secondary 2D chat clicks while pointing at FoxCraft in VR. */
+    public static boolean interceptsMainGuiMouse() {
+        return ready && keyboard != null &&
+            keyboard.detachedContains(cursorX[0], cursorY[0]);
+    }
+
     /**
      * Called before Vivecraft begins rendering its stereo eye passes. This
      * draws into a *different* framebuffer from QuestCraft's own keyboard.
