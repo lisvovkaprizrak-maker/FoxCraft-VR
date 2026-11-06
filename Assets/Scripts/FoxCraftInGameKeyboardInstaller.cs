@@ -35,9 +35,27 @@ public static class FoxCraftInGameKeyboardInstaller
         }
     }
 
+    private static bool IsCorrectMinecraftVersion(AndroidJavaObject instance)
+    {
+        try
+        {
+            return String.Equals(instance.Get<string>("versionName"), "1.21.5",
+                StringComparison.Ordinal);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning("[FoxCraft] Cannot verify Minecraft profile version: " +
+                ex.GetType().Name);
+            return false;
+        }
+    }
+
     public static IEnumerator EnsureInstalled(AndroidJavaObject instance, Action<bool> complete)
     {
+        // Validate again at the installation boundary: a caller must not be
+        // able to inject this 1.21.5 Fabric mod into a different game profile.
         if (Application.platform != RuntimePlatform.Android || instance == null ||
+            !IsCorrectMinecraftVersion(instance) || !UsesFabricLoader(instance) ||
             !TryFindTargetFolder(instance, out string targetFolder))
         {
             complete?.Invoke(false);
