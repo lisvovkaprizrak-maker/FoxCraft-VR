@@ -39,6 +39,11 @@ public final class FoxCraftLeftTrigger {
         return false;
     }
 
+    /** Check a single Vivecraft binding with a verified controller hand. */
+    public static boolean pressedBinding(Object vr, Object hand, Object binding) {
+        return vr != null && hand != null && pressedAction(vr, hand, binding);
+    }
+
     private static boolean pressedAction(Object vr, Object leftHand,
                                          Object binding) {
         if (!(binding instanceof KeyBinding key)) return false;
