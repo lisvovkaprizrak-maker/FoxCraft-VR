@@ -32,6 +32,11 @@ public final class KeyHoldController {
             alternate);
     }
 
+    /** True from initial pointer-down, not only after the 450 ms threshold. */
+    public boolean isPressed(KeyboardLayout.Key key) {
+        return pending != null && pending.equals(key);
+    }
+
     public boolean isHolding(KeyboardLayout.Key key, long nowMs) {
         return pending != null && pending.equals(key) && nowMs - pressedAt >= LONG_PRESS_MS;
     }
