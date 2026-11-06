@@ -9,17 +9,25 @@ public final class KeyboardPointerInput {
 
     private final KeyHoldController hold = new KeyHoldController();
     private boolean captured;
+    private Object focusedFieldToken;
 
     /**
      * Returns true if the pointer pressed anywhere inside the keyboard panel,
      * including the gaps between its buttons.
      */
     public boolean press(KeyboardLayout.Panel panel, double x, double y, long nowMs) {
+        return press(panel, x, y, nowMs, null);
+    }
+
+    /** Captures the exact input field to prevent a held key targeting a new field. */
+    public boolean press(KeyboardLayout.Panel panel, double x, double y,
+                         long nowMs, Object focusToken) {
         if (panel == null || !panel.contains(x, y)) {
             cancel();
             return false;
         }
         captured = true;
+        focusedFieldToken = focusToken;
         KeyboardLayout.Key key = panel.at(x, y);
         if (key != null && key.command() != KeyboardLayout.Command.NONE)
             hold.press(key, nowMs);
@@ -33,8 +41,20 @@ public final class KeyboardPointerInput {
      * pointer moved outside the panel or the press began in a button gap.
      */
     public Release release(KeyboardLayout.Panel panel, double x, double y, long nowMs) {
+        return release(panel, x, y, nowMs, null);
+    }
+
+    /** Consumes the release but inserts nothing if focus changed during hold. */
+    public Release release(KeyboardLayout.Panel panel, double x, double y,
+                           long nowMs, Object focusToken) {
         if (!captured) return new Release(false, null);
         captured = false;
+        Object originalFocus = focusedFieldToken;
+        focusedFieldToken = null;
+        if (originalFocus != focusToken) {
+            hold.cancel();
+            return new Release(true, null);
+        }
         KeyboardLayout.Key hovered = panel == null ? null : panel.at(x, y);
         return new Release(true, hold.release(hovered, nowMs));
     }
@@ -49,6 +69,7 @@ public final class KeyboardPointerInput {
 
     public void cancel() {
         captured = false;
+        focusedFieldToken = null;
         hold.cancel();
     }
 }
