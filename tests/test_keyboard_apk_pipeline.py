@@ -5,6 +5,7 @@ These tests verify source wiring only; they do not compile Unity or run a Quest.
 from pathlib import Path
 import re
 import unittest
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -76,6 +77,32 @@ class KeyboardApkPipelineTests(unittest.TestCase):
             build.index("PlayerSettings.Android.useCustomKeystore = false;"),
             build.index("BuildPipeline.BuildPlayer("),
         )
+
+    def test_main_unity_scene_is_enabled_for_apk(self):
+        settings = (ROOT / "ProjectSettings/EditorBuildSettings.asset").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("- enabled: 1\\n    path: Assets/Scenes/Main.unity", settings)
+        self.assertTrue((ROOT / "Assets/Scenes/Main.unity").is_file())
+
+    def test_android_manifest_preserves_pojlib_vr_activity(self):
+        android = "{http://schemas.android.com/apk/res/android}"
+        root = ET.parse(ROOT / "Assets/Plugins/Android/AndroidManifest.xml").getroot()
+        activity = root.find("./application/activity")
+        self.assertIsNotNone(activity)
+        self.assertEqual(activity.attrib[android + "name"],
+                         "pojlib.UnityPlayerActivity")
+        self.assertEqual(activity.attrib[android + "exported"], "true")
+        self.assertEqual(activity.attrib[android + "screenOrientation"], "landscape")
+        categories = {
+            el.attrib[android + "name"]
+            for el in activity.findall("./intent-filter/category")
+        }
+        self.assertIn("com.oculus.intent.category.VR", categories)
+        permissions = {
+            el.attrib[android + "name"] for el in root.findall("./uses-permission")
+        }
+        self.assertIn("org.khronos.openxr.permission.OPENXR_SYSTEM", permissions)
 
     def test_no_unattended_or_unlicensed_apk_builds(self):
         workflow = (ROOT / ".github/workflows/foxcraft-keyboard-apk.yml").read_text(
