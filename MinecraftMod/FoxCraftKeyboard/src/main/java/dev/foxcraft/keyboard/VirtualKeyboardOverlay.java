@@ -8,6 +8,7 @@ import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import org.lwjgl.glfw.GLFW;
+import java.util.List;
 
 /**
  * In-game keyboard rendered into vanilla Minecraft screens. Vivecraft handles
@@ -27,6 +28,13 @@ public final class VirtualKeyboardOverlay {
     private final VivecraftLeftPointer leftRay = new VivecraftLeftPointer();
     private final KeyboardPreferences prefs = new KeyboardPreferences(
         FabricLoader.getInstance().getConfigDir().resolve("foxcraft-keyboard-size.txt"));
+    // Candidates belong to the most recent word and exactly one text-field state.
+    // Editing or moving the cursor invalidates replacement to avoid data loss.
+    private List<String> suggestions = List.of();
+    private TextFieldWidget suggestionField;
+    private String suggestionSnapshot = "";
+    private String lastInsertedWord = "";
+    private int suggestionCursor = -1;
     private boolean leftDown;
     private VivecraftLeftPointer.Sample leftSample;
     private KeyboardLayout.Panel panel;
@@ -48,6 +56,7 @@ public final class VirtualKeyboardOverlay {
     public void render(Screen screen, DrawContext context, int mouseX, int mouseY) {
         if (screen != previousScreen) {
             previousScreen = screen;
+            clearSuggestions();
             pointer.cancel();
             leftPointer.cancel();
             leftDown = false;
@@ -57,6 +66,7 @@ public final class VirtualKeyboardOverlay {
         }
 
         if (focusedField(screen) == null) {
+            clearSuggestions();
             panel = null;
             pointer.cancel();
             leftPointer.cancel();
@@ -64,13 +74,20 @@ public final class VirtualKeyboardOverlay {
             leftSample = null;
             return;
         }
+        // Never replace words after edits, cursor moves, or focus changes.
+        TextFieldWidget activeField = focusedField(screen);
+        if (suggestionField != null && (suggestionField != activeField ||
+            !suggestionSnapshot.equals(activeField.getText()) ||
+            suggestionCursor != activeField.getCursor() ||
+            !activeField.getSelectedText().isEmpty()))
+            clearSuggestions();
         boolean chat = screen instanceof ChatScreen;
         if (panel == null || layoutWidth != screen.width || layoutHeight != screen.height ||
             layoutChat != chat || layoutPreferredWidth != preferredWidth ||
             layoutRussian != russian || layoutSymbols != symbols ||
             layoutShift != shift || layoutCollapsed != collapsed) {
             panel = KeyboardLayout.make(screen.width, screen.height,
-                chat, russian, symbols, shift, collapsed, preferredWidth);
+                chat, russian, symbols, shift, collapsed, preferredWidth, suggestions);
             layoutWidth = screen.width;
             layoutPreferredWidth = preferredWidth;
             layoutHeight = screen.height;
@@ -141,6 +158,14 @@ public final class VirtualKeyboardOverlay {
 
             String caption = longHeld ? key.alternate() : key.label();
             if (caption.isEmpty()) caption = key.label();
+            if (key.command() == KeyboardLayout.Command.SUGGESTION) {
+                // Visually truncate only: activation stores the full word.
+                String full = caption;
+                while (caption.length() > 1 && font.getWidth(caption) > key.width() - 4)
+                    caption = caption.substring(0, caption.length()-1);
+                if (!caption.equals(full) && caption.length() > 1)
+                    caption = caption.substring(0, caption.length()-1) + "…";
+            }
             int captionWidth = font.getWidth(caption);
             int tx = key.x() + Math.max(1, (key.width() - captionWidth) / 2);
             int ty = key.y() + Math.max(1, (key.height() - 8) / 2) +
@@ -220,7 +245,7 @@ public final class VirtualKeyboardOverlay {
             KeyboardPointerInput.Release release = leftPointer.release(
                 panel, x, y, nowMs, field);
             if (release.activation() != null && field != null)
-                activate(screen, release.activation());
+                applyRelease(screen, release);
         }
         leftDown = pressed;
     }
@@ -245,14 +270,65 @@ public final class VirtualKeyboardOverlay {
         KeyboardPointerInput.Release release = pointer.release(
             panel, x, y, System.nanoTime() / 1_000_000L, focusedField(screen));
         if (release.activation() != null && focusedField(screen) != null)
-            activate(screen, release.activation());
+            applyRelease(screen, release);
         return release.consumed();
+    }
+
+    /** Swipe candidates are bound to the exact inserted word and cursor. */
+    private void applyRelease(Screen screen, KeyboardPointerInput.Release release) {
+        KeyHoldController.Activation result = release.activation();
+        TextFieldWidget field = focusedField(screen);
+        if (result == null || field == null) return;
+        if (result.key().command() == KeyboardLayout.Command.TYPE &&
+            !release.suggestions().isEmpty()) {
+            clearSuggestions();
+            int before = field.getCursor();
+            field.write(result.text());
+            int after = field.getCursor();
+            String actual = field.getText();
+            if (after - before == result.text().length() &&
+                after <= actual.length() &&
+                actual.substring(before, after).equals(result.text())) {
+                suggestions = release.suggestions();
+                suggestionField = field;
+                suggestionSnapshot = actual;
+                suggestionCursor = after;
+                lastInsertedWord = result.text();
+                panel = null;
+            }
+        } else activate(screen, result);
+    }
+
+    private void clearSuggestions() {
+        if (!suggestions.isEmpty()) panel = null;
+        suggestions = List.of();
+        suggestionField = null;
+        suggestionSnapshot = "";
+        suggestionCursor = -1;
+        lastInsertedWord = "";
     }
 
     private void activate(Screen screen, KeyHoldController.Activation result) {
         TextFieldWidget field = focusedField(screen);
         if (field == null) return;
 
+        if (result.key().command() == KeyboardLayout.Command.SUGGESTION) {
+            String candidate = result.text();
+            if (field == suggestionField &&
+                field.getText().equals(suggestionSnapshot) &&
+                field.getCursor() == suggestionCursor &&
+                field.getSelectedText().isEmpty() &&
+                suggestionCursor >= lastInsertedWord.length() &&
+                field.getText().substring(suggestionCursor - lastInsertedWord.length(),
+                    suggestionCursor).equals(lastInsertedWord) &&
+                suggestions.contains(candidate)) {
+                field.eraseCharacters(-lastInsertedWord.length());
+                field.write(candidate);
+            }
+            clearSuggestions();
+            return;
+        }
+        clearSuggestions();
         switch (result.key().command()) {
             case TYPE, SPACE -> field.write(result.text());
             case BACKSPACE -> field.eraseCharacters(-1);
