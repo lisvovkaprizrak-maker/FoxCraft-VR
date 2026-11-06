@@ -1,5 +1,6 @@
 package dev.foxcraft.keyboard;
 
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.DrawContext;
@@ -24,13 +25,15 @@ public final class VirtualKeyboardOverlay {
     private final KeyboardPointerInput pointer = new KeyboardPointerInput();
     private final KeyboardPointerInput leftPointer = new KeyboardPointerInput();
     private final VivecraftLeftPointer leftRay = new VivecraftLeftPointer();
+    private final KeyboardPreferences prefs = new KeyboardPreferences(
+        FabricLoader.getInstance().getConfigDir().resolve("foxcraft-keyboard-size.txt"));
     private boolean leftDown;
     private VivecraftLeftPointer.Sample leftSample;
     private KeyboardLayout.Panel panel;
     private Screen previousScreen;
     private int layoutWidth = -1;
     private int layoutPreferredWidth = -1;
-    private int preferredWidth = 280;
+    private int preferredWidth = prefs.loadWidth();
     private int layoutHeight = -1;
     private boolean layoutChat;
     private boolean layoutRussian;
@@ -249,8 +252,10 @@ public final class VirtualKeyboardOverlay {
             case ESCAPE -> screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
             case LANGUAGE -> russian = !russian;
             case SYMBOLS -> symbols = !symbols;
-            case RESIZE -> preferredWidth = preferredWidth == 280 ? 240
-                : preferredWidth == 240 ? 320 : 280;
+            case RESIZE -> {
+                preferredWidth = KeyboardPreferences.nextWidth(preferredWidth);
+                prefs.saveWidth(preferredWidth);
+            }
             case SHIFT -> shift = !shift;
             case COLLAPSE -> collapsed = true;
             case EXPAND -> collapsed = false;
