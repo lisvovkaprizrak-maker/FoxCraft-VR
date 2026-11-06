@@ -16,11 +16,11 @@ import java.util.Locale;
  * rendering those screens in VR. Does not depend on the Unity launcher.
  */
 public final class VirtualKeyboardOverlay {
-    private static final int PANEL_BG = 0xE9131014;
-    private static final int KEY_BG = 0xED272125;
-    private static final int KEY_HOVER = 0xFF73401C;
-    private static final int KEY_PRESSED = 0xFFB54C0D;
-    private static final int ORANGE = 0xFFFF981C;
+    private static final int PANEL_BG = 0xF21C1B23;
+    private static final int KEY_BG = 0xFF302E3A;
+    private static final int KEY_HOVER = 0xFFB45215;
+    private static final int KEY_PRESSED = 0xFFFF8B16;
+    private static final int ORANGE = 0xFFFF8D20;
     private static final int TEXT = 0xFFFFFFFF;
     private static final int MINI = 0xFFFFBB6D;
 
@@ -197,7 +197,17 @@ public final class VirtualKeyboardOverlay {
         rounded(context, panel.x() - 2, panel.y() - 2,
             panel.width() + 4, panel.height() + 4, 8, border);
         rounded(context, panel.x(), panel.y(),
-            panel.width(), panel.height(), 7, PANEL_BG);
+            panel.width(), panel.height(), 10, PANEL_BG);
+        // Raised center crest: the reference keyboard has a fox-shaped top
+        // silhouette rather than a simple uniformly rounded rectangle.
+        if (!collapsed) {
+            int crestW = Math.min(128, panel.width() / 2);
+            int crestX = panel.x() + (panel.width() - crestW) / 2;
+            rounded(context, crestX - 3, panel.y() - 5,
+                crestW + 6, 27, 10, border);
+            rounded(context, crestX - 1, panel.y() - 3,
+                crestW + 2, 26, 9, PANEL_BG);
+        }
         if (!collapsed) {
             drawChecker(context, panel.x() + 5, panel.y() + 5);
             drawChecker(context, panel.x() + panel.width() - 14,
@@ -207,12 +217,13 @@ public final class VirtualKeyboardOverlay {
         var font = MinecraftClient.getInstance().textRenderer;
         // Branding is decoration, never a controller-hit-test key.
         if (!collapsed) {
-            int brandY = panel.y() + 6;
-            drawFoxBadge(context, panel.x() + 9, brandY);
-            context.drawText(font, "Fox", panel.x() + 25, brandY + 3,
-                ORANGE, false);
-            context.drawText(font, "Craft", panel.x() + 43, brandY + 3,
-                TEXT, false);
+            int brandY = panel.y() + 4;
+            int brandX = panel.x() + (panel.width() - 92) / 2;
+            drawFoxBadge(context, brandX, brandY);
+            context.drawText(font, "Fox", brandX + 20, brandY + 4,
+                ORANGE, true);
+            context.drawText(font, "Craft", brandX + 38, brandY + 4,
+                TEXT, true);
         }
         KeyboardLayout.Key heldAlternate = null;
         for (KeyboardLayout.Key key : panel.keys()) {
@@ -229,20 +240,24 @@ public final class VirtualKeyboardOverlay {
             boolean activeLanguage = key.command() == KeyboardLayout.Command.LANGUAGE;
             boolean shiftKey = key.command() == KeyboardLayout.Command.SHIFT && shift;
             if (action && !hovered && !longHeld) bg = 0xFFE97510;
-            if (activeLanguage && !hovered && !longHeld) bg = 0xFF984110;
+            if (activeLanguage && !hovered && !longHeld)
+                bg = (key.label().startsWith(russian ? "АБВ" : "ABC"))
+                    ? 0xFFE66C10 : KEY_BG;
             if (shiftKey && !hovered && !longHeld) bg = 0xFF704022;
+            if (key.command() == KeyboardLayout.Command.SYMBOLS &&
+                !hovered && !longHeld && symbols) bg = 0xFFAA4C11;
             // A raised rounded key with thin bevel; pressed keys glow orange.
             if (hovered || longHeld || pointer.isPressed(key) ||
                 leftPointer.isPressed(key)) {
                 rounded(context, key.x() - 1, key.y() - 1,
-                    key.width() + 2, key.height() + 2, 4, 0xFFFFA237);
+                    key.width() + 2, key.height() + 2, 5, 0xFFFFB34C);
             } else {
                 rounded(context, key.x(), key.y(),
-                    key.width(), key.height(), 4, 0xFF494453);
+                    key.width(), key.height(), 5, 0xFF454351);
             }
             rounded(context, key.x() + 1, key.y() + 1,
                 Math.max(1, key.width() - 2), Math.max(1, key.height() - 2),
-                3, bg);
+                4, bg);
 
             float progress = Math.max(pointer.progress(key, now),
                 leftPointer.progress(key, now));
@@ -333,10 +348,11 @@ public final class VirtualKeyboardOverlay {
                 previewX + 8, previewY + 5, ORANGE, false);
         }
 
-        // Gentle orange flow on the outer edge, advanced with monotonic time.
-        int sweep = panel.x() + (int) ((now / 12L) % Math.max(1, panel.width()));
-        context.fill(sweep, panel.y() - 2, Math.min(panel.x() + panel.width(), sweep + 20),
-            panel.y(), ORANGE);
+        // Light stays on the chassis edge; no moving bar crossing the logo.
+        int glow = (int) (30 + 20 * (1 + Math.sin(now / 500.0)));
+        context.fill(panel.x() + 12, panel.y() + panel.height() - 2,
+            panel.x() + panel.width() - 12, panel.y() + panel.height() - 1,
+            (Math.min(255, glow) << 24) | 0x00FF8D20);
         // A successful screen fallback also replaces the old QuestCraft
         // keyboard. Do not suppress the native fallback if we drew nothing.
         if (!detached) QuestCraftKeyboardSuppressor.closeWhenScreenFallbackVisible();
