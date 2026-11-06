@@ -301,8 +301,9 @@ public final class KeyboardLayout {
      * always capitalise the word's FIRST letter, without changing the other
      * characters. English obeys the existing Shift state.
      */
-    public static String swipeWord(String word, boolean russian, boolean shift) {
-        if (word == null || word.isEmpty() || (!russian && !shift))
+    public static String swipeWord(String word, boolean russian, boolean shift,
+                                   boolean atStartOfLine) {
+        if (word == null || word.isEmpty() || !shift && !(russian && atStartOfLine))
             return word == null ? "" : word;
         return word.substring(0, 1).toUpperCase(Locale.ROOT) +
             word.substring(1);
