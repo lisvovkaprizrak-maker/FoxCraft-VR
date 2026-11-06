@@ -13,8 +13,8 @@ import shutil
 import tempfile
 import zipfile
 
-DEFAULT_SOURCE = Path("Fabric/foxchatkeyboard/FoxChatKeyboard-bridge-0.6.0-fabric-1.21.1.jar")
-DEFAULT_DEST = Path("Assets/StreamingAssets/FoxChatKeyboard-bridge-0.6.0.jar")
+DEFAULT_SOURCE = Path("Fabric/foxchatkeyboard/FoxChatKeyboard-bridge-0.6.1-fabric-1.21.5.jar")
+DEFAULT_DEST = Path("Assets/StreamingAssets/FoxChatKeyboard-bridge-0.6.1.jar")
 
 
 def validate_jar(path: Path) -> str:
@@ -26,9 +26,9 @@ def validate_jar(path: Path) -> str:
             metadata = json.loads(jar.read("fabric.mod.json"))
             if metadata.get("id") != "questchatkeyboardbridge":
                 raise ValueError("Unexpected Fabric mod id")
-            if metadata.get("version") != "0.6.0":
+            if metadata.get("version") != "0.6.1":
                 raise ValueError("Unexpected Fabric mod version")
-            if metadata.get("depends", {}).get("minecraft") != "1.21.1":
+            if metadata.get("depends", {}).get("minecraft") != "1.21.5":
                 raise ValueError("Wrong Minecraft version")
             if "com/questchatkeyboard/bridge/QuestChatKeyboardBridge.class" not in files:
                 raise ValueError("Fabric entrypoint class missing")
