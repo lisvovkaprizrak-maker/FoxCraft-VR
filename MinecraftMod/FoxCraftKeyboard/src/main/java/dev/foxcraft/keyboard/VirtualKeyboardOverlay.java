@@ -146,7 +146,8 @@ public final class VirtualKeyboardOverlay {
         if (screen != previousScreen || button != GLFW.GLFW_MOUSE_BUTTON_LEFT ||
             focusedField(screen) == null)
             return false;
-        return pointer.press(panel, x, y, System.nanoTime() / 1_000_000L);
+        return pointer.press(panel, x, y, System.nanoTime() / 1_000_000L,
+            focusedField(screen));
     }
 
     /** A matching release is swallowed even if the pointer left the panel. */
@@ -158,7 +159,7 @@ public final class VirtualKeyboardOverlay {
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) return false;
 
         KeyboardPointerInput.Release release = pointer.release(
-            panel, x, y, System.nanoTime() / 1_000_000L);
+            panel, x, y, System.nanoTime() / 1_000_000L, focusedField(screen));
         if (release.activation() != null && focusedField(screen) != null)
             activate(screen, release.activation());
         return release.consumed();
