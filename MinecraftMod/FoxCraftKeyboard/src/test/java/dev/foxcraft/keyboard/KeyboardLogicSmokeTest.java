@@ -163,6 +163,14 @@ public final class KeyboardLogicSmokeTest {
         require(ru.keys().stream().anyMatch(k ->
             k.command() == KeyboardLayout.Command.TYPE && ",".equals(k.value())),
             "Russian main keyboard replaces redundant exit with comma");
+        // Comma and period must be neighbouring keys on the main row in both languages.
+        for (KeyboardLayout.Panel punctuationPanel : new KeyboardLayout.Panel[]{
+                ru, KeyboardLayout.make(854, 480, true, false, false, false, false)}) {
+            KeyboardLayout.Key comma = key(punctuationPanel.keys(), ",");
+            KeyboardLayout.Key period = key(punctuationPanel.keys(), ".");
+            require(comma.y() == period.y() && comma.x() + comma.width() + 2 == period.x(),
+                "Comma is immediately next to period on both language layouts");
+        }
         KeyboardLayout.Key letter = key(ru.keys(), "й");
         require("~".equals(letter.alternate()), "Russian Й has ~ legend");
         require("@".equals(key(ru.keys(), "ф").alternate()), "Russian Ф has @ legend");
