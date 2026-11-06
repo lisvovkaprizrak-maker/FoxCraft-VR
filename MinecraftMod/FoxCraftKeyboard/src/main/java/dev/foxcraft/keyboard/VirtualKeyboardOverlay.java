@@ -1,6 +1,5 @@
 package dev.foxcraft.keyboard;
 
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.DrawContext;
@@ -27,8 +26,8 @@ public final class VirtualKeyboardOverlay {
     private final KeyboardPointerInput pointer = new KeyboardPointerInput();
     private final KeyboardPointerInput leftPointer = new KeyboardPointerInput();
     private final VivecraftLeftPointer leftRay = new VivecraftLeftPointer();
-    private final KeyboardPreferences prefs = new KeyboardPreferences(
-        FabricLoader.getInstance().getConfigDir().resolve("foxcraft-keyboard-size.txt"));
+    // Size is deliberately locked for the reference design. No preference
+    // file is loaded, and there is no resize key or gesture.
     // Candidates belong to the most recent word and exactly one text-field state.
     // Editing or moving the cursor invalidates replacement to avoid data loss.
     private List<String> suggestions = List.of();
@@ -49,7 +48,8 @@ public final class VirtualKeyboardOverlay {
     private int layoutFieldWidth = -1, layoutFieldHeight = -1;
     private int layoutWidth = -1;
     private int layoutPreferredWidth = -1;
-    private int preferredWidth = prefs.loadWidth();
+    private static final int FIXED_REFERENCE_WIDTH = 390;
+    private int preferredWidth = FIXED_REFERENCE_WIDTH;
     private int layoutHeight = -1;
     private int layoutChatInputBottomY = -1;
     private boolean layoutChat;
@@ -603,10 +603,7 @@ public final class VirtualKeyboardOverlay {
             case LANGUAGE_RU -> { russian = true; symbols = false; }
             case LANGUAGE_EN -> { russian = false; symbols = false; }
             case SYMBOLS -> symbols = !symbols;
-            case RESIZE -> {
-                preferredWidth = KeyboardPreferences.nextWidth(preferredWidth);
-                prefs.saveWidth(preferredWidth);
-            }
+            case RESIZE -> { /* Kept for compatibility; resizing is disabled. */ }
             case SHIFT -> shift = !shift;
             case COLLAPSE -> collapsed = true;
             case EXPAND -> collapsed = false;
