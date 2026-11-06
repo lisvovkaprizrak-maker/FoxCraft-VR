@@ -80,9 +80,10 @@ public class InstanceButton : MonoBehaviour
         uiHandler.PlaySetter();
         ProgressBarManager.started = true;
 
-        // API.prelaunch is VOID in QuestCraftPlusPlus/Pojlib QuestCraft-6.0.0.
-        // It updates the instance's mods. Run it before staging FoxCraft so
-        // updateMods cannot remove our custom JAR on this launch.
+        // The BUNDLED Pojlib-release.aar exposes boolean API.prelaunch(...)
+        // (confirmed with javap in GitHub Actions). Upstream Pojlib source can
+        // differ, so the JNI return signature must match the shipped AAR.
+        // Prelaunch updates installed mods; run it before staging FoxCraft.
         PrelaunchState state = new PrelaunchState();
         Thread worker = new Thread(() =>
         {
@@ -92,8 +93,9 @@ public class InstanceButton : MonoBehaviour
                 attached = AndroidJNI.AttachCurrentThread() >= 0;
                 if (!attached)
                     throw new InvalidOperationException("Failed to attach to Android JVM");
-                JNIStorage.apiClass.CallStatic("prelaunch",
-                    JNIStorage.activity, JNIStorage.instancesObj, selected.raw);
+                if (!JNIStorage.apiClass.CallStatic<bool>("prelaunch",
+                    JNIStorage.activity, JNIStorage.instancesObj, selected.raw))
+                    state.error = "Pojlib prelaunch checks failed";
             }
             catch (Exception ex)
             {
