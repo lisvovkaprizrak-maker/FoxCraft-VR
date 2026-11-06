@@ -75,6 +75,8 @@ public final class VirtualKeyboardOverlay {
         FabricLoader.getInstance().getConfigDir().resolve("foxcraft-keyboard-binds.properties"));
     private int quickPage;
     private int editingQuickSlot = -1;
+    private int deleteQuickSlot = -1;
+    private long deleteQuickTime;
     private long voiceStatusAt;
     private final FoxCraftFeatureSettings featurePrefs =
         new FoxCraftFeatureSettings(FabricLoader.getInstance().getConfigDir()
@@ -201,7 +203,9 @@ public final class VirtualKeyboardOverlay {
                             KeyboardLayout.Command.BACK_TO_KEYS},
                         new String[]{"", "", "", "", "", ""});
                     case "QUICK" -> KeyboardLayout.quickBindingsMenu(panel,
-                        quickBinds.pageLabels(quickPage), quickPage);
+                        quickBinds.pageLabels(Math.min(quickPage, quickBinds.pages() - 1)),
+                        Math.min(quickPage, quickBinds.pages() - 1),
+                        quickBinds.pages());
                     case "COMPOSE" -> KeyboardLayout.composeMenu(panel,
                         quickDraft.message(), quickDraft.note(),
                         quickDraft.editingNote(), russian, shift,
@@ -554,7 +558,8 @@ public final class VirtualKeyboardOverlay {
             cmd != KeyboardLayout.Command.QUICK_MESSAGES &&
             cmd != KeyboardLayout.Command.CLIPBOARD &&
             cmd != KeyboardLayout.Command.ESCAPE &&
-            cmd != KeyboardLayout.Command.QUICK_EDIT) return false;
+            cmd != KeyboardLayout.Command.QUICK_EDIT &&
+            cmd != KeyboardLayout.Command.QUICK_DELETE) return false;
         int cx = key.x() + key.width() / 2;
         int cy = key.y() + key.height() / 2;
         if (cmd == KeyboardLayout.Command.MICROPHONE) {
@@ -575,6 +580,14 @@ public final class VirtualKeyboardOverlay {
             rounded(c, cx - 3, cy - 8, 6, 4, 1, accent);
             c.fill(cx - 3, cy - 1, cx + 3, cy, accent);
             c.fill(cx - 3, cy + 3, cx + 3, cy + 4, accent);
+        } else if (cmd == KeyboardLayout.Command.QUICK_DELETE) {
+            // Small corner deletion mark, deliberately separate from gear.
+            c.fill(cx - 4, cy - 4, cx - 2, cy - 2, ink);
+            c.fill(cx - 2, cy - 2, cx + 2, cy + 2, ink);
+            c.fill(cx + 2, cy + 2, cx + 4, cy + 4, ink);
+            c.fill(cx + 2, cy - 4, cx + 4, cy - 2, accent);
+            c.fill(cx - 2, cy - 2, cx + 2, cy + 2, accent);
+            c.fill(cx - 4, cy + 2, cx - 2, cy + 4, accent);
         } else if (cmd == KeyboardLayout.Command.ESCAPE) {
             // Door and outward arrow (bottom-left exit).
             c.fill(cx - 6, cy - 7, cx - 4, cy + 7, ink);
@@ -1088,14 +1101,46 @@ public final class VirtualKeyboardOverlay {
             case BACK_TO_KEYS -> openPage("KEYBOARD");
             case QUICK_MESSAGES -> openPage("QUICK");
             case QUICK_PAGE_PREVIOUS -> {
-                quickPage = (quickPage + 4) % 5;
+                quickPage = (quickPage + quickBinds.pages() - 1) %
+                    quickBinds.pages();
+                deleteQuickSlot = -1;
                 openPage("QUICK");
             }
             case QUICK_PAGE_NEXT -> {
-                quickPage = (quickPage + 1) % 5;
+                quickPage = (quickPage + 1) % quickBinds.pages();
+                deleteQuickSlot = -1;
                 openPage("QUICK");
             }
+            case QUICK_ADD -> {
+                int newSlot = quickBinds.add();
+                if (newSlot == -1) {
+                    showStatus("Достигнут предел биндов");
+                } else {
+                    quickPage = newSlot / QuickBindingStore.PAGE_SIZE;
+                    editingQuickSlot = newSlot;
+                    quickDraft.clear();
+                    deleteQuickSlot = -1;
+                    openPage("COMPOSE");
+                }
+            }
+            case QUICK_DELETE -> {
+                int slot = Integer.parseInt(result.key().value());
+                long nowMs = System.nanoTime() / 1_000_000L;
+                if (slot != deleteQuickSlot ||
+                    nowMs - deleteQuickTime > 5000) {
+                    deleteQuickSlot = slot;
+                    deleteQuickTime = nowMs;
+                    showStatus("Нажми крестик повторно для удаления");
+                } else {
+                    quickBinds.remove(slot);
+                    quickPage = Math.min(quickPage, quickBinds.pages() - 1);
+                    deleteQuickSlot = -1;
+                    showStatus("Бинд удалён");
+                    openPage("QUICK");
+                }
+            }
             case QUICK_EDIT -> {
+                deleteQuickSlot = -1;
                 editingQuickSlot = Integer.parseInt(result.key().value());
                 quickDraft.load(quickBinds.message(editingQuickSlot),
                     quickBinds.note(editingQuickSlot));
@@ -1212,7 +1257,7 @@ public final class VirtualKeyboardOverlay {
                         quickDraft.clear();
                         openPage("QUICK");
                         showStatus("Бинд сохранён");
-                    } else showStatus("Бинд длиннее 256 символов");
+                    } else showStatus("Текст максимум 256, название 60 символов");
                 } else sendQuickDraft(screen, chatField);
             }
             case QUICK_MESSAGES, ESCAPE -> {
