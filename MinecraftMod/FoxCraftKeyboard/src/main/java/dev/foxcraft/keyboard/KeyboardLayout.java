@@ -222,14 +222,14 @@ public final class KeyboardLayout {
         // command slash. No extra row is added: the physical VR panel stays
         // at the calibrated fixed size and preserves all previous controls.
         addWeighted(keys, insideX, rowY, insideWidth, rowHeight, gap,
-            new String[]{",", shift ? "SHIFT*" : "SHIFT",
+            new String[]{"/", shift ? "SHIFT*" : "SHIFT",
                 "↑", "↓", "←", russian ? "ПРОБЕЛ" : "SPACE",
-                "→", "/", ".", russian ? "ВВОД" : "ENTER"},
+                "→", ",", ".", russian ? "ВВОД" : "ENTER"},
             new Command[]{Command.TYPE, Command.SHIFT,
                 Command.HISTORY_PREVIOUS, Command.HISTORY_NEXT,
                 Command.LEFT, Command.SPACE, Command.RIGHT, Command.TYPE,
                 Command.TYPE, Command.ENTER},
-            new String[]{",", "", "", "", "", " ", "", "/", ".", ""},
+            new String[]{"/", "", "", "", "", " ", "", ",", ".", ""},
             new int[]{2, 3, 2, 2, 2, 7, 2, 2, 2, 4});
         return new Panel(x, y, width, height, List.copyOf(keys));
     }
