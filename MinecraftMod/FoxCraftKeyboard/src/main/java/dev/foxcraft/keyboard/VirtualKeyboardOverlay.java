@@ -659,7 +659,10 @@ public final class VirtualKeyboardOverlay {
         // Each palette has a different motion:
         // embers rise, stars twinkle, bubbles rise, petals descend,
         // aurora glides sideways, and New Year snow falls.
-        int number = theme == KeyboardTheme.NEW_YEAR ? 38 : 25;
+        // Ocean bubbles are exclusive to OCEAN; other themes retain their
+        // existing embers, stars, petals, aurora and snow effects.
+        int number = theme == KeyboardTheme.OCEAN ? 14 :
+            theme == KeyboardTheme.NEW_YEAR ? 38 : 25;
         for (int i = 0; i < number; i++) {
             long t = now / (theme == KeyboardTheme.SAKURA ? 49L : 39L);
             long seed = i * 97L + theme.ordinal() * 53L;
@@ -698,9 +701,34 @@ public final class VirtualKeyboardOverlay {
             }
             int x = p.x() + localX, y = p.y() + localY;
             // Never draw over keycaps, captions, or controller hit markers.
-            if (clearAmbientPixel(p, x, y)) {
+            if (theme == KeyboardTheme.OCEAN) {
+                // Rising translucent rings, drawn only on the chassis.
+                // No bubble effects are applied to the orange FoxCraft theme.
+                drawOceanBubble(c, p, x, y, 2 + i % 3);
+            } else if (clearAmbientPixel(p, x, y)) {
                 c.fill(x, y, x + 1, y + 1, light);
             }
+        }
+    }
+
+    private static void drawOceanBubble(DrawContext c, KeyboardLayout.Panel p,
+                                        int centerX, int centerY, int radius) {
+        int outerSquared = radius * radius;
+        int innerSquared = (radius - 1) * (radius - 1);
+        for (int dy = -radius; dy <= radius; dy++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                int squared = dx * dx + dy * dy;
+                if (squared > outerSquared || squared < innerSquared) continue;
+                int x = centerX + dx, y = centerY + dy;
+                if (clearAmbientPixel(p, x, y)) {
+                    c.fill(x, y, x + 1, y + 1, 0x6697FFFF);
+                }
+            }
+        }
+        // A small surface glint makes it read as a bubble, not confetti.
+        int glintX = centerX - radius + 1, glintY = centerY - radius + 1;
+        if (clearAmbientPixel(p, glintX, glintY)) {
+            c.fill(glintX, glintY, glintX + 1, glintY + 1, 0xA6E8FFFF);
         }
     }
 
