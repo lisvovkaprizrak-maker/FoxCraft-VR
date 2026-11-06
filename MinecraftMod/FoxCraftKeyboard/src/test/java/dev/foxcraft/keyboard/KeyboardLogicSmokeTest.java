@@ -23,6 +23,16 @@ public final class KeyboardLogicSmokeTest {
             "Desktop chat retains the ordinary 2D keyboard");
         require(!KeyboardDisplayPolicy.showScreenOverlay(true, false, false, true),
             "Auto-focused world search must not cover world-selection buttons");
+        // The separate world-space VR panel MUST use the same request policy,
+        // or auto-focused world lists get a second overlapping keyboard.
+        require(!KeyboardDisplayPolicy.showRequested(false, true, false),
+            "VR plane must stay hidden on auto-focused world search");
+        require(KeyboardDisplayPolicy.showRequested(false, true, true),
+            "VR plane opens after an explicit edit-field click");
+        require(KeyboardDisplayPolicy.showRequested(true, true, false),
+            "Chat continues opening immediately with focused input");
+        require(!KeyboardDisplayPolicy.showRequested(true, false, true),
+            "No VR keyboard is drawn after the focused field disappears");
         require(!KeyboardDisplayPolicy.showScreenOverlay(false, false, false, true),
             "Auto-focused menu input must not open the keyboard outside VR");
         require(KeyboardDisplayPolicy.showScreenOverlay(true, false, false, true, true),
