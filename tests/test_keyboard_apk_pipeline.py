@@ -61,6 +61,13 @@ class KeyboardApkPipelineTests(unittest.TestCase):
         self.assertIn("finally", build)
         self.assertIn("initialId", build)
         self.assertIn("PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, initialId)", build)
+        self.assertIn("bool initialCustomKeystore = PlayerSettings.Android.useCustomKeystore", build)
+        self.assertIn("PlayerSettings.Android.useCustomKeystore = false;", build)
+        self.assertIn("PlayerSettings.Android.useCustomKeystore = initialCustomKeystore;", build)
+        self.assertLess(
+            build.index("PlayerSettings.Android.useCustomKeystore = false;"),
+            build.index("BuildPipeline.BuildPlayer("),
+        )
 
     def test_no_unattended_or_unlicensed_apk_builds(self):
         workflow = (ROOT / ".github/workflows/foxcraft-keyboard-apk.yml").read_text(
