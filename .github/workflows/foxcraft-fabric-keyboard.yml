@@ -48,6 +48,16 @@ jobs:
             src/main/java/dev/foxcraft/keyboard/VivecraftLeftPointer.java \
             src/test/java/dev/foxcraft/keyboard/KeyboardLogicSmokeTest.java
           java -cp build/smoke dev.foxcraft.keyboard.KeyboardLogicSmokeTest
+      - name: Verify second controller ray and Vivecraft bridge against API test doubles
+        run: |
+          mkdir -p build/vr-bridge
+          javac -encoding UTF-8 -d build/vr-bridge \
+            src/main/java/dev/foxcraft/keyboard/VivecraftLeftPointer.java \
+            src/test/vrbridge/org/vivecraft/client_vr/ClientDataHolderVR.java \
+            src/test/vrbridge/org/vivecraft/client_vr/provider/ControllerType.java \
+            src/test/vrbridge/org/vivecraft/client_vr/gameplay/screenhandlers/GuiHandler.java \
+            src/test/vrbridge/dev/foxcraft/keyboard/LeftPointerBridgeSmokeTest.java
+          java -cp build/vr-bridge dev.foxcraft.keyboard.LeftPointerBridgeSmokeTest
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.12.1'
