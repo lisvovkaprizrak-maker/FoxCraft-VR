@@ -446,6 +446,10 @@ public final class FoxCraftVrPlane {
         Object data = player.getClass().getField("vrdata_room_pre").get(player);
         Class<?> handType = Class.forName("org.vivecraft.client_vr.provider.ControllerType");
         Object keyboardClick = guiClass.getField("KEY_KEYBOARD_CLICK").get(null);
+        // GUI actions remain active while QuestCraft's own keyboard is closed.
+        // Read them; NEVER alter controller bindings or Minecraft controls.
+        Object guiLeftClick = guiClass.getField("KEY_LEFT_CLICK").get(null);
+        Object guiRightClick = guiClass.getField("KEY_RIGHT_CLICK").get(null);
         Method cursorProject = null;
         for (Method method : guiClass.getMethods()) {
             if (method.getName().equals("getTexCoordsForCursor") &&
@@ -487,12 +491,11 @@ public final class FoxCraftVrPlane {
             Object handed = Enum.valueOf(
                 (Class<? extends Enum>) handType.asSubclass(Enum.class),
                 hand == 0 ? "RIGHT" : "LEFT");
-            // Roll back FoxCraft-specific button remaps: sample ONLY the
-            // existing Vivecraft keyboard-click binding for this hand.
-            // Do not synthesize a press from GUI Shift, attack, use, or
-            // the global (unhanded) GUI click state.
-            boolean down = tracked && (Boolean) keyboardClick.getClass()
-                .getMethod("isDown", handType).invoke(keyboardClick, handed);
+            // The stock keyboard action may be inactive after QuestCraft
+            // closes its own keyboard. Accept ordinary GUI click ONLY when
+            // its OpenXR origin identifies THIS physical controller.
+            boolean down = tracked && FoxCraftGuiClickInput.pressed(
+                provider, handed, keyboardClick, guiLeftClick, guiRightClick);
             boolean accepted = down;
             if (down && !wasPressed[hand]) {
                 accepted = x >= 0 && y >= 0 &&
