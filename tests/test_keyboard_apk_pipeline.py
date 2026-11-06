@@ -30,6 +30,14 @@ class KeyboardApkPipelineTests(unittest.TestCase):
         self.assertIn('GetStatic<string>("USER_HOME")', installer)
         self.assertIn('Path.Combine(resolvedGame, "mods")', installer)
         self.assertIn('SHA256.Create()', installer)
+        self.assertIn('Guid.NewGuid().ToString("N")', installer)
+        self.assertIn('FileMode.CreateNew', installer)
+        self.assertIn('sha.ComputeHash(staged)', installer)
+        self.assertLess(installer.index("FileMode.CreateNew"),
+                        installer.index("sha.ComputeHash(staged)"))
+        self.assertLess(installer.index("sha.ComputeHash(staged)"),
+                        installer.index("File.Move(temporary, destination)"))
+        self.assertIn('if (File.Exists(destination))\n                return false;', installer)
 
     def test_bundled_pojlib_boolean_prelaunch_before_staging_and_launch(self):
         launcher = (ROOT / "Assets/Scripts/InstanceButton.cs").read_text(encoding="utf-8")
