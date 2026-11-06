@@ -77,6 +77,19 @@ public final class KeyboardLogicSmokeTest {
                 k.x() >= sized.x() && k.x() + k.width() <= sized.x() + sized.width()),
                 "All resized keys remain on panel");
         }
+        KeyboardLayout.Panel detached = KeyboardLayout.make(
+            854, 480, false, true, false, false, false, 280,
+            List.of("привет", "слово"), -1, true);
+        require(detached != null && detached.y() == (480 - detached.height()) / 2,
+            "Standalone VR panel centres visible FoxCraft keys at its world anchor");
+        require(detached.keys().stream().allMatch(k ->
+            k.y() >= detached.y() && k.y() + k.height() <= detached.y() + detached.height()),
+            "All detached VR keys remain inside the framebuffer's visible panel");
+        KeyboardLayout.Panel lowerChat = KeyboardLayout.make(
+            854, 480, true, true, false, false, false, 280,
+            List.of(), 180, false);
+        require(lowerChat.y() > 180,
+            "Regular 2D chat fallback stays below its text field when space exists");
         int digitRowY = key(ru.keys(), "1").y();
         StringBuilder numbers = new StringBuilder();
         for (KeyboardLayout.Key k : ru.keys())
