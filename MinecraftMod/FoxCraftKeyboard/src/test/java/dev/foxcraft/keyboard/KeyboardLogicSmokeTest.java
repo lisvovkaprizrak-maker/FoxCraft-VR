@@ -8,6 +8,17 @@ import java.io.IOException;
 /** Pure JDK 21 test; no Minecraft, Fabric, or Unity runtime required. */
 public final class KeyboardLogicSmokeTest {
     public static void main(String[] args) {
+        // Regression: on Quest, the world-selection text field must not
+        // display FoxCraft over the menu, while in-world chat stays usable
+        // even if the optional 3D Vivecraft hook never starts.
+        require(!KeyboardDisplayPolicy.showScreenOverlay(true, false, false),
+            "VR world-selection menus must not have a screen-embedded keyboard");
+        require(KeyboardDisplayPolicy.showScreenOverlay(true, true, false),
+            "VR chat must retain keyboard fallback if room panel is missing");
+        require(!KeyboardDisplayPolicy.showScreenOverlay(true, true, true),
+            "VR chat must not duplicate a working detached keyboard");
+        require(KeyboardDisplayPolicy.showScreenOverlay(false, false, false),
+            "Desktop text fields retain the 2D keyboard");
         try {
             Path tmp = Files.createTempDirectory("foxcraft-keyboard-pref-test");
             Path settings = tmp.resolve("size.txt");

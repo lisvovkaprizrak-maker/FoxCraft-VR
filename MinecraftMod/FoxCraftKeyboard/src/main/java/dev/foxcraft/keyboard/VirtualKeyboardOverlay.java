@@ -63,10 +63,14 @@ public final class VirtualKeyboardOverlay {
     }
 
     public void render(Screen screen, DrawContext context, int mouseX, int mouseY) {
-        // A legacy 2D panel obstructs messages in a headset. In VR use the
-        // separate world-space panel; if unavailable, leave chat readable and
-        // let the original QuestCraft keyboard provide input.
-        if (screen instanceof ChatScreen && FoxCraftVrPlane.isVrSession()) return;
+        // The separate QuestCraft-aligned VR surface is preferred, but it can
+        // fail to load on forked builds. Do not make the chat keyboard vanish:
+        // restore the 2D keyboard only while no usable VR surface is ready.
+        // Never place that 2D overlay over world-selection and other VR menus.
+        if (!KeyboardDisplayPolicy.showScreenOverlay(
+            FoxCraftVrPlane.isVrSession(),
+            screen instanceof ChatScreen,
+            FoxCraftVrPlane.isReady())) return;
         renderInternal(screen, context, mouseX, mouseY,
             screen.width, screen.height, false, -100, -100);
     }
@@ -297,16 +301,23 @@ public final class VirtualKeyboardOverlay {
 
     /** VR-plane controller input; separate state machines for each hand. */
     public void vrPressed(Screen screen, double x, double y, int hand) {
+        // Controller state can be ready a frame before the detached layout.
+        if (panel == null) return;
         if (focusedField(screen) != null)
             handPointer(hand).press(panel, x, y,
                 System.nanoTime() / 1_000_000L, focusedField(screen));
     }
 
     public void vrMoved(Screen screen, double x, double y, int hand) {
-        handPointer(hand).move(panel, x, y, focusedField(screen));
+        if (panel != null)
+            handPointer(hand).move(panel, x, y, focusedField(screen));
     }
 
     public void vrReleased(Screen screen, double x, double y, int hand) {
+        if (panel == null) {
+            handPointer(hand).cancel();
+            return;
+        }
         KeyboardPointerInput.Release release = handPointer(hand).release(
             panel, x, y, System.nanoTime() / 1_000_000L, focusedField(screen));
         if (release.activation() != null && focusedField(screen) != null)
@@ -320,8 +331,8 @@ public final class VirtualKeyboardOverlay {
     /** Returns true if the gesture is captured (including key gaps). */
     public boolean mousePressed(Screen screen, double x, double y, int button) {
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) return false;
-        if (screen instanceof ChatScreen && FoxCraftVrPlane.isVrSession() &&
-            !FoxCraftVrPlane.isReady()) return false;
+        // When the detached panel is unavailable, the visible fallback
+        // must also accept mouse/controller presses instead of discarding them.
         if (FoxCraftVrPlane.isReady()) {
             // Vivecraft may also project the same trigger to the original
             // Minecraft GUI. Do not let it click through our separate VR quad.
@@ -337,8 +348,8 @@ public final class VirtualKeyboardOverlay {
     /** A matching release is swallowed even if the pointer left the panel. */
     public boolean mouseReleased(Screen screen, double x, double y, int button) {
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) return false;
-        if (screen instanceof ChatScreen && FoxCraftVrPlane.isVrSession() &&
-            !FoxCraftVrPlane.isReady()) return false;
+        // When the detached panel is unavailable, the visible fallback
+        // must also accept mouse/controller presses instead of discarding them.
         if (FoxCraftVrPlane.isReady() || suppressMinecraftGuiClick) {
             boolean suppress = suppressMinecraftGuiClick ||
                 FoxCraftVrPlane.interceptsMainGuiMouse();
