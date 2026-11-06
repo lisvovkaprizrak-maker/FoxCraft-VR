@@ -85,7 +85,9 @@ public final class VirtualKeyboardOverlay {
         for (KeyboardLayout.Key key : panel.keys()) {
             boolean hovered = key.contains(mouseX, mouseY);
             boolean longHeld = pointer.isHolding(key, now);
-            int bg = longHeld ? KEY_PRESSED : (hovered ? KEY_HOVER : KEY_BG);
+            // Immediate key-down feedback, before the long-press threshold.
+            int bg = (pointer.isPressed(key) || longHeld) ? KEY_PRESSED
+                : (hovered ? KEY_HOVER : KEY_BG);
             context.fill(key.x(), key.y(), key.x() + key.width(),
                 key.y() + key.height(), bg);
 
