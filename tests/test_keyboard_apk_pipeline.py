@@ -37,6 +37,9 @@ class KeyboardApkPipelineTests(unittest.TestCase):
             launcher.index('CallStatic("launchInstance",'),
         )
         self.assertIn("AndroidJNI.DetachCurrentThread()", launcher)
+        self.assertNotIn('/sdcard/Android/data/com.qcxr.qcxr', launcher)
+        self.assertIn('Path.Combine(Application.persistentDataPath, "natives")', launcher)
+        self.assertIn('Path.Combine(Application.persistentDataPath, "import-saves")', launcher)
 
     def test_manual_apk_build_requires_matching_jar_and_separate_id(self):
         build = (ROOT / "Assets/Editor/FoxCraftKeyboardAndroidBuild.cs").read_text(
