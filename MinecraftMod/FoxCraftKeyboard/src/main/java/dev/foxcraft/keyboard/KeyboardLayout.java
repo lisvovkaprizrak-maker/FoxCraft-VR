@@ -120,7 +120,10 @@ public final class KeyboardLayout {
         int rowHeight = Math.max(14, Math.min(19, (screenHeight - 30) / 7));
         int gap = 2;
         int headerHeight = rowHeight + 2;
-        int height = collapsed ? headerHeight + 8 : headerHeight + rowHeight * 6 + gap * 6 + 9;
+        boolean hasSuggestions = suggestedWords != null && !suggestedWords.isEmpty();
+        int contentRows = hasSuggestions ? 6 : 5;
+        int height = collapsed ? headerHeight + 8 :
+            headerHeight + rowHeight * contentRows + gap * (contentRows + 1) + 9;
         int y;
         if (centerOnVrPlane) {
             y = Math.max(8, (screenHeight - height) / 2);
@@ -154,22 +157,22 @@ public final class KeyboardLayout {
             return new Panel(x, y, width, height, List.copyOf(keys));
         }
 
-        addWeighted(keys, insideX, rowY, insideWidth, headerHeight, gap,
-            new String[]{"FoxCraft", russian ? "РУС" : "ENG",
+        // The left header space is decorative branding, not a clickable key.
+        // Keep the existing controls on the right, including the inert gear.
+        int controlsX = insideX + insideWidth * 5 / 13;
+        addWeighted(keys, controlsX, rowY, insideWidth - (controlsX - insideX),
+            headerHeight, gap,
+            new String[]{russian ? "РУС" : "ENG",
                 symbols ? "АБВ" : "123", "РАЗМ", "⚙", "×"},
-            new Command[]{Command.NONE, Command.LANGUAGE, Command.SYMBOLS,
+            new Command[]{Command.LANGUAGE, Command.SYMBOLS,
                 Command.RESIZE, Command.NONE, Command.COLLAPSE},
-            new String[]{"", "", "", "", "", ""},
-            new int[]{5, 2, 2, 2, 1, 1});
+            new String[]{"", "", "", "", ""},
+            new int[]{2, 2, 2, 1, 1});
         rowY += headerHeight + gap;
 
         // These are actual keys, not just a visual label: either VR hand can
         // replace the last inserted word by selecting an alternative.
-        if (suggestedWords == null || suggestedWords.isEmpty()) {
-            addWeighted(keys, insideX, rowY, insideWidth, rowHeight, gap,
-                new String[]{russian ? "СВАЙП → СЛОВО" : "SWIPE → WORD"},
-                new Command[]{Command.NONE}, new String[]{""}, new int[]{1});
-        } else {
+        if (hasSuggestions) {
             String[] labels = new String[3];
             Command[] commands = new Command[3];
             String[] values = new String[3];
@@ -181,8 +184,8 @@ public final class KeyboardLayout {
             }
             addWeighted(keys, insideX, rowY, insideWidth, rowHeight, gap,
                 labels, commands, values, new int[]{1, 1, 1});
+            rowY += rowHeight + gap;
         }
-        rowY += rowHeight + gap;
 
         // Dedicated always-visible number row. Letters retain their own long-press legends.
         addLetters(keys, insideX, rowY, insideWidth, rowHeight, gap, DIGITS, null, false);
