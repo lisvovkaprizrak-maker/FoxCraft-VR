@@ -1,0 +1,95 @@
+name: FoxCraft Minecraft keyboard
+
+on:
+  push:
+    branches:
+      - feature/foxcraft-fabric-ingame-keyboard-1215
+    paths:
+      - 'MinecraftMod/FoxCraftKeyboard/**'
+      - 'Assets/Scripts/FoxCraftInGameKeyboardInstaller.cs'
+      - 'Assets/Scripts/InstanceButton.cs'
+      - 'tools/stage_foxcraft_ingame_keyboard.py'
+      - 'tests/test_stage_foxcraft_ingame_keyboard.py'
+      - '.github/workflows/foxcraft-fabric-keyboard.yml'
+  pull_request:
+    paths:
+      - 'MinecraftMod/FoxCraftKeyboard/**'
+      - 'Assets/Scripts/FoxCraftInGameKeyboardInstaller.cs'
+      - 'Assets/Scripts/InstanceButton.cs'
+      - 'tools/stage_foxcraft_ingame_keyboard.py'
+      - 'tests/test_stage_foxcraft_ingame_keyboard.py'
+      - '.github/workflows/foxcraft-fabric-keyboard.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  keyboard:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: MinecraftMod/FoxCraftKeyboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Test safe Unity JAR staging
+        run: python3 -m unittest discover -s ../../tests -p 'test_stage_foxcraft_ingame_keyboard.py' -v
+      - name: Compile and test keyboard logic
+        run: |
+          mkdir -p build/smoke
+          javac -encoding UTF-8 -d build/smoke \
+            src/main/java/dev/foxcraft/keyboard/KeyboardLayout.java \
+            src/main/java/dev/foxcraft/keyboard/KeyboardDisplayPolicy.java \
+            src/main/java/dev/foxcraft/keyboard/KeyHoldController.java \
+            src/main/java/dev/foxcraft/keyboard/SwipeGesture.java \
+            src/main/java/dev/foxcraft/keyboard/GestureWordRecognizer.java \
+            src/main/java/dev/foxcraft/keyboard/KeyboardPreferences.java \
+            src/main/java/dev/foxcraft/keyboard/KeyboardPointerInput.java \
+            src/main/java/dev/foxcraft/keyboard/VivecraftLeftPointer.java \
+            src/test/java/dev/foxcraft/keyboard/KeyboardLogicSmokeTest.java
+          java -cp build/smoke dev.foxcraft.keyboard.KeyboardLogicSmokeTest
+      - name: Verify second controller ray and Vivecraft bridge against API test doubles
+        run: |
+          mkdir -p build/vr-bridge
+          javac -encoding UTF-8 -d build/vr-bridge \
+            src/main/java/dev/foxcraft/keyboard/VivecraftLeftPointer.java \
+            src/test/vrbridge/org/vivecraft/client_vr/ClientDataHolderVR.java \
+            src/test/vrbridge/org/vivecraft/client_vr/provider/ControllerType.java \
+            src/test/vrbridge/org/vivecraft/client_vr/gameplay/screenhandlers/GuiHandler.java \
+            src/test/vrbridge/dev/foxcraft/keyboard/LeftPointerBridgeSmokeTest.java
+          java -cp build/vr-bridge dev.foxcraft.keyboard.LeftPointerBridgeSmokeTest
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.12.1'
+      - name: Compile Fabric 1.21.5 mod
+        run: gradle build --no-daemon --stacktrace
+      - name: Verify packaging for Unity
+        run: |
+          python3 ../../tools/stage_foxcraft_ingame_keyboard.py \
+            --source build/libs/foxcraft-keyboard-0.1.0-alpha.jar \
+            --dest build/staging/foxcraft-keyboard-0.1.0-alpha.jar
+          python3 ../../tools/stage_foxcraft_ingame_keyboard.py \
+            --source build/libs/foxcraft-keyboard-0.1.0-alpha.jar \
+            --dest build/staging/foxcraft-keyboard-0.1.0-alpha.jar
+      - name: Stage verified JAR for a future Unity Android build
+        run: |
+          python3 ../../tools/stage_foxcraft_ingame_keyboard.py \
+            --source build/libs/foxcraft-keyboard-0.1.0-alpha.jar \
+            --dest ../../Assets/StreamingAssets/foxcraft-keyboard-0.1.0-alpha.jar
+      - name: Upload Unity StreamingAssets keyboard bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: foxcraft-keyboard-unity-staging-1.21.5
+          path: Assets/StreamingAssets/foxcraft-keyboard-0.1.0-alpha.jar
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload mod JAR for testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: foxcraft-keyboard-1.21.5-fabric
+          path: MinecraftMod/FoxCraftKeyboard/build/libs/foxcraft-keyboard-0.1.0-alpha.jar
+          if-no-files-found: error
+          retention-days: 14

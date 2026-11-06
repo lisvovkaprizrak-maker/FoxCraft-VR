@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "foxcraft_keyboard",
+  "version": "${version}",
+  "name": "FoxCraft VR Keyboard",
+  "description": "In-game keyboard for Minecraft Java/Vivecraft VR text fields, independent of Unity launcher rendering.",
+  "authors": ["FoxCraft contributors"],
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.foxcraft.keyboard.FoxCraftKeyboardClient"
+    ]
+  },
+  "mixins": [
+    "foxcraft_keyboard.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.10",
+    "minecraft": "1.21.5",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

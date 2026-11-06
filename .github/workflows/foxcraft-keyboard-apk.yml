@@ -1,0 +1,138 @@
+name: FoxCraft 1.21.5 keyboard test APK (manual)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/foxcraft-keyboard-apk.yml'
+      - 'Assets/Editor/FoxCraftKeyboardAndroidBuild.cs'
+      - 'Assets/Scripts/FoxCraftInGameKeyboardInstaller.cs'
+      - 'Assets/Scripts/InstanceButton.cs'
+      - 'tests/test_keyboard_apk_pipeline.py'
+      - 'tools/check_foxcraft_pojlib_api.py'
+      - 'tools/foxcraft_quest_smoke.py'
+      - 'tests/test_foxcraft_quest_smoke.py'
+      - 'tests/unity-compile/**'
+      - 'tools/verify_foxcraft_test_apk.py'
+      - 'tests/test_verify_foxcraft_test_apk.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: foxcraft-keyboard-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify bundled Pojlib JNI API signatures
+        run: python3 tools/check_foxcraft_pojlib_api.py
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile launcher C# syntax with Unity API test doubles
+        run: dotnet build tests/unity-compile/FoxCraftUnitySyntax.csproj --configuration Release --nologo
+      - name: Verify Minecraft 1.21.5 APK configuration
+        run: |
+          python3 -m unittest discover -s tests -p 'test_keyboard_apk_pipeline.py' -v
+          python3 -m unittest discover -s tests -p 'test_stage_foxcraft_ingame_keyboard.py' -v
+          python3 -m unittest discover -s tests -p 'test_foxcraft_quest_smoke.py' -v
+          python3 -m unittest discover -s tests -p 'test_verify_foxcraft_test_apk.py' -v
+      - name: Require configured Unity license for manual Android build
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        shell: bash
+        run: |
+          if [[ -z "$UNITY_LICENSE" && ( -z "$UNITY_EMAIL" || -z "$UNITY_PASSWORD" || -z "$UNITY_SERIAL" ) ]]; then
+            echo "::error::Set UNITY_LICENSE or UNITY_EMAIL, UNITY_PASSWORD and UNITY_SERIAL as GitHub Actions secrets."
+            exit 1
+          fi
+
+  build-apk:
+    # Never spend Unity build minutes or expose license data on a PR.
+    if: github.event_name == 'workflow_dispatch'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout Unity project
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.12.1'
+      - name: Build the matching 1.21.5 Fabric keyboard JAR
+        working-directory: MinecraftMod/FoxCraftKeyboard
+        run: gradle build --no-daemon --stacktrace
+      - name: Validate and stage matching Fabric JAR into Unity
+        run: |
+          python3 tools/stage_foxcraft_ingame_keyboard.py
+          test -s Assets/StreamingAssets/foxcraft-keyboard-0.1.0-alpha.jar
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          path = Path('Assets/Plugins/Android/Pojlib-release.aar')
+          if not path.is_file() or path.stat().st_size < 1000:
+              raise SystemExit('Bundled Pojlib AAR missing. Refusing to create an APK.')
+          from io import BytesIO
+          with ZipFile(path) as jar:
+              if 'AndroidManifest.xml' not in jar.namelist():
+                  raise SystemExit('Pojlib AAR missing its Android manifest.')
+              if 'classes.jar' not in jar.namelist():
+                  raise SystemExit('Pojlib AAR missing classes.jar')
+              with ZipFile(BytesIO(jar.read('classes.jar'))) as classes:
+                  expected = {
+                      'pojlib/API.class',
+                      'pojlib/util/Constants.class',
+                      'pojlib/util/json/MinecraftInstances$Instance.class',
+                  }
+                  if not expected.issubset(classes.namelist()):
+                      raise SystemExit('Pojlib API/Instance/Constants Java classes are missing.')
+          print('Pojlib AAR Java classes exist; Quest compatibility remains untested.')
+          PY
+          unzip -p Assets/Plugins/Android/Pojlib-release.aar classes.jar > /tmp/foxcraft-pojlib-classes.jar
+          javap -classpath /tmp/foxcraft-pojlib-classes.jar pojlib.API | grep -q 'public static boolean prelaunch('
+          javap -classpath /tmp/foxcraft-pojlib-classes.jar pojlib.util.Constants | grep -q 'public static java.lang.String USER_HOME'
+      - name: Build separate FoxCraft test APK using Unity
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          unityVersion: 2022.3.62f3
+          targetPlatform: Android
+          versioning: None
+          buildMethod: FoxCraftKeyboardAndroidBuild.BuildTestApk
+      - name: Verify signed APK, ARM64, launch activity and embedded Fabric keyboard
+        run: python3 tools/verify_foxcraft_test_apk.py Builds/FoxCraft-1.21.5-UNTESTED.apk
+      - name: Upload untested Meta Quest APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoxCraft-Quest-1.21.5-UNTESTED-APK
+          path: Builds/FoxCraft-1.21.5-UNTESTED.apk
+          if-no-files-found: error
+          retention-days: 7

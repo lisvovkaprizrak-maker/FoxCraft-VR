@@ -1,0 +1,14 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "dev.foxcraft.keyboard.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "FoxcraftFramebufferMixin",
+    "VRPassHelperMixin",
+    "VREffectsHelperMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}
