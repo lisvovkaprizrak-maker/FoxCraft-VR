@@ -22,7 +22,7 @@ public static class FoxCraftAndroidBuild
 
         string root = Directory.GetCurrentDirectory();
         string pojlib = Path.Combine(root, "Assets/Plugins/Android/Pojlib-release.aar");
-        string fabric = Path.Combine(root, "Assets/StreamingAssets/FoxChatKeyboard-bridge-0.6.0.jar");
+        string fabric = Path.Combine(root, "Assets/StreamingAssets/FoxChatKeyboard-bridge-0.6.1.jar");
 
         if (!File.Exists(pojlib) || new FileInfo(pojlib).Length < 1000)
             throw new FileNotFoundException(
