@@ -21,9 +21,17 @@ public class InstanceButton : MonoBehaviour
 
     public void Update()
     {
-        if (Application.platform != RuntimePlatform.Android)
+        if (Application.platform != RuntimePlatform.Android ||
+            JNIStorage.instance == null || JNIStorage.apiClass == null ||
+            JNIStorage.instance.instancesDropdown == null)
             return;
-        currInstName = JNIStorage.instance.instancesDropdown.options[JNIStorage.instance.instancesDropdown.value].text;
+
+        var dropdown = JNIStorage.instance.instancesDropdown;
+        if (dropdown.options == null || dropdown.options.Count == 0 ||
+            dropdown.value < 0 || dropdown.value >= dropdown.options.Count)
+            return;
+
+        currInstName = dropdown.options[dropdown.value].text;
 
         if (JNIStorage.apiClass.GetStatic<bool>("gameReady") && !gameReady) {
             gameReady = true;
@@ -40,6 +48,9 @@ public class InstanceButton : MonoBehaviour
     public void SelectInstance()
     {
         if (Application.platform != RuntimePlatform.Android) return;
+        if (JNIStorage.instance == null || JNIStorage.instance.instancesDropdown == null ||
+            JNIStorage.instance.instancesDropdown.options.Count == 0)
+            return;
         currInstName = JNIStorage.instance.instancesDropdown.options[JNIStorage.instance.instancesDropdown.value].text;
         configHandler.SetLastSelectedInstance(JNIStorage.instance.instancesDropdown.value);
     }
