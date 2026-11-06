@@ -126,7 +126,7 @@ def main() -> int:
             output = command(prefix + ["logcat", "-d", "-t", "1200"], timeout=30)
             shown = [line for line in output.splitlines()
                      if "[FoxCraft]" in line or "FoxCraftKeyboard" in line]
-            print("\\n".join(shown[-60:]) if shown else
+            print("\n".join(shown[-60:]) if shown else
                   "No FoxCraft launcher/mod markers in the last 1200 log lines.")
 
         print("\nOn the headset, manually check: Minecraft 1.21.5 Fabric launch; "
