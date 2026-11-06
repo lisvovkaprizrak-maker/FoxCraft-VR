@@ -190,14 +190,27 @@ public final class VirtualKeyboardOverlay {
         int border = 0xFF000000 | (Math.min(255, 180 + pulse) << 16) |
             (Math.min(255, 85 + pulse / 3) << 8) | 16;
 
-        // Quest-style dark floating chassis: stepped rounded silhouette,
-        // warm illuminated edge and pixel accents instead of a flat rectangle.
-        rounded(context, panel.x() - 4, panel.y() - 4,
-            panel.width() + 8, panel.height() + 8, 9, 0x50FF7400);
+        // HD-inspired multilayer chassis: diffuse light, cool top rim,
+        // smooth alpha-covered corners and a restrained charcoal gradient.
+        for (int layer = 6; layer >= 1; layer--) {
+            int alpha = Math.max(1, (20 - layer * 2));
+            rounded(context, panel.x() - layer, panel.y() - layer,
+                panel.width() + layer * 2, panel.height() + layer * 2,
+                14 + layer, (alpha << 24) | 0x00FF7514);
+        }
         rounded(context, panel.x() - 2, panel.y() - 2,
-            panel.width() + 4, panel.height() + 4, 8, border);
+            panel.width() + 4, panel.height() + 4, 13, border);
         rounded(context, panel.x(), panel.y(),
-            panel.width(), panel.height(), 10, PANEL_BG);
+            panel.width(), panel.height(), 12, PANEL_BG);
+        // A soft vertical charcoal finish similar to the reference photo.
+        for (int strip = 0; strip < 6; strip++) {
+            int inset = 3 + strip;
+            rounded(context, panel.x() + inset, panel.y() + inset,
+                panel.width() - 2 * inset, Math.max(2, panel.height() / 4),
+                10, ((8 - strip) << 24) | 0x00B3A5C2);
+        }
+        context.fill(panel.x() + 21, panel.y() - 2,
+            panel.x() + panel.width() - 21, panel.y() - 1, 0x997C90C9);
         // Raised center crest: the reference keyboard has a fox-shaped top
         // silhouette rather than a simple uniformly rounded rectangle.
         if (!collapsed) {
@@ -248,18 +261,29 @@ public final class VirtualKeyboardOverlay {
             if (shiftKey && !hovered && !longHeld) bg = 0xFF704022;
             if (key.command() == KeyboardLayout.Command.SYMBOLS &&
                 !hovered && !longHeld && symbols) bg = 0xFFAA4C11;
-            // A raised rounded key with thin bevel; pressed keys glow orange.
-            if (hovered || longHeld || pointer.isPressed(key) ||
-                leftPointer.isPressed(key)) {
+            // Rounded raised keycaps with a soft contact shadow, edge
+            // highlight and amber bloom only under pointer/press.
+            boolean lit = hovered || longHeld || pointer.isPressed(key) ||
+                leftPointer.isPressed(key);
+            rounded(context, key.x(), key.y() + 2,
+                key.width(), key.height(), 5, 0x55000000);
+            if (lit) {
+                rounded(context, key.x() - 2, key.y() - 2,
+                    key.width() + 4, key.height() + 4, 7, 0x55FF8B20);
                 rounded(context, key.x() - 1, key.y() - 1,
-                    key.width() + 2, key.height() + 2, 5, 0xFFFFB34C);
+                    key.width() + 2, key.height() + 2, 6, 0xFFFFBD62);
             } else {
                 rounded(context, key.x(), key.y(),
-                    key.width(), key.height(), 5, 0xFF454351);
+                    key.width(), key.height(), 6, 0xFF494553);
             }
             rounded(context, key.x() + 1, key.y() + 1,
                 Math.max(1, key.width() - 2), Math.max(1, key.height() - 2),
-                4, bg);
+                5, bg);
+            // Subtle glossy top edge gives dimension even without textures.
+            if (key.width() >= 10 && key.height() >= 8)
+                context.fill(key.x() + 5, key.y() + 1,
+                    key.x() + key.width() - 5, key.y() + 2,
+                    lit ? 0x66FFF1CE : 0x355F5B70);
 
             float progress = Math.max(pointer.progress(key, now),
                 leftPointer.progress(key, now));
@@ -360,19 +384,48 @@ public final class VirtualKeyboardOverlay {
         if (!detached) QuestCraftKeyboardSuppressor.closeWhenScreenFallbackVisible();
     }
 
-    /** Draw a clipped, softly rounded shape using only stable 1.21.5 DrawContext APIs. */
+    /**
+     * Alpha-coverage rounded rectangle without Minecraft's blocky cut-out
+     * corners. All fill operations use the stable DrawContext API, so this
+     * also works on QuestCraft's Android OpenGL compatibility renderer.
+     *
+     * Curved pixels blend with the backdrop at fractional coverage instead
+     * of snapping each arc edge to a solid one-pixel staircase.
+     */
     private static void rounded(DrawContext c, int x, int y, int w, int h,
                                 int radius, int color) {
-        if (w <= 0 || h <= 0) return;
+        if (w <= 0 || h <= 0 || (color >>> 24) == 0) return;
         int rad = Math.min(radius, Math.min(w, h) / 2);
+        if (rad <= 0) {
+            c.fill(x, y, x + w, y + h, color);
+            return;
+        }
         c.fill(x + rad, y, x + w - rad, y + h, color);
         if (h > rad * 2) c.fill(x, y + rad, x + w, y + h - rad, color);
+
+        // Four-sample vertical coverage on each corner pixel. We render
+        // opaque interior rows and independently blended fractional rims.
+        int alpha = (color >>> 24) & 255;
+        int rgb = color & 0x00FFFFFF;
         for (int row = 0; row < rad; row++) {
-            int inset = (int) Math.ceil(rad - Math.sqrt(
-                Math.max(0, rad * rad - (rad - row - 0.5) * (rad - row - 0.5))));
-            c.fill(x + inset, y + row, x + w - inset, y + row + 1, color);
-            c.fill(x + inset, y + h - row - 1,
-                x + w - inset, y + h - row, color);
+            for (int dx = 0; dx < rad; dx++) {
+                double covered = 0.0;
+                for (int sub = 0; sub < 4; sub++) {
+                    double yy = rad - row - (sub + 0.5) * 0.25;
+                    double xx = rad - dx - 0.5;
+                    if (xx * xx + yy * yy <= rad * rad) covered += 0.25;
+                }
+                if (covered <= 0.0) continue;
+                int aa = (int) Math.round(alpha * covered);
+                int shade = (Math.max(1, aa) << 24) | rgb;
+                c.fill(x + dx, y + row, x + dx + 1, y + row + 1, shade);
+                c.fill(x + w - dx - 1, y + row,
+                    x + w - dx, y + row + 1, shade);
+                c.fill(x + dx, y + h - row - 1,
+                    x + dx + 1, y + h - row, shade);
+                c.fill(x + w - dx - 1, y + h - row - 1,
+                    x + w - dx, y + h - row, shade);
+            }
         }
     }
 
