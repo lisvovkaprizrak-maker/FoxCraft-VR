@@ -6,6 +6,8 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 import java.util.List;
 import java.util.Locale;
@@ -22,6 +24,11 @@ public final class VirtualKeyboardOverlay {
     private static final int ORANGE = 0xFFFF8D20;
     private static final int TEXT = 0xFFFFFFFF;
     private static final int MINI = 0xFFFFBB6D;
+    private static final Identifier HD_FONT = Identifier.of("foxcraft_keyboard", "hd_keys");
+
+    private static Text hd(String value) {
+        return Text.literal(value).styled(style -> style.withFont(HD_FONT));
+    }
 
     private final KeyboardPointerInput pointer = new KeyboardPointerInput();
     private final KeyboardPointerInput leftPointer = new KeyboardPointerInput();
@@ -233,9 +240,9 @@ public final class VirtualKeyboardOverlay {
             int brandY = panel.y() + 4;
             int brandX = panel.x() + (panel.width() - 92) / 2;
             drawFoxBadge(context, brandX, brandY);
-            context.drawText(font, "Fox", brandX + 20, brandY + 4,
+            context.drawText(font, hd("Fox"), brandX + 20, brandY + 4,
                 ORANGE, true);
-            context.drawText(font, "Craft", brandX + 38, brandY + 4,
+            context.drawText(font, hd("Craft"), brandX + 38, brandY + 4,
                 TEXT, true);
         }
         KeyboardLayout.Key heldAlternate = null;
@@ -301,9 +308,9 @@ public final class VirtualKeyboardOverlay {
 
             // Miniature legends make alternative long-press characters discoverable.
             if (!key.alternate().isEmpty() && key.height() >= 18) {
-                int glyphWidth = font.getWidth(key.alternate());
+                int glyphWidth = font.getWidth(hd(key.alternate()));
                 context.drawText(font,
-                    key.alternate(), key.x() + key.width() - glyphWidth - 2,
+                    hd(key.alternate()), key.x() + key.width() - glyphWidth - 2,
                     key.y() + 1, MINI, false);
             }
 
@@ -312,31 +319,31 @@ public final class VirtualKeyboardOverlay {
             if (key.command() == KeyboardLayout.Command.SUGGESTION) {
                 // Visually truncate only: activation stores the full word.
                 String full = caption;
-                while (caption.length() > 1 && font.getWidth(caption) > key.width() - 4)
+                while (caption.length() > 1 && font.getWidth(hd(caption)) > key.width() - 4)
                     caption = caption.substring(0, caption.length()-1);
                 if (!caption.equals(full) && caption.length() > 1)
                     caption = caption.substring(0, caption.length()-1) + "…";
             }
-            int captionWidth = font.getWidth(caption);
+            int captionWidth = font.getWidth(hd(caption));
             int tx = key.x() + Math.max(1, (key.width() - captionWidth) / 2);
             int ty = key.y() + Math.max(1, (key.height() - 8) / 2) +
                 (!key.alternate().isEmpty() && key.height() >= 18 ? 3 : 0);
             context.drawText(font,
-                caption, tx, ty, TEXT, false);
+                hd(caption), tx, ty, TEXT, false);
         }
 
         // The symbol is displayed above the held key before release; the game
         // receives exactly one character after the controller trigger is released.
         if (heldAlternate != null && !heldAlternate.alternate().isEmpty()) {
             String symbol = heldAlternate.alternate();
-            int popupWidth = Math.max(23, font.getWidth(symbol) + 12);
+            int popupWidth = Math.max(23, font.getWidth(hd(symbol)) + 12);
             int popupX = heldAlternate.x() + (heldAlternate.width() - popupWidth) / 2;
             int popupY = Math.max(1, heldAlternate.y() - 24);
             context.fill(popupX - 2, popupY - 2,
                 popupX + popupWidth + 2, popupY + 20, ORANGE);
             context.fill(popupX, popupY, popupX + popupWidth, popupY + 18, KEY_BG);
-            context.drawText(font, symbol,
-                popupX + (popupWidth - font.getWidth(symbol)) / 2,
+            context.drawText(font, hd(symbol),
+                popupX + (popupWidth - font.getWidth(hd(symbol))) / 2,
                 popupY + 5, TEXT, false);
         }
 
@@ -347,7 +354,7 @@ public final class VirtualKeyboardOverlay {
             int lx = (int) leftSample.x();
             int ly = (int) leftSample.y();
             context.fill(lx - 3, ly - 3, lx + 4, ly + 4, ORANGE);
-            context.drawText(font, "L", lx + 6, ly - 5, MINI, false);
+            context.drawText(font, hd("L"), lx + 6, ly - 5, MINI, false);
         }
 
         // The right controller is the primary GUI pointer. In detached VR
@@ -356,7 +363,7 @@ public final class VirtualKeyboardOverlay {
         if (panel.contains(mouseX, mouseY)) {
             context.fill(mouseX - 3, mouseY - 3,
                 mouseX + 4, mouseY + 4, ORANGE);
-            context.drawText(font, "R", mouseX + 6, mouseY - 5,
+            context.drawText(font, hd("R"), mouseX + 6, mouseY - 5,
                 ORANGE, false);
         }
 
@@ -366,11 +373,11 @@ public final class VirtualKeyboardOverlay {
             ? leftPointer.swipePreview() : pointer.swipePreview();
         if (!preview.isEmpty()) {
             String visible = preview.length() > 26 ? "..." + preview.substring(preview.length() - 26) : preview;
-            int previewWidth = Math.min(panel.width() - 12, font.getWidth(visible) + 16);
+            int previewWidth = Math.min(panel.width() - 12, font.getWidth(hd(visible)) + 16);
             int previewX = panel.x() + (panel.width() - previewWidth) / 2;
             int previewY = Math.max(1, panel.y() - 23);
             context.fill(previewX, previewY, previewX + previewWidth, previewY + 20, KEY_BG);
-            context.drawText(font, visible,
+            context.drawText(font, hd(visible),
                 previewX + 8, previewY + 5, ORANGE, false);
         }
 
