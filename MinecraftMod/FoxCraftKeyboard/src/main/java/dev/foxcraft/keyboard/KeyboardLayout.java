@@ -178,13 +178,13 @@ public final class KeyboardLayout {
         // control strip. The logo is decorative, not a clickable key.
         rowY += brandHeight + gap;
         addWeighted(keys, insideX, rowY, insideWidth, headerHeight, gap,
-            new String[]{"АБВ Русский", "ABC English", "123", "!?#",
+            new String[]{"АБВ Русский", "ABC English", "!", "!?#",
                 "", "", "", "⚙", "⌫"},
             new Command[]{Command.LANGUAGE_RU, Command.LANGUAGE_EN,
-                Command.SYMBOLS, Command.SYMBOLS, Command.MICROPHONE,
+                Command.TYPE, Command.SYMBOLS, Command.MICROPHONE,
                 Command.QUICK_MESSAGES, Command.CLIPBOARD, Command.SETTINGS,
                 Command.BACKSPACE},
-            new String[]{"", "", "", "", "", "", "", "", ""},
+            new String[]{"", "", "!", "", "", "", "", "", ""},
             new int[]{4, 4, 2, 2, 2, 2, 2, 2, 2});
         rowY += headerHeight + gap;
 
@@ -222,14 +222,14 @@ public final class KeyboardLayout {
         // command slash. No extra row is added: the physical VR panel stays
         // at the calibrated fixed size and preserves all previous controls.
         addWeighted(keys, insideX, rowY, insideWidth, rowHeight, gap,
-            new String[]{"", shift ? "SHIFT*" : "SHIFT",
+            new String[]{",", shift ? "SHIFT*" : "SHIFT",
                 "↑", "↓", "←", russian ? "ПРОБЕЛ" : "SPACE",
-                "→", "/", "×", russian ? "ВВОД" : "ENTER"},
-            new Command[]{Command.ESCAPE, Command.SHIFT,
+                "→", "/", ".", russian ? "ВВОД" : "ENTER"},
+            new Command[]{Command.TYPE, Command.SHIFT,
                 Command.HISTORY_PREVIOUS, Command.HISTORY_NEXT,
                 Command.LEFT, Command.SPACE, Command.RIGHT, Command.TYPE,
-                Command.COLLAPSE, Command.ENTER},
-            new String[]{"", "", "", "", "", " ", "", "/", "", ""},
+                Command.TYPE, Command.ENTER},
+            new String[]{",", "", "", "", "", " ", "", "/", ".", ""},
             new int[]{2, 3, 2, 2, 2, 7, 2, 2, 2, 4});
         return new Panel(x, y, width, height, List.copyOf(keys));
     }
