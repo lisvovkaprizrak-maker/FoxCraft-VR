@@ -91,11 +91,13 @@ public final class VivecraftLeftPointer {
             // only right trigger clicks the mouse. Left grip is a useful
             // fallback until left trigger is bound to Keyboard Click in VR.
             Object shiftBinding = gui.getField("KEY_SHIFT").get(null);
-            boolean leftGrip = (Boolean) shiftBinding.getClass()
-                .getMethod("isDown").invoke(shiftBinding);
+            // GUI Shift is an unhanded binding; using it here can make a
+            // right-controller button appear as a LEFT-hand click.
+            // Accept only handed left KeyboardClick or source-confirmed
+            // left index trigger; the left GRIP is not an index trigger.
             boolean valid = u >= 0 && u <= 1 && v >= 0 && v <= 1;
             return new Sample(valid, u * guiWidth, v * guiHeight,
-                trigger || rawLeftTrigger || leftGrip);
+                trigger || rawLeftTrigger);
         } catch (ClassNotFoundException e) {
             unavailable = true;
             return null;
