@@ -131,6 +131,34 @@ public final class KeyboardLogicSmokeTest {
         require(!pointer.press(ru, -10, -10, 14000),
             "Outside-keyboard press goes to the underlying screen");
 
+        Object chatInput = new Object();
+        Object serverAddressInput = new Object();
+
+        require(pointer.press(ru, letter.x() + 1, letter.y() + 1,
+                15_000L, chatInput), "Press binds the chat field");
+        KeyboardPointerInput.Release stale = pointer.release(
+            ru, letter.x() + 1, letter.y() + 1,
+            15_900L, serverAddressInput);
+        require(stale.consumed() && stale.activation() == null,
+            "A hold cannot type into a different field after focus changes");
+
+        require(pointer.press(ru, letter.x() + 1, letter.y() + 1,
+                16_000L, chatInput), "Second press binds the new session");
+        KeyboardPointerInput.Release sameField = pointer.release(
+            ru, letter.x() + 1, letter.y() + 1,
+            16_500L, chatInput);
+        require(sameField.consumed() && sameField.activation() != null &&
+            "~".equals(sameField.activation().text()),
+            "A hold still types when the exact same field remains focused");
+
+        require(pointer.press(ru, ru.x() + 1, ru.y() + 1,
+                17_000L, chatInput), "Panel gap captures field token too");
+        KeyboardPointerInput.Release gapFocusChanged = pointer.release(
+            ru, ru.x() + 1, ru.y() + 1,
+            17_900L, serverAddressInput);
+        require(gapFocusChanged.consumed() && gapFocusChanged.activation() == null,
+            "A changed field cannot cause a gap click-through");
+
         KeyboardLayout.Panel collapsed = KeyboardLayout.make(854, 480, true, true, false, false, true);
         require(collapsed.keys().stream().anyMatch(k -> k.command() == KeyboardLayout.Command.EXPAND),
             "Collapsed keyboard can reopen");
