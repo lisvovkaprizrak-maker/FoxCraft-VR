@@ -21,7 +21,21 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 }
 
+// Produce the bundled HD glyph PNG during the build, not on Meta Quest.
+// Only the rasterized image and font definition ship in the Fabric JAR.
+def foxcraftFontDir = layout.buildDirectory.dir('generated/foxcraft-font')
+tasks.register('generateFoxcraftHdFont', Exec) {
+    inputs.file('tools/GenerateHdFont.java')
+    outputs.dir(foxcraftFontDir)
+    commandLine System.getProperty('java.home') + '/bin/java',
+        '-Djava.awt.headless=true',
+        file('tools/GenerateHdFont.java').absolutePath,
+        foxcraftFontDir.get().asFile.absolutePath
+}
+sourceSets.main.resources.srcDir(foxcraftFontDir)
+
 processResources {
+    dependsOn tasks.named('generateFoxcraftHdFont')
     inputs.property "version", project.version
     filesMatching("fabric.mod.json") {
         expand "version": project.version
