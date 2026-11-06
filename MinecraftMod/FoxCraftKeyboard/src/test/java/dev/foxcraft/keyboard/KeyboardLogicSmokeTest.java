@@ -501,16 +501,18 @@ public final class KeyboardLogicSmokeTest {
 
         // Russian swipe always starts uppercase. Auto punctuation spacing
         // must avoid doubled spaces and preserve the word correction suffix.
-        require("Привет".equals(KeyboardLayout.swipeWord("привет", true, false)),
-            "Swipe Russian words start with a capital first letter");
-        require("Спасибо".equals(KeyboardLayout.swipeWord("спасибо", true, true)),
+        require("Привет".equals(KeyboardLayout.swipeWord("привет", true, false, true)),
+            "Swipe Russian first word at line start is capitalized");
+        require("Спасибо".equals(KeyboardLayout.swipeWord("спасибо", true, true, false)),
             "Russian capitalisation is stable with Shift");
-        require("hello".equals(KeyboardLayout.swipeWord("hello", false, false)),
+        require("hello".equals(KeyboardLayout.swipeWord("hello", false, false, true)),
             "English words retain lowercase unless Shift requested");
-        require("Hello".equals(KeyboardLayout.swipeWord("hello", false, true)),
+        require("Hello".equals(KeyboardLayout.swipeWord("hello", false, true, false)),
             "English Shift still capitalises swipe");
+        require("привет".equals(KeyboardLayout.swipeWord("привет", true, false, false)),
+            "Middle-of-line Russian swipe stays lowercase without Shift");
         require(" ".equals(KeyboardLayout.trailingWordSpace("Привет", 6)),
-            "Swipe word gets an automatic trailing space");
+            "Explicit punctuation may insert one trailing space");
         require("".equals(KeyboardLayout.trailingWordSpace("Привет уже", 6)),
             "Existing following space must not be duplicated");
         require(KeyboardLayout.trimSpaceBeforeDot("Привет ", 7),
@@ -519,6 +521,56 @@ public final class KeyboardLogicSmokeTest {
             "Dot after word must not erase a letter");
         require(" ".equals(KeyboardLayout.trailingWordSpace("Привет.", 7)),
             "Dot is followed by a space");
+
+        // New top-level actions must be reachable without shrinking the
+        // fixed physical VR panel or removing existing language keys.
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.MICROPHONE),
+            "Voice microphone action exists on the main keyboard");
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.QUICK_MESSAGES),
+            "Quick phrases action exists on the main keyboard");
+        KeyboardLayout.Panel toolbox = KeyboardLayout.toolMenu(ru,
+            new String[]{"Темы", "Микрофон", "Фразы", "Буфер", "Переместить",
+                "Контроллеры", "Назад"},
+            new KeyboardLayout.Command[]{KeyboardLayout.Command.THEMES_PAGE,
+                KeyboardLayout.Command.MICROPHONE,
+                KeyboardLayout.Command.QUICK_MESSAGES,
+                KeyboardLayout.Command.CLIPBOARD,
+                KeyboardLayout.Command.MOVE_MENU,
+                KeyboardLayout.Command.CONTROLLER_MENU,
+                KeyboardLayout.Command.BACK_TO_KEYS},
+            new String[]{"", "", "", "", "", "", ""});
+        require(toolbox.width() == ru.width() && toolbox.height() == ru.height(),
+            "Feature settings preserve original VR panel footprint");
+        require(toolbox.keys().stream().allMatch(k ->
+            k.x() >= toolbox.x() && k.x() + k.width() <=
+                toolbox.x() + toolbox.width() &&
+            k.y() >= toolbox.y() && k.y() + k.height() <=
+                toolbox.y() + toolbox.height()),
+            "Controller tool keys stay inside visible keyboard panel");
+        try {
+            java.nio.file.Path folder = Files.createTempDirectory(
+                "foxcraft-feature-settings-test");
+            FoxCraftFeatureSettings prefs = new FoxCraftFeatureSettings(
+                folder.resolve("features.properties"));
+            prefs.toggleHaptics();
+            prefs.adjustBeam(15);
+            prefs.adjustDot(2);
+            prefs.move(.07f, -.035f, .10f);
+            prefs.savePosition();
+            FoxCraftFeatureSettings restored = new FoxCraftFeatureSettings(
+                folder.resolve("features.properties"));
+            require(!restored.haptics() && restored.beamCentimetres() == 53 &&
+                restored.dotRadius() == 4 && restored.offsetRight() > .06f,
+                "Controller and keyboard placement settings persist between runs");
+            prefs.toggleRight();
+            prefs.toggleLeft();
+            require(prefs.leftHand() || prefs.rightHand(),
+                "At least one VR hand remains enabled for recovery");
+        } catch (Exception e) {
+            throw new AssertionError("Feature preferences persistence", e);
+        }
 
         System.out.println("FoxCraft keyboard logic smoke tests: OK");
     }
