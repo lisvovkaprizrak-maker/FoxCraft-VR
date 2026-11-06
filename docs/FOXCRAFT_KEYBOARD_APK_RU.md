@@ -6,7 +6,8 @@
 
 - Fabric-клавиатура с оранжевым переливающимся свечением, RU/EN, цифровым рядом 1–0, символами при удержании 450 мс и поддержкой ё/Ё.
 - Сборка Fabric 1.21.5 на Java 21, автоматические Java/Python-тесты, проверка структуры итогового JAR.
-- Unity-лаунчер вызывает Pojlib `prelaunch` **без возвращаемого значения**, затем помещает JAR в `mods` подходящего профиля 1.21.5 и только после этого запускает Minecraft. Pojlib при `prelaunch` обновляет моды: такой порядок предотвращает потерю JAR в рамках текущего запуска.
+- Unity-лаунчер вызывает `Pojlib.API.prelaunch(...)` с возвращаемым **boolean**, проверяет успешность, затем помещает JAR в `mods` подходящего профиля 1.21.5 и запускает Minecraft. Порядок важен: при `prelaunch` Pojlib обновляет моды.
+- Важное отличие: в исходниках ветки QuestCraft-6.0.0 метод `prelaunch` возвращает `void`, но **приложенная к FoxCraft AAR содержит `boolean prelaunch`**. Это подтверждено `javap` на GitHub Actions 6 ноября 2026 г. Статический анализ и тесты привязаны именно к библиотеке, используемой в APK.
 - На машине сборки готовый JAR кладётся в `Assets/StreamingAssets/foxcraft-keyboard-0.1.0-alpha.jar` после проверки версии, класса Fabric entrypoint и SHA-256.
 - Отдельный Unity build method `FoxCraftKeyboardAndroidBuild.BuildTestApk` собирает Android ARM64 APK под package ID `com.foxcraftvr.quest`, чтобы не заменять обычный QuestCraft.
 - Отдельный workflow `.github/workflows/foxcraft-keyboard-apk.yml`: на PR выполняет только бесплатные проверки, а сам APK собирает **только по ручному запуску** с действующей Unity-лицензией.
