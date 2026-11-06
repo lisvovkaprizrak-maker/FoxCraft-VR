@@ -210,23 +210,70 @@ public final class KeyboardLogicSmokeTest {
         require(gapFocusChanged.consumed() && gapFocusChanged.activation() == null,
             "A changed field cannot cause a gap click-through");
 
-        // Swipe types the visited letter sequence exactly once on release.
+        // Shape-writing: crossing keys is NOT the same as spelling all of them.
         KeyboardLayout.Key yi = key(ru.keys(), "й");
         KeyboardLayout.Key ts = key(ru.keys(), "ц");
         KeyboardLayout.Key u = key(ru.keys(), "у");
         Object swipeField = new Object();
-        require(pointer.press(ru, yi.x() + 1, yi.y() + 1, 20_000, swipeField),
-            "Trigger-down starts gesture in chat");
-        pointer.move(ru, ts.x() + ts.width() / 2., ts.y() + 1, swipeField);
-        pointer.move(ru, u.x() + 1, u.y() + 1, swipeField);
-        require("йцу".equals(pointer.swipePreview()),
-            "Swipe preview joins every crossed letter before committing");
-        KeyboardPointerInput.Release swipeRelease = pointer.release(
-            ru, u.x() + 1, u.y() + 1, 21_000, swipeField);
+        KeyboardLayout.Key p = key(ru.keys(), "п");
+        require(pointer.press(ru, p.x()+p.width()/2., p.y()+p.height()/2.,
+            20_000, swipeField), "Swipe begins on initial Russian letter");
+        for (String letterName : new String[]{"р", "и", "в", "е", "т"}) {
+            KeyboardLayout.Key next = key(ru.keys(), letterName);
+            pointer.move(ru, next.x()+next.width()/2.,
+                next.y()+next.height()/2., swipeField);
+        }
+        require("привет".equals(pointer.swipePreview()),
+            "Shape writing predicts привет, not every intersected key");
+        KeyboardLayout.Key finalT = key(ru.keys(), "т");
+        KeyboardPointerInput.Release swipeRelease = pointer.release(ru,
+            finalT.x()+finalT.width()/2., finalT.y()+finalT.height()/2.,
+            21_000, swipeField);
         require(swipeRelease.consumed() && swipeRelease.activation() != null &&
-            "йцу".equals(swipeRelease.activation().text()),
-            "Swipe commits a single combined text result on release");
-        require(pointer.swipePreview().isEmpty(), "Swipe preview resets");
+            "привет".equals(swipeRelease.activation().text()),
+            "Controller stroke inserts predicted word only on release");
+        require(!swipeRelease.suggestions().isEmpty() &&
+            swipeRelease.suggestions().size() <= 3 &&
+            swipeRelease.suggestions().get(0).equals("привет"),
+            "Release carries ranked correction choices");
+        require(pointer.swipePreview().isEmpty(), "Swipe preview resets after release");
+
+        var hello = new java.util.ArrayList<GestureWordRecognizer.Point>();
+        for (String ch : new String[]{"h", "e", "l", "l", "o"}) {
+            KeyboardLayout.Key letterKey = key(en.keys(), ch);
+            hello.add(new GestureWordRecognizer.Point(
+                letterKey.x()+letterKey.width()/2.,
+                letterKey.y()+letterKey.height()/2.));
+        }
+        require("hello".equals(GestureWordRecognizer.suggest(en, hello, 3).get(0)),
+            "English word paths are recognized with their own layout");
+
+        var word = new java.util.ArrayList<GestureWordRecognizer.Point>();
+        for (String ch : new String[]{"с", "л", "о", "в", "о"}) {
+            KeyboardLayout.Key letterKey = key(ru.keys(), ch);
+            word.add(new GestureWordRecognizer.Point(
+                letterKey.x()+letterKey.width()/2.,
+                letterKey.y()+letterKey.height()/2.));
+        }
+        require("слово".equals(GestureWordRecognizer.suggest(ru, word, 3).get(0)),
+            "Approximate Russian word shape predicts слово");
+        KeyboardLayout.Panel suggestedPanel = KeyboardLayout.make(
+            854, 480, true, true, false, false, false, 280,
+            java.util.List.of("привет", "приветы", "приветик"));
+        require(suggestedPanel.keys().stream().filter(k ->
+            k.command() == KeyboardLayout.Command.SUGGESTION).count() == 3,
+            "Three suggestions are presented as pressable VR keys");
+        KeyboardLayout.Key correctionKey = suggestedPanel.keys().stream()
+            .filter(k -> k.command() == KeyboardLayout.Command.SUGGESTION)
+            .findFirst().orElseThrow();
+        KeyboardPointerInput corrections = new KeyboardPointerInput();
+        require(corrections.press(suggestedPanel, correctionKey.x()+1,
+            correctionKey.y()+1, 21_200), "Suggestion is clickable");
+        KeyboardPointerInput.Release correctionRelease = corrections.release(
+            suggestedPanel, correctionKey.x()+1, correctionKey.y()+1, 21_230);
+        require(correctionRelease.activation() != null &&
+            "привет".equals(correctionRelease.activation().text()),
+            "Correction tap returns complete word, not its truncated label");
 
         require(new VivecraftLeftPointer().poll(854, 480) == null,
             "Optional second-hand Vivecraft bridge does not crash outside VR");
