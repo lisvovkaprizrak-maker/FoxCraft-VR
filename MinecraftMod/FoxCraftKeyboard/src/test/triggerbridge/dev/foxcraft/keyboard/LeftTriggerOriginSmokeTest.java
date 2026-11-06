@@ -82,7 +82,54 @@ public final class LeftTriggerOriginSmokeTest {
         gameUse.active = false;
         require(!FoxCraftLeftTrigger.pressed(provider, Hand.LEFT,
             handedKeyboard, guiClick), "Inactive left action does not click");
-        System.out.println("FoxCraft Quest 3 left index-trigger origin smoke tests: OK");
+
+        // Regression from Quest 3: right trigger used to select the LEFT ray,
+        // while left index trigger failed altogether. Verify both directions.
+        gui.active = false;
+        keyboard.right = true;
+        keyboard.left = true; // Simulate a fork that mirrors handed state.
+        keyboard.origin = 200;
+        require(FoxCraftLeftTrigger.pressedBinding(provider, Hand.RIGHT, handedKeyboard),
+            "Right physical-origin keyboard press goes to right ray");
+        require(!FoxCraftLeftTrigger.pressedBinding(provider, Hand.LEFT, handedKeyboard),
+            "Mirrored handed state must not click the opposite left ray");
+        require(keyboard.hand == Hand.RIGHT, "Handed action state is restored");
+
+        keyboard.origin = 100;
+        require(FoxCraftLeftTrigger.pressedBinding(provider, Hand.LEFT, handedKeyboard),
+            "Left physical-origin keyboard press goes to left ray");
+        require(!FoxCraftLeftTrigger.pressedBinding(provider, Hand.RIGHT, handedKeyboard),
+            "Mirrored handed state must not click the opposite right ray");
+
+        // On some Quest mappings the keyboard action is absent and the index
+        // triggers are bound to ordinary Use/Attack instead.
+        keyboard.active = false;
+        gameUse.active = true;
+        gameUse.origin = 100;
+        require(FoxCraftLeftTrigger.pressed(provider, Hand.LEFT,
+            handedKeyboard, guiClick), "Left index-use action clicks left ray");
+        require(!FoxCraftLeftTrigger.pressed(provider, Hand.RIGHT,
+            handedKeyboard, guiClick), "Left index-use cannot click right ray");
+        gameUse.origin = 200;
+        require(FoxCraftLeftTrigger.pressed(provider, Hand.RIGHT,
+            handedKeyboard, guiClick), "Right index-use action clicks right ray");
+        require(!FoxCraftLeftTrigger.pressed(provider, Hand.LEFT,
+            handedKeyboard, guiClick), "Right index-use cannot click left ray");
+
+        // Both independent rays may have simultaneous physical presses;
+        // neither action must be mistaken for the other hand.
+        gameUse.active = false;
+        keyboard.active = true;
+        keyboard.right = true;
+        keyboard.left = false;
+        keyboard.origin = 200;
+        gameUse.origin = 100;
+        gameUse.active = true;
+        require(FoxCraftLeftTrigger.pressed(provider, Hand.RIGHT,
+            handedKeyboard, guiClick), "Right action remains active with left use");
+        require(FoxCraftLeftTrigger.pressed(provider, Hand.LEFT,
+            handedKeyboard, guiClick), "Left use remains active with right keyboard");
+        System.out.println("FoxCraft Quest 3 two-hand trigger origin smoke tests: OK");
     }
 
     private static void require(boolean pass, String message) {
