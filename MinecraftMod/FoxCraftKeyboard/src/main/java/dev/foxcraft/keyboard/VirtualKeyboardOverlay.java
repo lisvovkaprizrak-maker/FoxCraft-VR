@@ -40,6 +40,10 @@ public final class VirtualKeyboardOverlay {
     private VivecraftLeftPointer.Sample leftSample;
     private KeyboardLayout.Panel panel;
     private Screen previousScreen;
+    // Menus often auto-focus their search box; only show the screen fallback
+    // after a user explicitly clicks an editable field.
+    private Screen activatedMenuScreen;
+    private TextFieldWidget activatedMenuField;
     private TextFieldWidget layoutFocusedField;
     private int layoutFieldX = -1, layoutFieldY = -1;
     private int layoutFieldWidth = -1, layoutFieldHeight = -1;
@@ -66,15 +70,16 @@ public final class VirtualKeyboardOverlay {
     }
 
     public void render(Screen screen, DrawContext context, int mouseX, int mouseY) {
-        // The separate QuestCraft-aligned VR surface is preferred, but it can
-        // fail to load on forked builds. Do not make the chat keyboard vanish:
-        // restore the 2D keyboard only while no usable VR surface is ready.
-        // Never place that 2D overlay over world-selection and other VR menus.
+        // Auto-focused search fields must not paint FoxCraft over world lists
+        // and menu buttons. Outside chat, explicitly clicking a field arms it.
+        TextFieldWidget field = focusedField(screen);
+        boolean menuRequested = screen == activatedMenuScreen
+            && field != null && field == activatedMenuField;
         if (!KeyboardDisplayPolicy.showScreenOverlay(
             FoxCraftVrPlane.isVrSession(),
             screen instanceof ChatScreen,
             FoxCraftVrPlane.isReady(),
-            hasEditableFocus(screen))) return;
+            field != null, menuRequested)) return;
         renderInternal(screen, context, mouseX, mouseY,
             screen.width, screen.height, false, -100, -100);
     }
@@ -353,6 +358,25 @@ public final class VirtualKeyboardOverlay {
     /** Returns true if the gesture is captured (including key gaps). */
     public boolean mousePressed(Screen screen, double x, double y, int button) {
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) return false;
+        // The click is inspected BEFORE Minecraft changes the focused widget.
+        // Ignore auto-focus; clicking outside the field/panel hides the
+        // keyboard and returns the world list and menu buttons to normal.
+        if (!(screen instanceof ChatScreen)) {
+            TextFieldWidget clickedField = textFieldAt(screen, x, y);
+            if (clickedField != null) {
+                activatedMenuScreen = screen;
+                activatedMenuField = clickedField;
+            } else if (screen != previousScreen || panel == null ||
+                       !panel.contains(x, y)) {
+                activatedMenuScreen = null;
+                activatedMenuField = null;
+                if (!FoxCraftVrPlane.isReady()) {
+                    panel = null;
+                    pointer.cancel();
+                    leftPointer.cancel();
+                }
+            }
+        }
         // When the detached panel is unavailable, the visible fallback
         // must also accept mouse/controller presses instead of discarding them.
         if (FoxCraftVrPlane.isReady()) {
@@ -478,6 +502,18 @@ public final class VirtualKeyboardOverlay {
         }
         if (result.key().command() == KeyboardLayout.Command.TYPE && shift)
             shift = false;
+    }
+
+    /** Select only a visible input field directly clicked by the user. */
+    private static TextFieldWidget textFieldAt(Screen screen, double x, double y) {
+        if (screen == null) return null;
+        for (Element child : screen.children()) {
+            if (child instanceof TextFieldWidget field && field.isVisible()
+                && x >= field.getX() && x < field.getX() + field.getWidth()
+                && y >= field.getY() && y < field.getY() + field.getHeight())
+                return field;
+        }
+        return null;
     }
 
     /** Do not open a VR keyboard unless a real, visible Minecraft text field has focus. */
