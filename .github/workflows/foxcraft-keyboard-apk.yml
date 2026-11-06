@@ -101,7 +101,7 @@ jobs:
           print('Pojlib AAR Java classes exist; Quest compatibility remains untested.')
           PY
           unzip -p Assets/Plugins/Android/Pojlib-release.aar classes.jar > /tmp/foxcraft-pojlib-classes.jar
-          javap -classpath /tmp/foxcraft-pojlib-classes.jar pojlib.API | grep -q 'public static void prelaunch('
+          javap -classpath /tmp/foxcraft-pojlib-classes.jar pojlib.API | grep -q 'public static boolean prelaunch('
           javap -classpath /tmp/foxcraft-pojlib-classes.jar pojlib.util.Constants | grep -q 'public static java.lang.String USER_HOME'
       - name: Build separate FoxCraft test APK using Unity
         uses: game-ci/unity-builder@v4
