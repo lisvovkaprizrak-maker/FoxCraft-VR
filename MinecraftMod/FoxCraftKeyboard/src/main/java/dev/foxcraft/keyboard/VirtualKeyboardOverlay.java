@@ -136,6 +136,11 @@ public final class VirtualKeyboardOverlay {
             panel = KeyboardLayout.make(width, height,
                 chat && !detached, russian, symbols, shift, collapsed,
                 preferredWidth, suggestions, chatInputBottomY, detached);
+            if (!chat && !detached && panel != null) {
+                panel = KeyboardLayout.dockForMenu(panel, width, height,
+                    activeField.getX(), activeField.getY(),
+                    activeField.getWidth(), activeField.getHeight());
+            }
             layoutWidth = width;
             layoutPreferredWidth = preferredWidth;
             layoutHeight = height;
@@ -267,6 +272,9 @@ public final class VirtualKeyboardOverlay {
         int sweep = panel.x() + (int) ((now / 12L) % Math.max(1, panel.width()));
         context.fill(sweep, panel.y() - 2, Math.min(panel.x() + panel.width(), sweep + 20),
             panel.y(), ORANGE);
+        // A successful screen fallback also replaces the old QuestCraft
+        // keyboard. Do not suppress the native fallback if we drew nothing.
+        if (!detached) QuestCraftKeyboardSuppressor.closeWhenScreenFallbackVisible();
     }
 
     /**
