@@ -17,8 +17,10 @@ public final class KeyboardLogicSmokeTest {
             "VR chat must retain keyboard fallback if room panel is missing");
         require(!KeyboardDisplayPolicy.showScreenOverlay(true, true, true),
             "VR chat must not duplicate a working detached keyboard");
-        require(KeyboardDisplayPolicy.showScreenOverlay(false, false, false),
-            "Desktop text fields retain the 2D keyboard");
+        require(!KeyboardDisplayPolicy.showScreenOverlay(false, false, false),
+            "World-selection menus must not be covered even when VR_RUNNING is false");
+        require(KeyboardDisplayPolicy.showScreenOverlay(false, true, false),
+            "Desktop chat retains the ordinary 2D keyboard");
         try {
             Path tmp = Files.createTempDirectory("foxcraft-keyboard-pref-test");
             Path settings = tmp.resolve("size.txt");
