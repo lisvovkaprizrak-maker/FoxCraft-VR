@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 from io import BytesIO
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -81,7 +82,25 @@ def verify_aar(path: Path) -> None:
         if "public java.lang.String mainClass;" not in instance:
             raise ValueError("Pojlib Instance.mainClass missing (cannot verify Fabric loader)")
 
-    print("Pojlib API preflight OK: boolean prelaunch, launchInstance, USER_HOME, gameDir, versionName, mainClass")
+        # These are called from JNIStorage, InstanceButton and launcher settings.
+        # Validate the BUNDLED AAR, not only the upstream Java source tree.
+        required_methods = (
+            "loadAll", "getQCSupportedVersions", "hasConnection",
+            "createNewInstance", "fixDataPermissions", "restartLauncher",
+            "mirrorNativesInFolder", "unzipSavesFromFolder",
+        )
+        missing_methods = [
+            name for name in required_methods
+            if re.search(r"\\b" + re.escape(name) + r"\\(", api) is None
+        ]
+        if missing_methods:
+            raise ValueError("Missing bundled Pojlib launcher API methods: " +
+                             ", ".join(missing_methods))
+        for field in ("gameReady", "model"):
+            if re.search(r"\\b" + field + r";", api) is None:
+                raise ValueError("Missing bundled Pojlib launcher API field: " + field)
+
+    print("Pojlib API preflight OK: game lifecycle, instance management, loader metadata and required Unity JNI fields")
     print("Device compatibility and Unity Android compilation are not verified.")
 
 
