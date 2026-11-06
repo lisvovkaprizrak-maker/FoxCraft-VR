@@ -88,7 +88,7 @@ def main() -> int:
     parser.add_argument("--launch", action="store_true",
                         help="Explicitly start the FoxCraft test application")
     parser.add_argument("--logs", action="store_true",
-                        help="Print only recent FoxCraft-tagged Unity log entries")
+                        help="Print privacy-filtered FoxCraft Unity and Minecraft Java startup markers")
     args = parser.parse_args()
 
     try:
@@ -120,12 +120,14 @@ def main() -> int:
                                     PACKAGE + "/" + ACTIVITY]).strip())
 
         if args.logs:
-            output = command(prefix + ["logcat", "-d", "-t", "400", "-s", "Unity:I"],
-                             timeout=30)
+            # Minecraft Java startup messages may use a different logcat tag
+            # from Unity. Filter in memory to FoxCraft markers; don't print
+            # unfiltered system logs containing other applications' data.
+            output = command(prefix + ["logcat", "-d", "-t", "1200"], timeout=30)
             shown = [line for line in output.splitlines()
-                     if "[FoxCraft]" in line or "FoxCraft:" in line]
-            print("\n".join(shown[-50:]) if shown else
-                  "No FoxCraft-specific Unity messages in the last 400 log lines.")
+                     if "[FoxCraft]" in line or "FoxCraftKeyboard" in line]
+            print("\\n".join(shown[-60:]) if shown else
+                  "No FoxCraft launcher/mod markers in the last 1200 log lines.")
 
         print("\nOn the headset, manually check: Minecraft 1.21.5 Fabric launch; "
               "chat and commands; RU/EN letters; number row 1–0; 450 ms symbols; "
