@@ -11,6 +11,7 @@ on:
       - 'tools/check_foxcraft_pojlib_api.py'
       - 'tools/foxcraft_quest_smoke.py'
       - 'tests/test_foxcraft_quest_smoke.py'
+      - 'tests/unity-compile/**'
   workflow_dispatch:
 
 permissions:
@@ -35,6 +36,11 @@ jobs:
           java-version: '21'
       - name: Verify bundled Pojlib JNI API signatures
         run: python3 tools/check_foxcraft_pojlib_api.py
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile launcher C# syntax with Unity API test doubles
+        run: dotnet build tests/unity-compile/FoxCraftUnitySyntax.csproj --configuration Release --nologo
       - name: Verify Minecraft 1.21.5 APK configuration
         run: |
           python3 -m unittest discover -s tests -p 'test_keyboard_apk_pipeline.py' -v
