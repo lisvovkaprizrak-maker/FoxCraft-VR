@@ -24,6 +24,10 @@ import java.lang.reflect.Method;
  */
 public final class FoxCraftVrPlane {
     private static final float SCALE_MULTIPLIER = 0.68f;
+    // Draw the same logical 390px keyboard into a higher-resolution VR
+    // framebuffer. The quad's physical scale and controller hit coordinates
+    // remain unchanged; only its raster sampling density improves.
+    private static final int HD_RENDER_SCALE = 2;
     // In menu, keep the detached keyboard BELOW the GUI, not across the
     // world/server list. Chat keeps the user-tested original placement.
     private static final float MENU_SCALE_MULTIPLIER = 0.48f;
@@ -142,7 +146,12 @@ public final class FoxCraftVrPlane {
             int sw = guiClass.getField("SCALED_WIDTH_MAX").getInt(null);
             int sh = guiClass.getField("SCALED_HEIGHT_MAX").getInt(null);
             if (w <= 0 || h <= 0 || sw < 220 || sh < 140) return;
-            if (target == null || bufferWidth != w || bufferHeight != h) {
+            // Supersample both axes to keep the same world-space aspect ratio.
+            // GUI_WIDTH/HEIGHT are pixel framebuffer dimensions; SCALED_WIDTH_MAX
+            // and SCALED_HEIGHT_MAX remain the logical GUI layout dimensions.
+            int hdWidth = Math.multiplyExact(w, HD_RENDER_SCALE);
+            int hdHeight = Math.multiplyExact(h, HD_RENDER_SCALE);
+            if (target == null || bufferWidth != hdWidth || bufferHeight != hdHeight) {
                 // Do NOT call releaseBuffer() here: that method also resets
                 // position and rotation computed just above. The first VR
                 // frame would then project a ray with NULL geometry, disable
@@ -150,9 +159,10 @@ public final class FoxCraftVrPlane {
                 if (target != null) target.delete();
                 target = null;
                 screen = null; // Reinitialise the panel at the new GUI size.
-                target = new SimpleFramebuffer("FoxCraft VR keyboard", w, h, true);
-                bufferWidth = w;
-                bufferHeight = h;
+                target = new SimpleFramebuffer("FoxCraft VR keyboard HD",
+                    hdWidth, hdHeight, true);
+                bufferWidth = hdWidth;
+                bufferHeight = hdHeight;
             }
             if (screen == null || sw != uiWidth || sh != uiHeight) {
                 screen = new PanelScreen();
@@ -169,6 +179,10 @@ public final class FoxCraftVrPlane {
             RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(
                 target.getColorAttachment(), 0x00000000,
                 target.getDepthAttachment(), 1.0);
+            // RenderHelper draws the unchanged GUI geometry to our
+            // double-resolution target; explicit viewport avoids relying on
+            // the window's lower-resolution eye/GUI framebuffer size.
+            RenderSystem.viewport(0, 0, hdWidth, hdHeight);
             DrawContext draw = new DrawContext(client,
                 client.getBufferBuilders().getEntityVertexConsumers());
 
