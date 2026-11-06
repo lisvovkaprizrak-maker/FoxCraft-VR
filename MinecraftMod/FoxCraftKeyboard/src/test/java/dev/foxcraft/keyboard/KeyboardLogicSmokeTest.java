@@ -8,6 +8,7 @@ import java.io.IOException;
 /** Pure JDK 21 test; no Minecraft, Fabric, or Unity runtime required. */
 public final class KeyboardLogicSmokeTest {
     public static void main(String[] args) {
+        testQuickMessageComposer();
         // Regression: on Quest, the world-selection text field must not
         // display FoxCraft over the menu, while in-world chat stays usable
         // even if the optional 3D Vivecraft hook never starts.
@@ -557,6 +558,58 @@ public final class KeyboardLogicSmokeTest {
     private static KeyboardLayout.Key key(List<KeyboardLayout.Key> keys, String label) {
         return keys.stream().filter(k -> label.equals(k.label())).findFirst()
             .orElseThrow(() -> new AssertionError("Missing key: " + label));
+    }
+
+    private static void testQuickMessageComposer() {
+        QuickMessageDraft draft = new QuickMessageDraft();
+        require(!draft.canSend(), "Empty custom message must not be sent");
+        draft.insert("Привет");
+        draft.insert(" мир");
+        require("Привет мир".equals(draft.message()),
+            "Typing words must not insert automatic spaces");
+        draft.dot();
+        require("Привет мир. ".equals(draft.message()),
+            "Dot must add one space after the sentence");
+        draft.selectNote(true);
+        draft.insert("важное примечание");
+        require(draft.editingNote() && "важное примечание".equals(draft.note()),
+            "Note is an independent editable field");
+        require("Привет мир. — важное примечание".equals(draft.outgoing()),
+            "Optional note is appended when Send is pressed");
+        draft.backspace();
+        require(draft.note().endsWith("примечани"),
+            "Backspace edits the selected note without altering message");
+        draft.selectNote(false);
+        draft.moveCursor(-2);
+        draft.insert("!");
+        require(draft.note().endsWith("примечани"),
+            "Switching back must not alter the note");
+        require(draft.canSend(), "Valid message with note is sendable");
+        draft.clear();
+        require(draft.message().isEmpty() && draft.note().isEmpty() && !draft.canSend(),
+            "Composer must reset cleanly");
+
+        KeyboardLayout.Panel original = KeyboardLayout.make(
+            854, 480, true, true, false, false, false);
+        KeyboardLayout.Panel editor = KeyboardLayout.composeMenu(
+            original, "Привет", "заметка", false, true, false);
+        require(editor.width() == original.width() && editor.height() == original.height(),
+            "Editor must preserve VR panel size and controller alignment");
+        require(editor.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.COMPOSE_MESSAGE) &&
+            editor.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.COMPOSE_NOTE) &&
+            editor.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.COMPOSE_SEND),
+            "Editor provides message, note, and explicit Send controls");
+        require(editor.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.TYPE &&
+            "й".equals(k.value())),
+            "Editor retains the physical Russian keyboard");
+        for (KeyboardLayout.Key key : editor.keys())
+            require(editor.at(key.x() + key.width() / 2.0,
+                key.y() + key.height() / 2.0) != null,
+                "Composer keys must remain hit-testable by VR controllers");
     }
 
     private static void require(boolean condition, String message) {
