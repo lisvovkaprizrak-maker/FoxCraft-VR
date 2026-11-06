@@ -21,6 +21,14 @@ public final class KeyboardLogicSmokeTest {
             "World-selection menus must not be covered even when VR_RUNNING is false");
         require(KeyboardDisplayPolicy.showScreenOverlay(false, true, false),
             "Desktop chat retains the ordinary 2D keyboard");
+        require(KeyboardDisplayPolicy.showScreenOverlay(true, false, false, true),
+            "Focused VR menu field should have a fallback if detached panel fails");
+        require(KeyboardDisplayPolicy.showScreenOverlay(false, false, false, true),
+            "Menu field fallback also works when VR_RUNNING is temporarily false");
+        require(!KeyboardDisplayPolicy.showScreenOverlay(true, false, false, false),
+            "No keyboard over menu without active editable focus");
+        require(!KeyboardDisplayPolicy.showScreenOverlay(true, false, true, true),
+            "Working detached keyboard must not be duplicated on menu");
         try {
             Path tmp = Files.createTempDirectory("foxcraft-keyboard-pref-test");
             Path settings = tmp.resolve("size.txt");
@@ -60,6 +68,27 @@ public final class KeyboardLogicSmokeTest {
                 require(key.width() > 0 && key.height() > 0, "Positive key size");
             }
         }
+
+        KeyboardLayout.Panel menuSource = KeyboardLayout.make(
+            854, 480, false, true, false, false, false);
+        KeyboardLayout.Panel menuLeftField = KeyboardLayout.dockForMenu(
+            menuSource, 854, 480, 35, 30, 200, 20);
+        require(menuLeftField.x() > 500, "Menu field on left docks keyboard to right edge");
+        require(menuLeftField.y() >= 8 &&
+            menuLeftField.y() + menuLeftField.height() <= 472,
+            "Docked keyboard remains on the menu screen");
+        require(menuLeftField.keys().stream().allMatch(k ->
+            k.x() >= menuLeftField.x() &&
+            k.x() + k.width() <= menuLeftField.x() + menuLeftField.width()),
+            "Menu dock moves all keys together");
+        KeyboardLayout.Panel menuRightField = KeyboardLayout.dockForMenu(
+            menuSource, 854, 480, 640, 340, 180, 20);
+        require(menuRightField.x() == 8,
+            "Menu field on right docks keyboard to left edge");
+        KeyboardLayout.Panel menuWideField = KeyboardLayout.dockForMenu(
+            menuSource, 854, 480, 0, 350, 854, 24);
+        require(menuWideField.y() + menuWideField.height() <= 342,
+            "Wide bottom text field never sits under the docked keyboard");
 
         KeyboardLayout.Panel ru = KeyboardLayout.make(854, 480, true, true, false, false, false);
         require(ru.width() == 280 && ru.height() <= 165,
