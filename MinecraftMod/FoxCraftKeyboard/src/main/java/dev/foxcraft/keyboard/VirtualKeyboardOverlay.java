@@ -36,6 +36,8 @@ public final class VirtualKeyboardOverlay {
     private String suggestionSnapshot = "";
     private String lastInsertedWord = "";
     private String lastInsertedSuffix = "";
+    // True only when the second consecutive swipe inserted a separator.
+    private boolean lastSwipeLeadingSpace;
     private int suggestionCursor = -1;
     private boolean leftDown;
     private VivecraftLeftPointer.Sample leftSample;
@@ -447,7 +449,10 @@ public final class VirtualKeyboardOverlay {
                 }
             }
 
-            if (drawControlIcon(context, key, textColor, accent)) continue;
+            // Only the settings page has plain text controls; the main keyboard
+            // retains its already familiar icon-based microphone and tools.
+            if (!"SETTINGS".equals(menuPage) &&
+                drawControlIcon(context, key, textColor, accent)) continue;
             String caption = longHeld ? key.alternate() : key.label();
             if (caption.isEmpty()) caption = key.label();
             if (key.command() == KeyboardLayout.Command.SUGGESTION) {
@@ -1019,9 +1024,11 @@ public final class VirtualKeyboardOverlay {
         }
         if (result.key().command() == KeyboardLayout.Command.TYPE &&
             !release.suggestions().isEmpty()) {
+            // A separator is added ONLY between two consecutive swipes.
+            // The existing snapshot proves the prior swipe hasn't been edited
+            // or followed by a manual key, a cursor move or a suggestion.
+            boolean previousSwipe = validLastSwipe(field);
             clearSuggestions();
-            // Capitalize only at the start of the input line. Swipe never
-            // inserts an automatic space after every word.
             int before = field.getCursor();
             boolean atStartOfLine = before == 0 ||
                 field.getText().substring(0, Math.min(before, field.getText().length()))
@@ -1032,10 +1039,12 @@ public final class VirtualKeyboardOverlay {
                 .map(word -> KeyboardLayout.swipeWord(word, russian, shift,
                     atStartOfLine)).toList();
             shift = false;
-            // Explicit Space key controls word separation. No automatic
-            // spaces after swipe words, including candidate replacements.
+            // No trailing auto-space: one space is inserted BEFORE the next
+            // swipe word, and only when the previous gesture was also a swipe.
+            boolean leadingSpace = previousSwipe && before > 0 &&
+                !Character.isWhitespace(field.getText().charAt(before - 1));
             String suffix = "";
-            String inserted = chosen;
+            String inserted = (leadingSpace ? " " : "") + chosen;
             field.write(inserted);
             int after = field.getCursor();
             String actual = field.getText();
@@ -1048,9 +1057,22 @@ public final class VirtualKeyboardOverlay {
                 suggestionCursor = after;
                 lastInsertedWord = chosen;
                 lastInsertedSuffix = suffix;
+                lastSwipeLeadingSpace = leadingSpace;
                 panel = null;
             }
         } else activate(screen, result);
+    }
+
+    /** Exact swipe snapshot, never guessed from arbitrary similarly spelled text. */
+    private boolean validLastSwipe(TextFieldWidget field) {
+        if (field == null || field != suggestionField ||
+            !field.getText().equals(suggestionSnapshot) ||
+            field.getCursor() != suggestionCursor ||
+            !field.getSelectedText().isEmpty() || lastInsertedWord.isEmpty())
+            return false;
+        int start = suggestionCursor - lastInsertedWord.length();
+        return start >= 0 && field.getText().substring(start,
+            suggestionCursor).equals(lastInsertedWord);
     }
 
     private void clearSuggestions() {
@@ -1061,6 +1083,7 @@ public final class VirtualKeyboardOverlay {
         suggestionCursor = -1;
         lastInsertedWord = "";
         lastInsertedSuffix = "";
+        lastSwipeLeadingSpace = false;
     }
 
     private void activate(Screen screen, KeyHoldController.Activation result) {
@@ -1084,7 +1107,18 @@ public final class VirtualKeyboardOverlay {
             clearSuggestions();
             return;
         }
+        // Delete an entire last swipe word, not just the letter at the cursor.
+        // If this gesture introduced the automatic leading separator, remove
+        // that separator too, so repeated deletion leaves no stray spaces.
+        boolean deleteSwipeWord = result.key().command() ==
+            KeyboardLayout.Command.BACKSPACE && validLastSwipe(field);
+        int swipeLength = deleteSwipeWord ? lastInsertedWord.length() +
+            (lastSwipeLeadingSpace ? 1 : 0) : 0;
         clearSuggestions();
+        if (deleteSwipeWord) {
+            field.eraseCharacters(-swipeLength);
+            return;
+        }
         if ("COMPOSE".equals(menuPage)) {
             activateCompose(screen, field, result);
             return;
