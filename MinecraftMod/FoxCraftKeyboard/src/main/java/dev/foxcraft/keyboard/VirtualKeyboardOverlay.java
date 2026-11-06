@@ -44,7 +44,7 @@ public final class VirtualKeyboardOverlay {
     private int layoutPreferredWidth = -1;
     private int preferredWidth = prefs.loadWidth();
     private int layoutHeight = -1;
-    private int layoutChatInputY = -1;
+    private int layoutChatInputBottomY = -1;
     private boolean layoutChat;
     private boolean layoutRussian;
     private boolean layoutSymbols;
@@ -84,21 +84,22 @@ public final class VirtualKeyboardOverlay {
             !activeField.getSelectedText().isEmpty()))
             clearSuggestions();
         boolean chat = screen instanceof ChatScreen;
-        // Place the keyboard immediately above the real chat input field,
-        // not at y=8 over the chat history.
-        int chatInputY = chat ? activeField.getY() : -1;
+        // Use the actual lower edge of the chat field. The keyboard occupies
+        // the free area below it instead of being drawn inside the text box.
+        int chatInputBottomY = chat
+            ? activeField.getY() + activeField.getHeight() : -1;
         if (panel == null || layoutWidth != screen.width || layoutHeight != screen.height ||
-            layoutChatInputY != chatInputY ||
+            layoutChatInputBottomY != chatInputBottomY ||
             layoutChat != chat || layoutPreferredWidth != preferredWidth ||
             layoutRussian != russian || layoutSymbols != symbols ||
             layoutShift != shift || layoutCollapsed != collapsed) {
             panel = KeyboardLayout.make(screen.width, screen.height,
                 chat, russian, symbols, shift, collapsed, preferredWidth,
-                suggestions, chatInputY);
+                suggestions, chatInputBottomY);
             layoutWidth = screen.width;
             layoutPreferredWidth = preferredWidth;
             layoutHeight = screen.height;
-            layoutChatInputY = chatInputY;
+            layoutChatInputBottomY = chatInputBottomY;
             layoutChat = chat;
             layoutRussian = russian;
             layoutSymbols = symbols;
