@@ -171,7 +171,9 @@ public static class FoxCraftInGameKeyboardInstaller
     private static bool InstallAtomically(string folder, byte[] bytes)
     {
         string destination = Path.Combine(folder, ModJarName);
-        string temporary = destination + ".pending";
+        // Unique create-only staging path: concurrent launches must never
+        // overwrite/delete another process's pending mod file.
+        string temporary = destination + ".pending-" + Guid.NewGuid().ToString("N");
         try
         {
             Directory.CreateDirectory(folder);
@@ -200,9 +202,32 @@ public static class FoxCraftInGameKeyboardInstaller
                 return true;
             }
 
-            File.WriteAllBytes(temporary, bytes);
-            if (!File.Exists(destination))
-                File.Move(temporary, destination);
+            using (FileStream staging = new FileStream(
+                temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                staging.Write(bytes, 0, bytes.Length);
+                staging.Flush();
+            }
+
+            // A ZIP header alone cannot guarantee that Android storage wrote
+            // the complete content. Confirm the staged file before publishing.
+            using (SHA256 sha = SHA256.Create())
+            using (FileStream staged = File.OpenRead(temporary))
+            {
+                byte[] expected = sha.ComputeHash(bytes);
+                byte[] actual = sha.ComputeHash(staged);
+                if (actual.Length != expected.Length)
+                    throw new IOException("Staged FoxCraft mod checksum mismatch");
+                for (int i = 0; i < expected.Length; i++)
+                    if (actual[i] != expected[i])
+                        throw new IOException("Staged FoxCraft mod checksum mismatch");
+            }
+
+            // File.Move within the same mods directory is atomic on supported
+            // Android filesystems. No existing game mod should be overwritten.
+            if (File.Exists(destination))
+                return false;
+            File.Move(temporary, destination);
             bool installed = File.Exists(destination);
             if (installed)
                 Debug.Log("[FoxCraft] Fabric 1.21.5 keyboard ready for Minecraft launch.");
