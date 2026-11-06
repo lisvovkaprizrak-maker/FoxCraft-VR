@@ -448,8 +448,8 @@ public final class FoxCraftVrPlane {
         Object keyboardClick = guiClass.getField("KEY_KEYBOARD_CLICK").get(null);
         // GUI actions remain active while QuestCraft's own keyboard is closed.
         // Read them; NEVER alter controller bindings or Minecraft controls.
-        Object guiLeftClick = guiClass.getField("KEY_LEFT_CLICK").get(null);
-        Object guiRightClick = guiClass.getField("KEY_RIGHT_CLICK").get(null);
+        Object guiLeftClick = FoxCraftGuiClickInput.optionalBinding(guiClass, "KEY_LEFT_CLICK");
+        Object guiRightClick = FoxCraftGuiClickInput.optionalBinding(guiClass, "KEY_RIGHT_CLICK");
         Method cursorProject = null;
         for (Method method : guiClass.getMethods()) {
             if (method.getName().equals("getTexCoordsForCursor") &&
