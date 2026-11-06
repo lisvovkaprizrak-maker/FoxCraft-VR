@@ -21,10 +21,18 @@ public final class KeyboardLogicSmokeTest {
             "World-selection menus must not be covered even when VR_RUNNING is false");
         require(KeyboardDisplayPolicy.showScreenOverlay(false, true, false),
             "Desktop chat retains the ordinary 2D keyboard");
-        require(KeyboardDisplayPolicy.showScreenOverlay(true, false, false, true),
-            "Focused VR menu field should have a fallback if detached panel fails");
-        require(KeyboardDisplayPolicy.showScreenOverlay(false, false, false, true),
-            "Menu field fallback also works when VR_RUNNING is temporarily false");
+        require(!KeyboardDisplayPolicy.showScreenOverlay(true, false, false, true),
+            "Auto-focused world search must not cover world-selection buttons");
+        require(!KeyboardDisplayPolicy.showScreenOverlay(false, false, false, true),
+            "Auto-focused menu input must not open the keyboard outside VR");
+        require(KeyboardDisplayPolicy.showScreenOverlay(true, false, false, true, true),
+            "Clicking a VR menu text field opens fallback when no panel exists");
+        require(KeyboardDisplayPolicy.showScreenOverlay(false, false, false, true, true),
+            "Clicked field opens fallback even if VR_RUNNING temporarily reports false");
+        require(!KeyboardDisplayPolicy.showScreenOverlay(true, false, true, true, true),
+            "Do not duplicate an available detached VR panel");
+        require(!KeyboardDisplayPolicy.showScreenOverlay(true, false, false, false, true),
+            "Menu keyboard closes when editable focus is lost");
         require(!KeyboardDisplayPolicy.showScreenOverlay(true, false, false, false),
             "No keyboard over menu without active editable focus");
         require(!KeyboardDisplayPolicy.showScreenOverlay(true, false, true, true),
