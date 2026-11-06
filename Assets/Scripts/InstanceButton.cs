@@ -51,13 +51,20 @@ public class InstanceButton : MonoBehaviour
         JNIStorage.instance.UpdateInstances();
     }
 
+    private sealed class PrelaunchState
+    {
+        // Background Pojlib work signals completion to the Unity coroutine.
+        public volatile bool completed;
+        public string error;
+    }
+
     public void LaunchCurrentInstance()
     {
         if (Application.platform != RuntimePlatform.Android || launchInProgress)
             return;
 
-        PojlibInstance instance = JNIStorage.GetInstance(currInstName);
-        if (instance == null)
+        PojlibInstance selected = JNIStorage.GetInstance(currInstName);
+        if (selected == null)
         {
             Debug.Log("Instance is null!");
             CreateDefaultInstance(currInstName);
@@ -65,74 +72,101 @@ public class InstanceButton : MonoBehaviour
         }
 
         launchInProgress = true;
-        StartCoroutine(LaunchAfterKeyboardInstall(instance));
+        StartCoroutine(PrepareAndLaunch(selected));
     }
 
-    private IEnumerator LaunchAfterKeyboardInstall(PojlibInstance instance)
+    private IEnumerator PrepareAndLaunch(PojlibInstance selected)
     {
-        // Install the matching in-game keyboard before Pojlib creates the
-        // Minecraft JVM. Only the Fabric 1.21.5 profile can use this JAR.
-        if (String.Equals(instance.versionName, "1.21.5", StringComparison.Ordinal))
-        {
-            bool keyboardInstalled = false;
-            yield return FoxCraftInGameKeyboardInstaller.EnsureInstalled(
-                instance.raw, result => keyboardInstalled = result);
-            if (!keyboardInstalled)
-                Debug.LogWarning("[FoxCraft] Minecraft will launch without the optional " +
-                    "in-game keyboard. Check the staged Fabric JAR and instance version.");
-        }
-
         uiHandler.PlaySetter();
         ProgressBarManager.started = true;
 
-        // Pojlib Java work runs on a dedicated thread, but Unity UI updates
-        // must be posted back to the scene's synchronization context.
-        SynchronizationContext sceneContext = SynchronizationContext.Current;
-        new Thread(() =>
+        // API.prelaunch is VOID in QuestCraftPlusPlus/Pojlib QuestCraft-6.0.0.
+        // It updates the instance's mods. Run it before staging FoxCraft so
+        // updateMods cannot remove our custom JAR on this launch.
+        PrelaunchState state = new PrelaunchState();
+        Thread worker = new Thread(() =>
         {
             bool attached = false;
-            string failure = null;
             try
             {
                 attached = AndroidJNI.AttachCurrentThread() >= 0;
                 if (!attached)
-                    throw new InvalidOperationException("Unable to attach to Android JVM");
-
-                if (!JNIStorage.apiClass.CallStatic<bool>("prelaunch",
-                    JNIStorage.activity, JNIStorage.instancesObj, instance.raw))
-                    failure = "Prelaunch checks failed!";
-                else
-                    JNIStorage.apiClass.CallStatic("launchInstance",
-                        JNIStorage.activity, JNIStorage.accountObj, instance.raw);
+                    throw new InvalidOperationException("Failed to attach to Android JVM");
+                JNIStorage.apiClass.CallStatic("prelaunch",
+                    JNIStorage.activity, JNIStorage.instancesObj, selected.raw);
             }
             catch (Exception ex)
             {
-                failure = "Minecraft launch failed: " + ex.GetType().Name;
+                state.error = "Minecraft prelaunch failed: " + ex.GetType().Name;
             }
             finally
             {
-                if (attached)
-                    AndroidJNI.DetachCurrentThread();
+                if (attached) AndroidJNI.DetachCurrentThread();
+                state.completed = true;
+            }
+        });
+        worker.IsBackground = true;
+        worker.Start();
+
+        while (!state.completed) yield return null;
+        if (state.error != null)
+        {
+            launchInProgress = false;
+            if (uiHandler != null) uiHandler.SetAndShowError(state.error);
+            else Debug.LogError("[FoxCraft] " + state.error);
+            yield break;
+        }
+
+        // Only Fabric 1.21.5 receives the separate Minecraft keyboard mod.
+        // This must happen after Pojlib's mod sync, before launchInstance.
+        if (String.Equals(selected.versionName, "1.21.5", StringComparison.Ordinal))
+        {
+            bool keyboardInstalled = false;
+            yield return FoxCraftInGameKeyboardInstaller.EnsureInstalled(
+                selected.raw, installed => keyboardInstalled = installed);
+            if (!keyboardInstalled)
+                Debug.LogWarning("[FoxCraft] Keyboard JAR is not installed. " +
+                    "Minecraft can still start without this optional feature.");
+        }
+
+        SynchronizationContext mainThread = SynchronizationContext.Current;
+        Thread launchWorker = new Thread(() =>
+        {
+            bool attached = false;
+            string error = null;
+            try
+            {
+                attached = AndroidJNI.AttachCurrentThread() >= 0;
+                if (!attached)
+                    throw new InvalidOperationException("Failed to attach to Android JVM");
+                JNIStorage.apiClass.CallStatic("launchInstance",
+                    JNIStorage.activity, JNIStorage.accountObj, selected.raw);
+            }
+            catch (Exception ex)
+            {
+                error = "Minecraft launch failed: " + ex.GetType().Name;
+            }
+            finally
+            {
+                if (attached) AndroidJNI.DetachCurrentThread();
             }
 
-            if (failure != null)
+            if (error != null)
             {
-                string message = failure;
-                if (sceneContext != null)
-                {
-                    sceneContext.Post(_ =>
+                string message = error;
+                if (mainThread != null)
+                    mainThread.Post(_ =>
                     {
                         launchInProgress = false;
                         if (uiHandler != null) uiHandler.SetAndShowError(message);
+                        else Debug.LogError("[FoxCraft] " + message);
                     }, null);
-                }
                 else
-                {
-                    launchInProgress = false;
                     Debug.LogError("[FoxCraft] " + message);
-                }
             }
-        }).Start();
+        });
+        launchWorker.IsBackground = true;
+        launchWorker.Start();
     }
 
     public void KillInstance()
