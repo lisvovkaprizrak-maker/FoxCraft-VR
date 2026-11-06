@@ -33,7 +33,11 @@ public final class FoxCraftVrPlane {
     // remain unchanged; only its raster sampling density improves.
     // Keep supersampling moderate on mobile VR GPUs and limit framebuffer
     // sizes to avoid running out of texture memory in QuestCraft.
-    private static final float HD_RENDER_SCALE = 1.5f;
+    // Use an INTEGER factor because RenderHelper.drawScreen takes Vivecraft's
+    // GUI_SCALE_FACTOR_MAX as an integer. Arbitrary 1.5x offscreen sizes used
+    // to make the UI appear smaller and offset relative to controller UVs.
+    private static final int HD_RENDER_SCALE = 2;
+    private static final int MAX_HD_TARGET_SIDE = 3072;
     // In menu, keep the detached keyboard BELOW the GUI, not across the
     // world/server list. Chat keeps the user-tested original placement.
     private static final float MENU_SCALE_MULTIPLIER = 0.73f;
@@ -227,13 +231,14 @@ public final class FoxCraftVrPlane {
             int sw = guiClass.getField("SCALED_WIDTH_MAX").getInt(null);
             int sh = guiClass.getField("SCALED_HEIGHT_MAX").getInt(null);
             if (w <= 0 || h <= 0 || sw < 220 || sh < 140) return;
-            // Supersample both axes to keep the same world-space aspect ratio.
-            // GUI_WIDTH/HEIGHT are pixel framebuffer dimensions; SCALED_WIDTH_MAX
-            // and SCALED_HEIGHT_MAX remain the logical GUI layout dimensions.
-            float hdScale = Math.max(1.0f,
-                Math.min(HD_RENDER_SCALE, 4096.0f / Math.max(w, h)));
-            int hdWidth = Math.round(w * hdScale);
-            int hdHeight = Math.round(h * hdScale);
+            // Preserve EXACTLY the same logical UI coordinate system as
+            // GuiHandler.getTexCoordsForCursor. Supersampling the offscreen
+            // framebuffer without also scaling RenderHelper's projection
+            // shrinks/translates the painted keys while hitboxes remain put.
+            int sampleFactor = Math.max(w, h) * HD_RENDER_SCALE <= MAX_HD_TARGET_SIDE
+                ? HD_RENDER_SCALE : 1;
+            int hdWidth = w * sampleFactor;
+            int hdHeight = h * sampleFactor;
             if (target == null || bufferWidth != hdWidth || bufferHeight != hdHeight) {
                 // Do NOT call releaseBuffer() here: that method also resets
                 // position and rotation computed just above. The first VR
@@ -288,8 +293,20 @@ public final class FoxCraftVrPlane {
                 }
             }
             if (render == null) throw new NoSuchMethodException("RenderHelper.drawScreen");
-            render.invoke(null, draw, client.getRenderTickCounter(), screen, true);
-            ready = true;
+            // RenderHelper builds its orthographic matrix from
+            // target.width / GUI_SCALE_FACTOR_MAX. Scale BOTH numerator and
+            // denominator so the painted panel stays registered to the
+            // untouched input UVs (u*uiWidth, v*uiHeight).
+            Field guiMaxScale = guiClass.getField("GUI_SCALE_FACTOR_MAX");
+            int originalMaxScale = guiMaxScale.getInt(null);
+            if (originalMaxScale <= 0) throw new IllegalStateException("Invalid GUI scale");
+            try {
+                guiMaxScale.setInt(null, Math.multiplyExact(originalMaxScale, sampleFactor));
+                render.invoke(null, draw, client.getRenderTickCounter(), screen, true);
+                ready = true;
+            } finally {
+                guiMaxScale.setInt(null, originalMaxScale);
+            }
         } catch (ReflectiveOperationException | LinkageError | RuntimeException error) {
             // QuestCraft versions differ. Never crash Minecraft or remove the
             // stock VR keyboard when our optional 3D integration fails.
