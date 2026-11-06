@@ -17,6 +17,16 @@ public final class QuestCraftKeyboardSuppressor {
     /** Call only after the FoxCraft world quad was rendered successfully. */
     public static void closeWhenFoxCraftVisible() {
         if (!FoxCraftVrPlane.isReady()) return;
+        closeNative();
+    }
+
+    /** A rendered 2D fallback also permits closing the native VR keyboard. */
+    public static void closeWhenScreenFallbackVisible() {
+        if (!FoxCraftVrPlane.isVrSession()) return;
+        closeNative();
+    }
+
+    private static void closeNative() {
         try {
             if (!resolved) {
                 // Vivecraft 1.21.5 exposes a public static setter. Reflection
