@@ -62,6 +62,10 @@ public static class FoxCraftInGameKeyboardInstaller
             yield break;
         }
 
+        // The Android host exposes SpeechRecognizer to the isolated Pojlib JVM
+        // through this instance's local config directory.
+        FoxCraftVoiceBridge.RegisterGameDirectory(Path.GetDirectoryName(targetFolder));
+
         if (ExistingKeyboardFound(targetFolder, out bool sameVersion) && !sameVersion)
         {
             // An incompatible installed version (or inaccessible mods folder)
