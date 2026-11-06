@@ -98,7 +98,7 @@ public final class KeyboardLayout {
     public static Panel make(int screenWidth, int screenHeight, boolean chat,
                              boolean russian, boolean symbols, boolean shift,
                              boolean collapsed, int preferredWidth,
-                             List<String> suggestedWords, int chatInputY) {
+                             List<String> suggestedWords, int chatInputBottomY) {
         if (screenWidth < 220 || screenHeight < 140) return null;
         int width = Math.min(Math.max(220, Math.min(390, preferredWidth)),
             screenWidth - 12);
@@ -109,12 +109,18 @@ public final class KeyboardLayout {
         int height = collapsed ? headerHeight + 8 : headerHeight + rowHeight * 6 + gap * 6 + 9;
         int y;
         if (chat) {
-            // The active chat field sits below the keyboard. If an older
-            // caller does not provide its coordinate, keep a safe bottom
-            // anchor with extra room for Minecraft's input row.
-            int chatBottom = chatInputY >= 0 ? chatInputY - 8 : screenHeight - 42;
-            y = Math.max(8, Math.min(screenHeight - height - 8,
-                chatBottom - height));
+            // Prefer the free space below the chat input, like a separate
+            // QuestCraft-style floating keyboard. If there is not enough room,
+            // place it above the field rather than covering the input itself.
+            if (chatInputBottomY >= 0 &&
+                chatInputBottomY + 8 + height <= screenHeight - 8) {
+                y = chatInputBottomY + 8;
+            } else if (chatInputBottomY >= height + 16) {
+                y = chatInputBottomY - height - 8;
+            } else {
+                // Callers without field geometry get a lower floating anchor.
+                y = Math.max(8, screenHeight - height - 42);
+            }
         } else {
             y = Math.max(8, screenHeight - height - 8);
         }
