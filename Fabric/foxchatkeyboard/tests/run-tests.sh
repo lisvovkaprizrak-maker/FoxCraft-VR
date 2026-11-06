@@ -50,4 +50,5 @@ find build/teststubs tests/src -name '*.java' > build/test-sources.txt
 javac --release 21 -cp build/classes -d build/testclasses @build/test-sources.txt
 TEMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TEMP_DIR"' EXIT
-java -cp build/classes:build/testclasses test.TestHarness "$TEMP_DIR"
+VERSION="$(python3 -c 'import json; print(json.load(open("src/main/resources/fabric.mod.json", encoding="utf-8"))["version"])')"
+java -cp build/classes:build/testclasses test.TestHarness "$TEMP_DIR" "$VERSION"
