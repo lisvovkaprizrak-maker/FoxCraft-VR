@@ -447,6 +447,34 @@ public final class KeyboardLogicSmokeTest {
         require(collapsed.keys().stream().anyMatch(k -> k.command() == KeyboardLayout.Command.EXPAND),
             "Collapsed keyboard can reopen");
 
+        // Settings are a mode within the existing VR keyboard panel: no
+        // extra text field, no change to coordinates or fixed dimensions.
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.SETTINGS),
+            "Gear key must open theme settings");
+        KeyboardLayout.Panel settings = KeyboardLayout.themeMenu(ru, "NEW_YEAR");
+        require(settings.width() == ru.width() && settings.height() == ru.height(),
+            "Theme picker keeps the fixed VR keyboard dimensions");
+        require(settings.keys().stream().filter(k ->
+            k.command() == KeyboardLayout.Command.THEME).count() == 6,
+            "Theme picker offers classic plus five custom themes");
+        require(settings.keys().stream().anyMatch(k ->
+            "NEW_YEAR".equals(k.value()) && k.label().contains("Новый год")),
+            "New Year theme is selectable");
+        require(settings.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.BACK_TO_KEYS),
+            "Theme picker has a return control");
+        require(settings.keys().stream().noneMatch(k ->
+            k.command() == KeyboardLayout.Command.TYPE ||
+            k.command() == KeyboardLayout.Command.RESIZE),
+            "Theme picker cannot type or resize keyboard");
+        require(settings.keys().stream().allMatch(k ->
+            k.x() >= settings.x() && k.x() + k.width() <=
+                settings.x() + settings.width() &&
+            k.y() >= settings.y() && k.y() + k.height() <=
+                settings.y() + settings.height()),
+            "Every theme choice fits the VR panel");
+
         System.out.println("FoxCraft keyboard logic smoke tests: OK");
     }
 
