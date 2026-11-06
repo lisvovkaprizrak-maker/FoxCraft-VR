@@ -70,6 +70,7 @@ public final class VirtualKeyboardOverlay {
     private String layoutMenuPage = "";
     private String voiceStatus = "";
     private String localClipboard = "";
+    private final QuickMessageDraft quickDraft = new QuickMessageDraft();
     private long voiceStatusAt;
     private final FoxCraftFeatureSettings featurePrefs =
         new FoxCraftFeatureSettings(FabricLoader.getInstance().getConfigDir()
@@ -133,6 +134,7 @@ public final class VirtualKeyboardOverlay {
             collapsed = false;
             settingsOpen = false;
             menuPage = "KEYBOARD";
+            quickDraft.clear();
             panel = null;
         }
 
@@ -197,16 +199,20 @@ public final class VirtualKeyboardOverlay {
                     case "QUICK" -> KeyboardLayout.toolMenu(panel,
                         new String[]{"Привет!", "Где ты?", "Иду к тебе!",
                             "Помоги, пожалуйста!", "Спасибо!", "Сейчас буду.",
-                            "← Назад"},
+                            "СВОЙ ТЕКСТ", "← Назад"},
                         new KeyboardLayout.Command[]{KeyboardLayout.Command.QUICK_MESSAGE,
                             KeyboardLayout.Command.QUICK_MESSAGE,
                             KeyboardLayout.Command.QUICK_MESSAGE,
                             KeyboardLayout.Command.QUICK_MESSAGE,
                             KeyboardLayout.Command.QUICK_MESSAGE,
                             KeyboardLayout.Command.QUICK_MESSAGE,
+                            KeyboardLayout.Command.QUICK_COMPOSE,
                             KeyboardLayout.Command.SETTINGS_HOME},
                         new String[]{"Привет!", "Где ты?", "Иду к тебе!",
-                            "Помоги, пожалуйста!", "Спасибо!", "Сейчас буду.", ""});
+                            "Помоги, пожалуйста!", "Спасибо!", "Сейчас буду.", "", ""});
+                    case "COMPOSE" -> KeyboardLayout.composeMenu(panel,
+                        quickDraft.message(), quickDraft.note(),
+                        quickDraft.editingNote(), russian, shift);
                     case "CLIPBOARD" -> KeyboardLayout.toolMenu(panel,
                         new String[]{"КОПИРОВАТЬ", "ВСТАВИТЬ",
                             "ВЫДЕЛИТЬ ВСЁ", "← Назад"},
@@ -368,6 +374,14 @@ public final class VirtualKeyboardOverlay {
             boolean activeLanguage = key.command() == KeyboardLayout.Command.LANGUAGE_RU ||
                 key.command() == KeyboardLayout.Command.LANGUAGE_EN;
             boolean shiftKey = key.command() == KeyboardLayout.Command.SHIFT && shift;
+            boolean composeSelected = "COMPOSE".equals(menuPage) &&
+                ((key.command() == KeyboardLayout.Command.COMPOSE_NOTE &&
+                    quickDraft.editingNote()) ||
+                 (key.command() == KeyboardLayout.Command.COMPOSE_MESSAGE &&
+                    !quickDraft.editingNote()));
+            if (composeSelected && !hovered && !longHeld) bg = keyHover;
+            if (key.command() == KeyboardLayout.Command.COMPOSE_SEND &&
+                !hovered && !longHeld) bg = theme.enter();
             if (action && !hovered && !longHeld) bg = theme.enter();
             if (activeLanguage && !hovered && !longHeld)
                 bg = ((russian && key.command() == KeyboardLayout.Command.LANGUAGE_RU) ||
@@ -909,6 +923,17 @@ public final class VirtualKeyboardOverlay {
         KeyHoldController.Activation result = release.activation();
         TextFieldWidget field = focusedField(screen);
         if (result == null || field == null) return;
+        if ("COMPOSE".equals(menuPage) &&
+            result.key().command() == KeyboardLayout.Command.TYPE &&
+            !release.suggestions().isEmpty()) {
+            // Swipes edit the selected local draft field, never the live chat.
+            String word = KeyboardLayout.swipeWord(result.text(), russian, shift,
+                quickDraft.atStartOfLine());
+            quickDraft.insert(word);
+            shift = false;
+            panel = null;
+            return;
+        }
         if (result.key().command() == KeyboardLayout.Command.TYPE &&
             !release.suggestions().isEmpty()) {
             clearSuggestions();
@@ -977,6 +1002,10 @@ public final class VirtualKeyboardOverlay {
             return;
         }
         clearSuggestions();
+        if ("COMPOSE".equals(menuPage)) {
+            activateCompose(screen, field, result);
+            return;
+        }
         switch (result.key().command()) {
             case TYPE -> {
                 if (".".equals(result.text())) {
@@ -1016,6 +1045,10 @@ public final class VirtualKeyboardOverlay {
             case SETTINGS_HOME -> openPage("SETTINGS");
             case BACK_TO_KEYS -> openPage("KEYBOARD");
             case QUICK_MESSAGES -> openPage("QUICK");
+            case QUICK_COMPOSE -> {
+                quickDraft.clear();
+                openPage("COMPOSE");
+            }
             case CLIPBOARD -> openPage("CLIPBOARD");
             case MOVE_MENU -> openPage("MOVE");
             case CONTROLLER_MENU -> openPage("CONTROLLERS");
@@ -1095,6 +1128,61 @@ public final class VirtualKeyboardOverlay {
         }
         if (result.key().command() == KeyboardLayout.Command.TYPE && shift)
             shift = false;
+    }
+
+
+    /**
+     * While the custom composer is open, the VR key matrix writes only to the
+     * selected draft field. The underlying Minecraft chat is not touched
+     * until the dedicated Send button is deliberately pressed.
+     */
+    private void activateCompose(Screen screen, TextFieldWidget chatField,
+                                 KeyHoldController.Activation result) {
+        switch (result.key().command()) {
+            case COMPOSE_MESSAGE -> quickDraft.selectNote(false);
+            case COMPOSE_NOTE -> quickDraft.selectNote(true);
+            case COMPOSE_CLEAR -> quickDraft.clearActive();
+            case COMPOSE_SEND -> sendQuickDraft(screen, chatField);
+            case QUICK_MESSAGES, ESCAPE -> openPage("QUICK");
+            case TYPE -> {
+                if (".".equals(result.text())) quickDraft.dot();
+                else quickDraft.insert(result.text());
+                if (shift) shift = false;
+            }
+            case SPACE -> quickDraft.insert(" ");
+            case BACKSPACE -> quickDraft.backspace();
+            case LEFT -> quickDraft.moveCursor(-1);
+            case RIGHT -> quickDraft.moveCursor(1);
+            case SHIFT -> shift = !shift;
+            case LANGUAGE -> { russian = !russian; symbols = false; }
+            case SYMBOLS -> symbols = !symbols;
+            default -> { }
+        }
+        panel = null;
+    }
+
+    private void sendQuickDraft(Screen screen, TextFieldWidget chatField) {
+        if (!(screen instanceof ChatScreen)) {
+            showStatus("Отправка доступна в чате Minecraft");
+            return;
+        }
+        if (quickDraft.outgoing().isEmpty()) {
+            showStatus("Сначала введи сообщение");
+            return;
+        }
+        if (!quickDraft.canSend()) {
+            showStatus("Слишком длинно: максимум 256 символов");
+            return;
+        }
+        if (!chatField.getText().isEmpty()) {
+            // Never silently erase an unsent message in the main chat box.
+            showStatus("Основная строка чата занята");
+            return;
+        }
+        chatField.setText(quickDraft.outgoing());
+        screen.keyPressed(GLFW.GLFW_KEY_ENTER, 0, 0);
+        quickDraft.clear();
+        openPage("KEYBOARD");
     }
 
     private void openPage(String page) {
