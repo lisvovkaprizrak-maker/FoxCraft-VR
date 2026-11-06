@@ -75,9 +75,23 @@ public final class FoxCraftLeftTrigger {
             long origin = ((Number) cls.getMethod("getLastOrigin")
                 .invoke(action)).longValue();
             if (origin == 0L) return false;
-            Object sourceHand = vr.getClass()
-                .getMethod("getOriginControllerType", long.class)
-                .invoke(vr, origin);
+            // Vivecraft's MCOpenVR.getOriginControllerType(long) is
+            // PROTECTED, not public. getMethod() silently loses the physical
+            // left/right association and makes non-handed GUI/use actions
+            // impossible to use for the off-hand index trigger.
+            Method originMethod = null;
+            Class<?> owner = vr.getClass();
+            while (owner != null && originMethod == null) {
+                try {
+                    originMethod = owner.getDeclaredMethod(
+                        "getOriginControllerType", long.class);
+                } catch (NoSuchMethodException ignored) {
+                    owner = owner.getSuperclass();
+                }
+            }
+            if (originMethod == null) return false;
+            originMethod.setAccessible(true);
+            Object sourceHand = originMethod.invoke(vr, origin);
             return leftHand.equals(sourceHand);
         } catch (ReflectiveOperationException | RuntimeException |
                  LinkageError ignored) {
