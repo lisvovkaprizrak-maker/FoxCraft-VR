@@ -64,6 +64,20 @@ public final class VirtualKeyboardOverlay {
     private boolean collapsed;
     private boolean suppressMinecraftGuiClick;
 
+    /**
+     * A visible focused text field alone does not imply a keyboard request.
+     * World/server lists often auto-focus search widgets on screen creation.
+     * Both the embedded fallback and the independent VR surface must obey
+     * the same explicit-menu-click rule.
+     */
+    public boolean shouldDisplayForScreen(Screen screen) {
+        TextFieldWidget field = focusedField(screen);
+        boolean menuRequested = screen == activatedMenuScreen
+            && field != null && field == activatedMenuField;
+        return KeyboardDisplayPolicy.showRequested(
+            screen instanceof ChatScreen, field != null, menuRequested);
+    }
+
     /** The detached controller ray is only valid inside our visible panel. */
     public boolean detachedContains(double x, double y) {
         return layoutDetached && panel != null && panel.contains(x, y);
@@ -72,14 +86,8 @@ public final class VirtualKeyboardOverlay {
     public void render(Screen screen, DrawContext context, int mouseX, int mouseY) {
         // Auto-focused search fields must not paint FoxCraft over world lists
         // and menu buttons. Outside chat, explicitly clicking a field arms it.
-        TextFieldWidget field = focusedField(screen);
-        boolean menuRequested = screen == activatedMenuScreen
-            && field != null && field == activatedMenuField;
-        if (!KeyboardDisplayPolicy.showScreenOverlay(
-            FoxCraftVrPlane.isVrSession(),
-            screen instanceof ChatScreen,
-            FoxCraftVrPlane.isReady(),
-            field != null, menuRequested)) return;
+        if (FoxCraftVrPlane.isReady() || !shouldDisplayForScreen(screen))
+            return;
         renderInternal(screen, context, mouseX, mouseY,
             screen.width, screen.height, false, -100, -100);
     }
