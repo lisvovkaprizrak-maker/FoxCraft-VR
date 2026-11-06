@@ -68,6 +68,68 @@ public final class FoxCraftVrPlane {
     private static Vector3f position;
     private static Matrix4f rotation;
     private static boolean ready;
+    private static int grabHand = -1;
+    private static Vector3f grabStartController;
+    private static float grabStartRight, grabStartDown, grabStartForward;
+
+    public static FoxCraftFeatureSettings features() {
+        return keyboard != null ? keyboard.features() : null;
+    }
+
+    /**
+     * VR grab mode starts only on the explicit MOVE_GRAB button, never on an
+     * ordinary typing key. Controller origin is in Vivecraft room coordinates.
+     */
+    public static void beginGrab(int hand) {
+        if (hand < 0 || hand >= 2 || keyboard == null) return;
+        Vector3f controller = controllerRoomPosition(hand);
+        if (controller == null) return;
+        FoxCraftFeatureSettings pref = keyboard.features();
+        grabHand = hand;
+        grabStartController = controller;
+        grabStartRight = pref.offsetRight();
+        grabStartDown = pref.offsetDown();
+        grabStartForward = pref.offsetForward();
+    }
+
+    public static void finishGrab(int hand) {
+        if (hand != grabHand || keyboard == null) return;
+        grabHand = -1;
+        grabStartController = null;
+        keyboard.features().savePosition();
+    }
+
+    private static Vector3f controllerRoomPosition(int hand) {
+        try {
+            Class<?> holderType = Class.forName("org.vivecraft.client_vr.ClientDataHolderVR");
+            Object holder = holderType.getMethod("getInstance").invoke(null);
+            Object player = holderType.getField("vrPlayer").get(holder);
+            Object room = player.getClass().getField("vrdata_room_pre").get(player);
+            Object controller = room.getClass().getMethod("getController", int.class)
+                .invoke(room, hand);
+            Object vec = controller.getClass().getMethod("getPositionF").invoke(controller);
+            return vec instanceof Vector3f v ? new Vector3f(v) : null;
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
+            return null;
+        }
+    }
+
+    private static void followGrab(Matrix4f guiRotation, float guiScale) {
+        if (grabHand < 0 || grabStartController == null || keyboard == null) return;
+        Vector3f current = controllerRoomPosition(grabHand);
+        if (current == null || guiScale <= 0f) return;
+        Vector3f delta = current.sub(grabStartController);
+        Vector3f localRight = guiRotation.transformDirection(
+            new Vector3f(-1, 0, 0), new Vector3f()).normalize();
+        Vector3f localUp = guiRotation.transformDirection(
+            new Vector3f(0, 1, 0), new Vector3f()).normalize();
+        Vector3f localForward = guiRotation.transformDirection(
+            new Vector3f(0, 0, 1), new Vector3f()).normalize();
+        keyboard.features().setPosition(
+            grabStartRight + delta.dot(localRight) / guiScale,
+            grabStartDown - delta.dot(localUp) / guiScale,
+            grabStartForward + delta.dot(localForward) / guiScale);
+    }
     // If the Vivecraft world-space draw hook never fires on a fork, the
     // original on-screen keyboard stays available instead of disappearing.
     private static boolean worldHookWorking;
@@ -185,6 +247,7 @@ public final class FoxCraftVrPlane {
         if (keyboard == null || disabled) return;
         MinecraftClient client = MinecraftClient.getInstance();
         if (!keyboard.shouldDisplayForScreen(client.currentScreen)) {
+            finishGrab(grabHand);
             wasPressed[0] = wasPressed[1] = false;
             ready = false;
             releaseBuffer();
@@ -206,6 +269,8 @@ public final class FoxCraftVrPlane {
 
             float guiScale = guiClass.getField("GUI_SCALE").getFloat(null);
             if (!(guiScale > 0)) return;
+            followGrab(guiRot, guiScale);
+            FoxCraftFeatureSettings settings = keyboard.features();
             // Equivalent to QuestCraft's chat-relative keyboard positioning:
             // project down the GUI's local up axis and slightly toward player.
             // Neither KeyboardHandler.SHOWING nor its framebuffer is modified.
@@ -214,8 +279,10 @@ public final class FoxCraftVrPlane {
             float forward = inChat ? FORWARD_FROM_CHAT : MENU_FORWARD;
             rotation = new Matrix4f(guiRot)
                 .rotateX((float) Math.toRadians(-30.0));
-            float xCorrection = inChat ? CHAT_RIGHT_SHIFT : MENU_RIGHT_SHIFT;
-            float yCorrection = inChat ? CHAT_DOWN_SHIFT : MENU_DOWN_SHIFT;
+            float xCorrection = (inChat ? CHAT_RIGHT_SHIFT : MENU_RIGHT_SHIFT)
+                + settings.offsetRight();
+            float yCorrection = (inChat ? CHAT_DOWN_SHIFT : MENU_DOWN_SHIFT)
+                + settings.offsetDown();
             position = new Vector3f(guiPos)
                 .sub(guiRot.transformDirection(new Vector3f(0, 1, 0),
                     new Vector3f()).mul((down + yCorrection) * guiScale))
@@ -225,7 +292,8 @@ public final class FoxCraftVrPlane {
                 .sub(guiRot.transformDirection(new Vector3f(1, 0, 0),
                     new Vector3f()).mul(xCorrection * guiScale))
                 .add(guiRot.transformDirection(new Vector3f(0, 0, 1),
-                    new Vector3f()).mul(forward * guiScale))
+                    new Vector3f()).mul(
+                        (forward + settings.offsetForward()) * guiScale))
                 .add(rotation.transformDirection(new Vector3f(0, 0, 1),
                     new Vector3f()).mul(TOWARDS_PLAYER * guiScale));
             scale = Math.max(0.25f, guiScale *
@@ -389,6 +457,16 @@ public final class FoxCraftVrPlane {
         if (cursorProject == null)
             throw new NoSuchMethodException("GuiHandler.getTexCoordsForCursor");
         for (int hand = 0; hand < 2; hand++) {
+            FoxCraftFeatureSettings pref = keyboard.features();
+            boolean allowed = hand == 0 ? pref.rightHand() : pref.leftHand();
+            if (!allowed) {
+                if (wasPressed[hand]) keyboard.vrReleased(original,
+                    cursorX[hand], cursorY[hand], hand);
+                wasPressed[hand] = false;
+                cursorX[hand] = -100;
+                cursorY[hand] = -100;
+                continue;
+            }
             boolean tracked = (Boolean) provider.getClass()
                 .getMethod("isControllerTracking", int.class).invoke(provider, hand);
             double x = -100, y = -100;
