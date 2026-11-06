@@ -44,6 +44,17 @@ A Fabric `.jar` is **not** an Android APK. To bundle this mod inside a future Fo
 
 **Untested on-device:** This does not prove Pojlib's `USER_HOME` path, the Android StreamingAssets URL, controller events or Unity compilation. The existing separate FoxCraft APK pipeline in PR #1 targets Minecraft **1.21.1** and does not automatically become compatible with this **1.21.5** mod. Never install the 1.21.5 JAR into a 1.21.1 profile.
 
+## Dedicated Android APK test pipeline
+
+A **separate** Unity Android test route for **Minecraft 1.21.5** is now on this branch:
+
+- `.github/workflows/foxcraft-keyboard-apk.yml` runs lightweight Python checks on the PR; it **does not** build Unity or an APK on pull requests.
+- A manual `workflow_dispatch` (available once that workflow exists on the default branch) compiles the Fabric mod, stages its verified JAR into Unity, checks the existing Pojlib AAR, builds the ARM64 Android APK with `FoxCraftKeyboardAndroidBuild.BuildTestApk`, and validates the resulting package ID `com.foxcraftvr.quest` before uploading the **UNTESTED** APK artifact.
+- Unity requires version `2022.3.62f3`, Android Build Support and a valid Unity licence configured privately in GitHub Actions; do not commit credentials.
+- Unity tests and actual Meta Quest interaction **have not run**. A green preflight status is not an APK build.
+
+Русскоязычная инструкция: `docs/FOXCRAFT_KEYBOARD_APK_RU.md`.
+
 ## Remaining validation
 
 - Confirm Fabric and Yarn compile against pinned dependencies.
