@@ -33,11 +33,6 @@ tasks.register('generateFoxcraftHdFont', Exec) {
         foxcraftFontDir.get().asFile.absolutePath
 }
 sourceSets.main.resources.srcDir(foxcraftFontDir)
-// Gradle 8 validates every consumer of generated resources, including Loom's
-// sources JAR; it must wait for the generated texture just like processResources.
-tasks.named('sourcesJar') {
-    dependsOn tasks.named('generateFoxcraftHdFont')
-}
 
 processResources {
     dependsOn tasks.named('generateFoxcraftHdFont')
@@ -55,4 +50,9 @@ java {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
     withSourcesJar()
+}
+
+// Defined only after java.withSourcesJar() creates this task.
+tasks.named('sourcesJar') {
+    dependsOn tasks.named('generateFoxcraftHdFont')
 }
