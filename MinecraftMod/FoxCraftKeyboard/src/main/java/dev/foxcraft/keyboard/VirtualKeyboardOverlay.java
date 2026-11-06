@@ -70,7 +70,8 @@ public final class VirtualKeyboardOverlay {
         if (!KeyboardDisplayPolicy.showScreenOverlay(
             FoxCraftVrPlane.isVrSession(),
             screen instanceof ChatScreen,
-            FoxCraftVrPlane.isReady())) return;
+            FoxCraftVrPlane.isReady(),
+            hasEditableFocus(screen))) return;
         renderInternal(screen, context, mouseX, mouseY,
             screen.width, screen.height, false, -100, -100);
     }
