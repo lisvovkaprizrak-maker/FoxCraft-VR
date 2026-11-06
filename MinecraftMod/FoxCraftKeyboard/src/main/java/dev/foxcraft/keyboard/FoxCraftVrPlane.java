@@ -25,8 +25,11 @@ import java.lang.reflect.Method;
  */
 public final class FoxCraftVrPlane {
     private static final float SCALE_MULTIPLIER = 0.68f;
-    private static final float ABOVE_NATIVE_KEYBOARD = 0.60f;
-    private static final float TOWARDS_PLAYER = 0.035f;
+    // Use the same chat-relative placement rule as Vivecraft's own keyboard.
+    // FoxCraft is a separate layer: the original keyboard is never disabled.
+    private static final float BELOW_CHAT = 0.69f;
+    private static final float FORWARD_FROM_CHAT = 0.28f;
+    private static final float TOWARDS_PLAYER = 0.065f;
 
     private static VirtualKeyboardOverlay keyboard;
     private static PanelScreen screen;
@@ -79,27 +82,31 @@ public final class FoxCraftVrPlane {
         }
         Framebuffer old = null;
         try {
-            Class<?> keyboardClass = Class.forName(
-                "org.vivecraft.client_vr.gameplay.screenhandlers.KeyboardHandler");
+            // IMPORTANT: KeyboardHandler.SHOWING is false when the player sees
+            // "Click to open keyboard". FoxCraft must still appear below chat.
+            // Anchor to the CHAT GUI, not the native keyboard visibility.
             Class<?> guiClass = Class.forName(
                 "org.vivecraft.client_vr.gameplay.screenhandlers.GuiHandler");
-            if (!keyboardClass.getField("SHOWING").getBoolean(null))
-                return;
-            Object nativePos = keyboardClass.getField("POS_ROOM").get(null);
-            Object nativeRot = keyboardClass.getField("ROTATION_ROOM").get(null);
-            if (!(nativePos instanceof Vector3f pos) ||
-                !(nativeRot instanceof Matrix4f rot))
-                return;
+            Object chatPos = guiClass.getField("GUI_POS_ROOM").get(null);
+            Object chatRotation = guiClass.getField("GUI_ROTATION_ROOM").get(null);
+            if (!(chatPos instanceof Vector3f guiPos) ||
+                !(chatRotation instanceof Matrix4f guiRot))
+                return; // GUI is not yet positioned; retry on the next frame.
 
-            // Align the orange surface to QuestCraft's keyboard, but float it
-            // higher so the original purple keyboard remains visible below.
-            rotation = new Matrix4f(rot);
-            position = new Vector3f(pos)
-                .add(rotation.transformDirection(new Vector3f(0, 1, 0), new Vector3f())
-                    .mul(ABOVE_NATIVE_KEYBOARD))
-                .add(rotation.transformDirection(new Vector3f(0, 0, 1), new Vector3f())
-                    .mul(TOWARDS_PLAYER));
             float guiScale = guiClass.getField("GUI_SCALE").getFloat(null);
+            if (!(guiScale > 0)) return;
+            // Equivalent to QuestCraft's chat-relative keyboard positioning:
+            // project down the GUI's local up axis and slightly toward player.
+            // Neither KeyboardHandler.SHOWING nor its framebuffer is modified.
+            rotation = new Matrix4f(guiRot)
+                .rotateX((float) Math.toRadians(-30.0));
+            position = new Vector3f(guiPos)
+                .sub(guiRot.transformDirection(new Vector3f(0, 1, 0),
+                    new Vector3f()).mul(BELOW_CHAT * guiScale))
+                .add(guiRot.transformDirection(new Vector3f(0, 0, 1),
+                    new Vector3f()).mul(FORWARD_FROM_CHAT * guiScale))
+                .add(rotation.transformDirection(new Vector3f(0, 0, 1),
+                    new Vector3f()).mul(TOWARDS_PLAYER * guiScale));
             scale = Math.max(0.25f, guiScale * SCALE_MULTIPLIER);
             int w = guiClass.getField("GUI_WIDTH").getInt(null);
             int h = guiClass.getField("GUI_HEIGHT").getInt(null);
