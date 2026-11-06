@@ -29,6 +29,8 @@ public final class VirtualKeyboardOverlay {
     private KeyboardLayout.Panel panel;
     private Screen previousScreen;
     private int layoutWidth = -1;
+    private int layoutPreferredWidth = -1;
+    private int preferredWidth = 280;
     private int layoutHeight = -1;
     private boolean layoutChat;
     private boolean layoutRussian;
@@ -61,11 +63,13 @@ public final class VirtualKeyboardOverlay {
         }
         boolean chat = screen instanceof ChatScreen;
         if (panel == null || layoutWidth != screen.width || layoutHeight != screen.height ||
-            layoutChat != chat || layoutRussian != russian || layoutSymbols != symbols ||
+            layoutChat != chat || layoutPreferredWidth != preferredWidth ||
+            layoutRussian != russian || layoutSymbols != symbols ||
             layoutShift != shift || layoutCollapsed != collapsed) {
             panel = KeyboardLayout.make(screen.width, screen.height,
-                chat, russian, symbols, shift, collapsed);
+                chat, russian, symbols, shift, collapsed, preferredWidth);
             layoutWidth = screen.width;
+            layoutPreferredWidth = preferredWidth;
             layoutHeight = screen.height;
             layoutChat = chat;
             layoutRussian = russian;
@@ -245,6 +249,8 @@ public final class VirtualKeyboardOverlay {
             case ESCAPE -> screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
             case LANGUAGE -> russian = !russian;
             case SYMBOLS -> symbols = !symbols;
+            case RESIZE -> preferredWidth = preferredWidth == 280 ? 240
+                : preferredWidth == 240 ? 320 : 280;
             case SHIFT -> shift = !shift;
             case COLLAPSE -> collapsed = true;
             case EXPAND -> collapsed = false;
