@@ -51,8 +51,8 @@ public final class FoxCraftControllerRays {
                 int red = hand == 0 ? 255 : 92;
                 int green = hand == 0 ? 156 : 180;
                 int blue = hand == 0 ? 32 : 255;
-                addLine(consumer, matrix, 0f, 0f, -0.04f,
-                    0f, 0f, -1.8f, red, green, blue);
+                addLine(consumer, matrix, 0f, 0f, 0.04f,
+                    0f, 0f, 1.8f, red, green, blue);
             }
             buffers.draw(RenderLayer.getLines());
         } catch (ReflectiveOperationException | LinkageError | RuntimeException error) {
