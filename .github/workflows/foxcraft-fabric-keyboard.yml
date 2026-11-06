@@ -44,6 +44,7 @@ jobs:
             src/main/java/dev/foxcraft/keyboard/KeyboardLayout.java \
             src/main/java/dev/foxcraft/keyboard/KeyHoldController.java \
             src/main/java/dev/foxcraft/keyboard/SwipeGesture.java \
+            src/main/java/dev/foxcraft/keyboard/KeyboardPreferences.java \
             src/main/java/dev/foxcraft/keyboard/KeyboardPointerInput.java \
             src/main/java/dev/foxcraft/keyboard/VivecraftLeftPointer.java \
             src/test/java/dev/foxcraft/keyboard/KeyboardLogicSmokeTest.java
