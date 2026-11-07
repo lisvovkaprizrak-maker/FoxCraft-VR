@@ -427,6 +427,30 @@ public static class SmokeProgram
                 new[] { "1.21.5" }),
                 "all-invalid Minecraft cache falls back to selected safe version");
 
+            // Android phones with mobile data must not be declared offline
+            // just because Pojlib's historical connectivity test sees no Wi-Fi.
+            JNIStorage.activity = new AndroidJavaObject();
+            AndroidJavaObject.HasActiveNetwork = true;
+            AndroidJavaObject.NetworkValidated = true;
+            Check(FoxCraftNetworkStatus.HasValidatedInternet(),
+                "validated Android cellular network is treated as online");
+            AndroidJavaObject.NetworkValidated = false;
+            Check(!FoxCraftNetworkStatus.HasValidatedInternet(),
+                "unvalidated Android network is not asserted as internet");
+            AndroidJavaObject.HasActiveNetwork = false;
+            Check(!FoxCraftNetworkStatus.HasValidatedInternet(),
+                "offline Android phone has no active network");
+            AndroidJavaObject.HasActiveNetwork = true;
+            AndroidJavaObject.NetworkValidated = true;
+            JNIStorage.activity = null;
+            Check(!FoxCraftNetworkStatus.HasValidatedInternet(),
+                "network query safely handles missing Android activity");
+            JNIStorage.activity = new AndroidJavaObject();
+            Application.platform = RuntimePlatform.WindowsEditor;
+            Check(!FoxCraftNetworkStatus.HasValidatedInternet(),
+                "network query skips Java on desktop Unity");
+            Application.platform = RuntimePlatform.Android;
+
             Console.WriteLine("FoxCraft configuration/login smoke: " +
                 checks + " checks passed.");
             return 0;
