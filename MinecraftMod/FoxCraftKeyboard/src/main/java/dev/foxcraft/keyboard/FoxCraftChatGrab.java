@@ -1,86 +1,46 @@
 package dev.foxcraft.keyboard;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.screen.Screen;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 /**
- * VR chat group handles. Both are on the normal chat GUI plane, not on the
- * independent keyboard. Left moves the full chat in-plane; right also changes
- * depth (closer/farther). Keeping the GUI plane together moves chat text,
- * history background, input letters and input background as one room panel.
+ * Room-space transform for the entire chat GUI. The sole chat XYZ grab
+ * handle is now drawn on FoxCraft's keyboard (top-left), never on chat.
+ * Vivecraft renders text, chat history/backdrop and text input/backdrop on
+ * the same GUI plane, so an XYZ translation moves all of them together.
  */
 public final class FoxCraftChatGrab {
     private static Screen owner;
     private static Vector3f baseRoomPose;
     private static Vector3f appliedRoomPose;
     private static Object appliedRoomObject;
-    private static int grab = 0; // 1 = XY, 2 = XYZ
     private static Vector3f startController;
     private static float initialRight, initialDown, initialForward;
-    private static int activeWidth, activeHeight;
     private static boolean moving;
 
     private FoxCraftChatGrab() {}
 
-    public static void render(Screen screen, DrawContext draw) {
-        if (!(screen instanceof ChatScreen) || !FoxCraftVrPlane.isVrSession()) return;
-        activeWidth = screen.width;
-        activeHeight = screen.height;
-        // Both handles belong to the chat history's top edge (about 340
-        // logical pixels wide), not the far right of Minecraft's entire GUI.
-        // This keeps them visible/reachable next to the chat itself in VR.
-        drawHandle(draw, 9, handleY(screen), "✥", grab == 1);
-        drawHandle(draw, rightHandleX(screen), handleY(screen), "↔", grab == 2);
-    }
-
-    private static int handleY(Screen screen) {
-        return Math.max(8, screen.height - 215);
-    }
-
-    private static int rightHandleX(Screen screen) {
-        return Math.max(38, Math.min(320, screen.width - 31));
-    }
-
-    private static void drawHandle(DrawContext draw, int x, int y,
-                                   String label, boolean active) {
-        draw.fill(x-2,y-2,x+23,y+19,active?0xFFFF8B16:0xFF9CA7B7);
-        draw.fill(x,y,x+21,y+17,0xEE252932);
-        draw.drawCenteredTextWithShadow(
-            MinecraftClient.getInstance().textRenderer, label,
-            x+10,y+5,0xFFE8EDF4);
-    }
-
-    public static boolean mousePressed(Screen screen, double x, double y, int button) {
-        if (!(screen instanceof ChatScreen) || button != 0 ||
-            !FoxCraftVrPlane.isVrSession()) return false;
-        int kind = inHandle(x,y,9,handleY(screen)) ? 1 :
-            inHandle(x,y,rightHandleX(screen),handleY(screen)) ? 2 : 0;
-        if (kind == 0) return false;
-        Vector3f controller = FoxCraftVrPlane.controllerRoomPosition(0);
-        if (controller == null) return false;
+    /**
+     * Start a full XYZ chat grab from the TOP-LEFT KEYBOARD key.
+     * A grab is valid only with the chat open, using the right controller.
+     * Keyboard movement is controlled separately by FoxCraftVrPlane.
+     */
+    public static boolean beginFromKeyboard(int hand) {
+        if (hand != 0 ||
+            !(MinecraftClient.getInstance().currentScreen instanceof ChatScreen) ||
+            moving) return false;
+        Vector3f controller = FoxCraftVrPlane.controllerRoomPosition(hand);
         FoxCraftFeatureSettings settings = FoxCraftVrPlane.features();
-        if (settings == null) return false;
-        grab = kind;
-        moving = true;
+        if (controller == null || settings == null) return false;
         startController = controller;
         initialRight = settings.chatRight();
         initialDown = settings.chatDown();
         initialForward = settings.chatForward();
+        moving = true;
         return true;
-    }
-
-    public static boolean mouseReleased(Screen screen, double x, double y, int button) {
-        if (button != 0 || !moving) return false;
-        finish();
-        return true;
-    }
-
-    private static boolean inHandle(double x, double y, int bx, int by) {
-        return x >= bx-2 && x < bx+23 && y >= by-2 && y < by+19;
     }
 
     /**
@@ -124,9 +84,7 @@ public final class FoxCraftChatGrab {
                 settings.setChatRoomPosition(
                     initialRight + delta.dot(right)/guiScale,
                     initialDown - delta.dot(up)/guiScale,
-                    grab == 2
-                        ? initialForward + delta.dot(forward)/guiScale
-                        : initialForward);
+                    initialForward + delta.dot(forward)/guiScale);
             }
         }
         Vector3f newPose = new Vector3f(baseRoomPose)
@@ -147,7 +105,6 @@ public final class FoxCraftChatGrab {
     public static void finish() {
         if (!moving) return;
         moving = false;
-        grab = 0;
         startController = null;
         FoxCraftFeatureSettings settings = FoxCraftVrPlane.features();
         if (settings != null) settings.savePosition();
