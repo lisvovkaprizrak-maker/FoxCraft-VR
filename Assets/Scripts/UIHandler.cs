@@ -87,11 +87,13 @@ public class UIHandler : MonoBehaviour
         // must be true before enabling Play or profile/mod operations.
         bool authenticated = loginHandler != null &&
             loginHandler.HasAuthenticatedAccount;
+        bool launcherBusy = ProgressBarManager.started ||
+            InstanceButton.IsInstallingInstance;
         bool playReady = FoxCraftLaunchGate.CanPlay(authenticated,
-            ProgressBarManager.DownloadsReady, ProgressBarManager.started);
+            ProgressBarManager.DownloadsReady, launcherBusy);
         bool canManage = FoxCraftLaunchGate.CanManageInstances(authenticated,
             loginHandler != null && loginHandler.isDemoMode,
-            ProgressBarManager.DownloadsReady, ProgressBarManager.started);
+            ProgressBarManager.DownloadsReady, launcherBusy);
 
         dropdownMain.interactable = canManage;
         modsButton.interactable = canManage;
