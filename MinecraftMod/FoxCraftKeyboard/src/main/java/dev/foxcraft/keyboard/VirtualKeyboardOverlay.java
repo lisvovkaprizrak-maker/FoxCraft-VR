@@ -1489,7 +1489,7 @@ public final class VirtualKeyboardOverlay {
             case KEYBOARD_PAGE -> openPage("KEYBOARD_OPTS");
             case CHAT_PAGE -> openPage(
                 "POSITION".equals(result.key().value()) ? "CHAT_POSITION" : "CHAT_OPTS");
-            case SWIPE_PAGE -> openPage("SWIPE_OPTS");
+
             case POSITION_LOCK -> {
                 featurePrefs.togglePositionLock();
                 panel = null;
