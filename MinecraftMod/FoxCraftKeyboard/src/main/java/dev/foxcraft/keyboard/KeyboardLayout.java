@@ -79,6 +79,11 @@ public final class KeyboardLayout {
         {"*", "\"", "'", ":", ";", "!", "?", ".", ","}
     };
 
+    private static volatile int keyGap = 2;
+    public static void setKeyGap(int gap) {
+        keyGap = Math.max(1, Math.min(5, gap));
+    }
+
     private KeyboardLayout() {}
 
     /** Null means the game has too little usable GUI space. */
@@ -137,7 +142,7 @@ public final class KeyboardLayout {
         // The additional branded top section must fit even on the smallest
         // supported Minecraft GUI (220x140). Never clip the last key row.
         int rowHeight = Math.max(10, Math.min(19, (screenHeight - 38) / 9));
-        int gap = 2;
+        int gap = keyGap;
         int brandHeight = rowHeight + 7;
         int headerHeight = rowHeight + 4;
         boolean hasSuggestions = suggestedWords != null && !suggestedWords.isEmpty();
