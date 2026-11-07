@@ -31,6 +31,8 @@ on:
       - 'Assets/Scripts/VersionChecker.cs'
       - 'Assets/Scripts/UIHandler.cs'
       - 'Assets/Scripts/JNIStorage.cs'
+      - 'Assets/Scripts/FoxCraftNetworkStatus.cs'
+      - 'Assets/Scripts/FoxCraftNetworkStatus.cs.meta'
       - 'Assets/Scripts/ProgressBarManager.cs'
       - 'Assets/Scripts/FoxCraftLaunchGate.cs'
       - 'Assets/Scripts/FoxCraftLaunchGate.cs.meta'
