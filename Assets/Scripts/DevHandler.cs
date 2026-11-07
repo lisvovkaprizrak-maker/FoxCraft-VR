@@ -45,25 +45,26 @@ public class DevHandler : MonoBehaviour
 
     private void OnDevModsToggleValueChanged(bool isOn)
     {
-        string configFile = File.ReadAllText(configPath);
-        configHandler.config = JsonConvert.DeserializeObject<ConfigHandler.Config>(configFile);
+        if (configHandler == null || !configHandler.IsLoaded)
+            return;
         configHandler.config.setDevMods = isOn;
-        string JSON = JsonConvert.SerializeObject(configHandler.config, Formatting.Indented);
-        File.WriteAllText(configPath, JSON);
-        
-        JNIStorage.apiClass.SetStatic("developerMods", isOn);
-        JNIStorage.instance.UpdateInstances();
+        configHandler.SaveConfig();
+
+        if (JNIStorage.apiClass != null)
+            JNIStorage.apiClass.SetStatic("developerMods", isOn);
+        if (JNIStorage.instance != null)
+            JNIStorage.instance.UpdateInstances();
     }    
     
     private void OnRamSetterToggleValueChanged(bool isOn)
     {
-        string configFile = File.ReadAllText(configPath);
-        configHandler.config = JsonConvert.DeserializeObject<ConfigHandler.Config>(configFile);
+        if (configHandler == null || !configHandler.IsLoaded)
+            return;
         configHandler.config.setCustomRAM = isOn;
-        string JSON = JsonConvert.SerializeObject(configHandler.config, Formatting.Indented);
-        File.WriteAllText(configPath, JSON);
-        
-        JNIStorage.apiClass.SetStatic("customRAMValue", isOn);
+        configHandler.SaveConfig();
+
+        if (JNIStorage.apiClass != null)
+            JNIStorage.apiClass.SetStatic("customRAMValue", isOn);
         _ramSetterField.gameObject.SetActive(isOn);
     }    
 }
