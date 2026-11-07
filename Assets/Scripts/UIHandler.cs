@@ -64,6 +64,11 @@ public class UIHandler : MonoBehaviour
         modsButton.interactable = false;
         instancesButton.interactable = false;
         playButton.interactable = false;
+
+        // Keep QuestCraft's existing Minecraft version selector; add only the
+        // independent FoxCraft VR / Phone choice without scene edits.
+        FoxCraftLaunchModeMenu modes = gameObject.AddComponent<FoxCraftLaunchModeMenu>();
+        modes.Initialize(this);
     }
     
     void Update()
