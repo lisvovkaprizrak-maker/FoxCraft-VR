@@ -28,6 +28,7 @@ public class InstanceButton : MonoBehaviour
         // The QuestCraft gameReady flag and OpenXR transition belong only to
         // VR Minecraft. A future phone 2D engine has its own lifecycle.
         if (Application.platform != RuntimePlatform.Android ||
+            !launchInProgress ||
             FoxCraftDevice.IsAndroidPhone ||
             (configHandler != null && configHandler.IsPhoneModeSelected) ||
             JNIStorage.instance == null || JNIStorage.apiClass == null ||
