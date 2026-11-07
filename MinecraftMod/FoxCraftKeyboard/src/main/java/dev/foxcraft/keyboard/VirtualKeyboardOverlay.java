@@ -222,10 +222,11 @@ public final class VirtualKeyboardOverlay {
                 panel = switch (menuPage) {
                     case "THEMES" -> KeyboardLayout.themeMenu(panel, theme.name());
                     case "SETTINGS" -> KeyboardLayout.toolMenu(panel,
-                        new String[]{"ПОЛОЖЕНИЕ", "КЛАВИАТУРА", "ЧАТ И ТЕКСТ",
-                            "СВАЙП", "КОНТРОЛЛЕРЫ", "БИНДЫ", "ТЕМЫ",
-                            "← К клавиатуре"},
+                        new String[]{"ПОЗИЦИЯ КЛАВ", "ПОЗИЦИЯ ЧАТА",
+                            "НАСТР. КЛАВ", "ЧАТ И ТЕКСТ", "СВАЙП",
+                            "КОНТРОЛЛЕРЫ", "БИНДЫ", "ТЕМЫ", "← Назад"},
                         new KeyboardLayout.Command[]{KeyboardLayout.Command.POSITION_PAGE,
+                            KeyboardLayout.Command.CHAT_PAGE,
                             KeyboardLayout.Command.KEYBOARD_PAGE,
                             KeyboardLayout.Command.CHAT_PAGE,
                             KeyboardLayout.Command.SWIPE_PAGE,
@@ -233,26 +234,40 @@ public final class VirtualKeyboardOverlay {
                             KeyboardLayout.Command.QUICK_MESSAGES,
                             KeyboardLayout.Command.THEMES_PAGE,
                             KeyboardLayout.Command.BACK_TO_KEYS},
-                        new String[]{"", "", "", "", "", "", "", ""});
-                    case "POSITION" -> KeyboardLayout.toolMenu(panel,
-                        new String[]{"УДЕРЖИ: КЛАВ", "УДЕРЖИ: ПОЛЕ",
-                            "УДЕРЖИ: ЧАТ", "КЛАВ ↑", "КЛАВ ↓",
-                            "ПОЛЕ ↑", "ПОЛЕ ↓", "ЧАТ ↑", "ЧАТ ↓",
-                            "СБРОС ПОЛОЖ.", "← Назад"},
+                        new String[]{"", "POSITION", "", "", "", "",
+                            "", "", ""});
+                    case "KEYBOARD_POSITION" -> KeyboardLayout.toolMenu(panel,
+                        new String[]{"УДЕРЖИ: КЛАВ", "↑ ВЫШЕ", "↓ НИЖЕ",
+                            "← ЛЕВЕЕ", "ПРАВЕЕ →", "БЛИЖЕ", "ДАЛЬШЕ",
+                            featurePrefs.positionLocked() ? "ЗАМОК: ВКЛ" : "ЗАМОК: ВЫКЛ",
+                            "СБРОС КЛАВ", "← Назад"},
+                        new KeyboardLayout.Command[]{KeyboardLayout.Command.MOVE_GRAB,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.MOVE_STEP,
+                            KeyboardLayout.Command.MOVE_STEP,
+                            KeyboardLayout.Command.MOVE_STEP,
+                            KeyboardLayout.Command.MOVE_STEP,
+                            KeyboardLayout.Command.POSITION_LOCK,
+                            KeyboardLayout.Command.RESET_KEYBOARD_POSITION,
+                            KeyboardLayout.Command.SETTINGS_HOME},
+                        new String[]{"KEYBOARD", "KB_UP", "KB_DOWN",
+                            "LEFT", "RIGHT", "NEAR", "FAR", "", "", ""});
+                    case "CHAT_POSITION" -> KeyboardLayout.toolMenu(panel,
+                        new String[]{"УДЕРЖИ: ИСТОРИЯ", "УДЕРЖИ: ПОЛЕ",
+                            "ИСТОРИЯ ↑", "ИСТОРИЯ ↓",
+                            "ПОЛЕ ↑", "ПОЛЕ ↓",
+                            "СБРОС ЧАТА", "← Назад"},
                         new KeyboardLayout.Command[]{KeyboardLayout.Command.MOVE_GRAB,
                             KeyboardLayout.Command.MOVE_GRAB,
-                            KeyboardLayout.Command.MOVE_GRAB,
                             KeyboardLayout.Command.ADJUST_OPTION,
                             KeyboardLayout.Command.ADJUST_OPTION,
                             KeyboardLayout.Command.ADJUST_OPTION,
                             KeyboardLayout.Command.ADJUST_OPTION,
-                            KeyboardLayout.Command.ADJUST_OPTION,
-                            KeyboardLayout.Command.ADJUST_OPTION,
-                            KeyboardLayout.Command.MOVE_RESET,
+                            KeyboardLayout.Command.RESET_CHAT_POSITION,
                             KeyboardLayout.Command.SETTINGS_HOME},
-                        new String[]{"KEYBOARD", "INPUT", "HISTORY",
-                            "KB_UP", "KB_DOWN", "FIELD_UP", "FIELD_DOWN",
-                            "CHAT_UP", "CHAT_DOWN", "", ""});
+                        new String[]{"HISTORY", "INPUT", "CHAT_UP",
+                            "CHAT_DOWN", "FIELD_UP", "FIELD_DOWN", "", ""});
                     case "KEYBOARD_OPTS" -> KeyboardLayout.toolMenu(panel,
                         new String[]{"РАЗМЕР −", "РАЗМЕР +", "БЛИЖЕ", "ДАЛЬШЕ",
                             "НАКЛОН −", "НАКЛОН +", "ПРОЗР. −",
@@ -277,7 +292,7 @@ public final class VirtualKeyboardOverlay {
                             "ПОЛОЖЕНИЕ", "СБРОС ВСЕГО", "← Назад"},
                         new KeyboardLayout.Command[]{KeyboardLayout.Command.ADJUST_OPTION,
                             KeyboardLayout.Command.ADJUST_OPTION,
-                            KeyboardLayout.Command.POSITION_PAGE,
+                            KeyboardLayout.Command.CHAT_PAGE,
                             KeyboardLayout.Command.RESET_CONFIRM,
                             KeyboardLayout.Command.SETTINGS_HOME},
                         new String[]{"TEXT_DOWN", "TEXT_UP", "", "", ""});
@@ -1094,7 +1109,9 @@ public final class VirtualKeyboardOverlay {
         if (field == null) return false;
         boolean accepted = handPointer(hand).press(panel, x, y,
             System.nanoTime() / 1_000_000L, field);
-        if (accepted && ("MOVE".equals(menuPage) || "POSITION".equals(menuPage))) {
+        if (accepted && ("MOVE".equals(menuPage) ||
+            "KEYBOARD_POSITION".equals(menuPage) ||
+            "CHAT_POSITION".equals(menuPage))) {
             KeyboardLayout.Key key = panel.at(x, y);
             if (key != null && key.command() == KeyboardLayout.Command.MOVE_GRAB)
                 if (hand == 0)
@@ -1408,9 +1425,10 @@ public final class VirtualKeyboardOverlay {
                 openPage("COMPOSE");
             }
             case CLIPBOARD -> openPage("CLIPBOARD");
-            case MOVE_MENU, POSITION_PAGE -> openPage("POSITION");
+            case MOVE_MENU, POSITION_PAGE -> openPage("KEYBOARD_POSITION");
             case KEYBOARD_PAGE -> openPage("KEYBOARD_OPTS");
-            case CHAT_PAGE -> openPage("CHAT_OPTS");
+            case CHAT_PAGE -> openPage(
+                "POSITION".equals(result.key().value()) ? "CHAT_POSITION" : "CHAT_OPTS");
             case SWIPE_PAGE -> openPage("SWIPE_OPTS");
             case POSITION_LOCK -> {
                 featurePrefs.togglePositionLock();
@@ -1520,6 +1538,16 @@ public final class VirtualKeyboardOverlay {
             case MOVE_RESET -> {
                 featurePrefs.resetPosition();
                 showStatus("Положение сброшено");
+            }
+            case RESET_KEYBOARD_POSITION -> {
+                featurePrefs.resetKeyboardPosition();
+                panel = null;
+                showStatus("Положение клавиатуры сброшено");
+            }
+            case RESET_CHAT_POSITION -> {
+                featurePrefs.resetChatPosition();
+                panel = null;
+                showStatus("Положение чата сброшено");
             }
             case HAPTIC_TOGGLE -> { featurePrefs.toggleHaptics(); panel = null; }
             case HAPTIC_STRENGTH -> { featurePrefs.adjustHapticStrength(); panel = null; }
