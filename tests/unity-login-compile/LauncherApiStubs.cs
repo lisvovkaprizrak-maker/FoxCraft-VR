@@ -274,6 +274,11 @@ public static class InstanceButton
 {
     public static bool IsInstallingInstance { get; set; }
 }
+public static class InstanceManager
+{
+    public static bool IsUpdatingProfiles { get; set; }
+    public static bool IsCreatingProfile { get; set; }
+}
 public class SkinHandler { }
 public class JNIStorage
 {
