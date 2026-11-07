@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="LauncherApiStubs.cs" />
+    <Compile Include="SmokeProgram.cs" />
+    <Compile Include="../../Assets/Scripts/ConfigHandler.cs" Link="ConfigHandler.cs" />
+    <Compile Include="../../Assets/Scripts/LoginHandler.cs" Link="LoginHandler.cs" />
+    <Compile Include="../../Assets/Scripts/DevHandler.cs" Link="DevHandler.cs" />
+    <Compile Include="../../Assets/Scripts/FoxCraftLaunchGate.cs" Link="FoxCraftLaunchGate.cs" />
+    <Compile Include="../../Assets/Scripts/ProgressBarManager.cs" Link="ProgressBarManager.cs" />
+    <Compile Include="../../Assets/Scripts/FoxCraftDevice.cs" Link="FoxCraftDevice.cs" />
+    <Compile Include="../../Assets/Scripts/FoxCraftNetworkStatus.cs" Link="FoxCraftNetworkStatus.cs" />
+    <Compile Include="../../Assets/Scripts/FoxCraftLaunchModeMenu.cs" Link="FoxCraftLaunchModeMenu.cs" />
+    <Compile Include="../../Assets/Scripts/KeyboardHandler.cs" Link="KeyboardHandler.cs" />
+  </ItemGroup>
+</Project>

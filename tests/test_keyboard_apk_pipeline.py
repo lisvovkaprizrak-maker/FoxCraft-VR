@@ -110,7 +110,17 @@ class KeyboardApkPipelineTests(unittest.TestCase):
         )
         self.assertIn("workflow_dispatch:", workflow)
         self.assertIn("pull_request:", workflow)
-        self.assertIn("if: github.event_name == 'workflow_dispatch'", workflow)
+        # A branch push may attempt a full build, but only when the private
+        # Unity license readiness job confirms secrets exist. No unlicensed
+        # build may start, and PRs remain source-check-only.
+        self.assertIn("unity-license-readiness:", workflow)
+        self.assertIn("github.event_name == 'push'", workflow)
+        self.assertIn("needs: [preflight, unity-license-readiness]", workflow)
+        self.assertIn("needs.unity-license-readiness.outputs.ready == 'true'", workflow)
+        self.assertIn('echo "ready=false" >> "$GITHUB_OUTPUT"', workflow)
+        self.assertIn('echo "ready=true" >> "$GITHUB_OUTPUT"', workflow)
+        self.assertIn("No Unity license secrets configured", workflow)
+        self.assertIn("paths:\n      - '.github/workflows/foxcraft-keyboard-apk.yml'", workflow)
         self.assertIn("secrets.UNITY_LICENSE", workflow)
         self.assertIn("game-ci/unity-builder@v4", workflow)
         self.assertIn("buildMethod: FoxCraftKeyboardAndroidBuild.BuildTestApk", workflow)
@@ -123,9 +133,9 @@ class KeyboardApkPipelineTests(unittest.TestCase):
         self.assertIn("tools/stage_foxcraft_ingame_keyboard.py", workflow)
         self.assertIn("tools/check_foxcraft_pojlib_api.py", workflow)
         self.assertLess(workflow.index("Build the matching 1.21.5 Fabric keyboard JAR"),
-                        workflow.index("Build separate FoxCraft test APK using Unity"))
-        self.assertLess(workflow.index("Verify signed APK, ARM64, launch activity and embedded Fabric keyboard"),
-                        workflow.index("Upload untested Meta Quest APK"))
+                        workflow.index("Build full FoxCraft Unity launcher APK"))
+        self.assertLess(workflow.index("Verify signed FoxCraft launcher APK, ARM64, Pojlib and bundled game keyboard"),
+                        workflow.index("Publish full FoxCraft launcher APK for Quest hardware testing"))
 
 
 if __name__ == "__main__":

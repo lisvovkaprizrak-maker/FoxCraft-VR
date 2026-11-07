@@ -19,6 +19,7 @@ EXPECTED_CLASSES = (
     "pojlib/API.class",
     "pojlib/util/Constants.class",
     "pojlib/util/json/MinecraftInstances$Instance.class",
+    "pojlib/account/MinecraftAccount.class",
 )
 
 
@@ -56,6 +57,7 @@ def verify_aar(path: Path) -> None:
         api = describe("pojlib.API")
         constants = describe("pojlib.util.Constants")
         instance = describe("pojlib.util.json.MinecraftInstances$Instance")
+        account = describe("pojlib.account.MinecraftAccount")
 
         # The AAR shipped with this Unity project is NOT binary-equivalent
         # to upstream QuestCraft-6.0.0 source. Its API.prelaunch is boolean.
@@ -81,6 +83,15 @@ def verify_aar(path: Path) -> None:
             raise ValueError("Pojlib Instance.versionName missing")
         if "public java.lang.String mainClass;" not in instance:
             raise ValueError("Pojlib Instance.mainClass missing (cannot verify Fabric loader)")
+        # LoginHandler reads identity on currentAcc, not the mutable/stale
+        # API.profileName/profileUUID fields from a previous Microsoft session.
+        for field in (
+            "public java.lang.String uuid;",
+            "public java.lang.String username;",
+            "public boolean isDemoMode;",
+        ):
+            if field not in account:
+                raise ValueError("Bundled Pojlib MinecraftAccount field missing: " + field)
 
         # These are called from JNIStorage, InstanceButton and launcher settings.
         # Validate the BUNDLED AAR, not only the upstream Java source tree.

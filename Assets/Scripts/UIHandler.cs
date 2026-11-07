@@ -41,29 +41,36 @@ public class UIHandler : MonoBehaviour
         
         dropdownMain.onValueChanged.AddListener(delegate
         {
-            selectedInstance = dropdownMain.value;
-            UpdateDropdowns(false, null);
+            OnSelectedInstanceChanged(dropdownMain);
         });
         dropdownInstanceCreator.onValueChanged.AddListener(delegate
         {
-            selectedInstance = dropdownInstanceCreator.value;
-            UpdateDropdowns(false, null);
+            OnSelectedInstanceChanged(dropdownInstanceCreator);
         });
         dropdownModInfo.onValueChanged.AddListener(delegate
         {
-            selectedInstance = dropdownModInfo.value;
-            UpdateDropdowns(false, null);
+            OnSelectedInstanceChanged(dropdownModInfo);
         });
         dropdownModSearch.onValueChanged.AddListener(delegate
         {
-            selectedInstance = dropdownModSearch.value;
-            UpdateDropdowns(false, null);
+            OnSelectedInstanceChanged(dropdownModSearch);
         });
         
         dropdownMain.interactable = false;
         modsButton.interactable = false;
         instancesButton.interactable = false;
         playButton.interactable = false;
+
+        // Keep QuestCraft's existing Minecraft version selector; add only the
+        // independent FoxCraft VR / Phone choice without scene edits.
+        FoxCraftLaunchModeMenu modes = gameObject.AddComponent<FoxCraftLaunchModeMenu>();
+        modes.Initialize(this);
+        // Always register the deferred Android touch adapter. Unknown
+        // headset model codenames cannot be classified until Android exposes
+        // the PackageManager a few frames after Unity Start. The adapter
+        // itself exits on Quest/Pico without touching their VR pointer modules.
+        if (Application.platform == RuntimePlatform.Android)
+            gameObject.AddComponent<FoxCraftPhoneTouchInput>();
     }
     
     void Update()
@@ -75,27 +82,23 @@ public class UIHandler : MonoBehaviour
 
     public void UILoginCheck()
     {
-        if (loginHandler.selectedAccountUsername != "Add Account" && !loginHandler.isDemoMode)
-        {
-            dropdownMain.interactable = true;
-            modsButton.interactable = true;
-            instancesButton.interactable = true;
-            playButton.interactable = true;
-        }
-        else if (loginHandler.isDemoMode)
-        {
-            dropdownMain.interactable = false;
-            modsButton.interactable = false;
-            instancesButton.interactable = false;
-            playButton.interactable = true;
-        }
-        else
-        {
-            dropdownMain.interactable = false;
-            modsButton.interactable = false;
-            instancesButton.interactable = false;
-            playButton.interactable = false;
-        }
+        // A saved profile name is not proof of sign-in. Pojlib can still be
+        // downloading dependencies while login completes. Both conditions
+        // must be true before enabling Play or profile/mod operations.
+        bool authenticated = loginHandler != null &&
+            loginHandler.HasAuthenticatedAccount;
+        bool launcherBusy = ProgressBarManager.started ||
+            InstanceButton.IsInstallingInstance || InstanceManager.IsUpdatingProfiles;
+        bool playReady = FoxCraftLaunchGate.CanPlay(authenticated,
+            ProgressBarManager.DownloadsReady, launcherBusy);
+        bool canManage = FoxCraftLaunchGate.CanManageInstances(authenticated,
+            loginHandler != null && loginHandler.isDemoMode,
+            ProgressBarManager.DownloadsReady, launcherBusy);
+
+        dropdownMain.interactable = canManage;
+        modsButton.interactable = canManage;
+        instancesButton.interactable = canManage;
+        playButton.interactable = playReady;
     }
     
     void OnToggleClicked(bool value, Toggle clickedToggle)
@@ -118,6 +121,26 @@ public class UIHandler : MonoBehaviour
             clickedToggle.interactable = false;
             modManager.SearchMods();
         }
+    }
+
+    private void OnSelectedInstanceChanged(TMP_Dropdown origin)
+    {
+        // These four QuestCraft dropdowns represent one selected profile.
+        // Persist changes when the user selects them, not only when Play is
+        // pressed. Programmatic synchronization uses SetValueWithoutNotify
+        // and therefore cannot feed back or overwrite the saved selection.
+        if (origin == null || origin.options == null ||
+            origin.value < 0 || origin.value >= origin.options.Count ||
+            origin.options[origin.value] == null)
+            return;
+
+        selectedInstance = origin.value;
+        UpdateDropdowns(false, null);
+        if (JNIStorage.instance != null &&
+            JNIStorage.instance.configHandler != null &&
+            JNIStorage.instance.configHandler.IsLoaded)
+            JNIStorage.instance.configHandler.SetLastSelectedInstance(
+                selectedInstance);
     }
 
     public void UpdateDropdowns(bool init, List<string> list)
@@ -182,5 +205,9 @@ public class UIHandler : MonoBehaviour
         playButton.gameObject.SetActive(true);
         killButton.gameObject.SetActive(false);
         logPanel.SetActive(false);
+        // Never temporarily unlock Play, Mods, or profile management after
+        // a failed Java launch if the player has logged out or Pojlib is still
+        // downloading. The same readiness gate governs normal UI updates.
+        UILoginCheck();
     }
 }

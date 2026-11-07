@@ -1,0 +1,62 @@
+name: FoxCraft menu-only Android preview APK
+
+on:
+  push:
+    branches:
+      - fix/foxcraft-launcher-updates-20261107
+    paths:
+      - 'MenuPreview/**'
+      - '.github/workflows/foxcraft-menu-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  menu-preview-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      # GitHub ubuntu-latest already provides Android SDK and sdkmanager.
+      # setup-android@v3 currently fails by requesting removed SDK package 'tools'.
+      - name: Install Android SDK for menu preview
+        run: |
+          yes | sdkmanager "platforms;android-35" "build-tools;35.0.0" >/dev/null || true
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.12.1'
+      - name: Build stand-alone FoxCraft MENU TEST Android APK
+        run: gradle --project-dir MenuPreview :app:assembleDebug --no-daemon --stacktrace
+      - name: Check APK can be independently installed
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import Path
+          apk=Path("MenuPreview/app/build/outputs/apk/debug/app-debug.apk")
+          assert apk.is_file() and apk.stat().st_size > 10000, "MENU APK missing"
+          with zipfile.ZipFile(apk) as src:
+              assert src.testzip() is None, "corrupt APK archive"
+              assert "AndroidManifest.xml" in src.namelist(), "Android manifest missing"
+              assert "classes.dex" in src.namelist(), "Java menu code missing"
+          print(f"Standalone FoxCraft MENU TEST APK exists: {apk.stat().st_size} bytes")
+          PY
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$AAPT" dump badging MenuPreview/app/build/outputs/apk/debug/app-debug.apk | tee /tmp/foxcraft-menu-badging.txt
+          grep -q "package: name='dev.foxcraft.preview.v2'" /tmp/foxcraft-menu-badging.txt
+          grep -q "launchable-activity: name='dev.foxcraft.preview.PreviewActivity'" /tmp/foxcraft-menu-badging.txt
+          grep -q "application-icon" /tmp/foxcraft-menu-badging.txt
+          "$APKSIGNER" verify --verbose MenuPreview/app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish MENU TEST APK (no Minecraft runtime)
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoxCraft-MENU-TEST-V2-Android-APK
+          path: MenuPreview/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

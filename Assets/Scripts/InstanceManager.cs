@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Threading;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -24,6 +26,23 @@ public class InstanceManager : MonoBehaviour
     public TMP_Dropdown loaderDropdown;
     public WindowHandler windowHandler;
     public Texture2D errorTexture;
+    private int instanceInfoRequestId;
+    // Shared across all panels. A timed-out Pojlib worker may still be
+    // modifying the Minecraft directory, so a second worker must not start.
+    private static ProfileWorkState activeProfileWork;
+    private const float ProfileCreateTimeoutSeconds = 600f;
+    private const float ProfileDeleteTimeoutSeconds = 90f;
+    public static bool IsUpdatingProfiles => activeProfileWork != null;
+    public static bool IsCreatingProfile =>
+        activeProfileWork != null && !activeProfileWork.deleting;
+
+    private sealed class ProfileWorkState
+    {
+        public volatile bool completed;
+        public bool deleting;
+        public bool success;
+        public string error;
+    }
 
     [FormerlySerializedAs("ModCounter")] public TextMeshProUGUI modCounter;
     [SerializeField] private GameObject modPrefab;
@@ -45,89 +64,314 @@ public class InstanceManager : MonoBehaviour
     
     public void UpdateMenu()
     {
+        if (loaderDropdown == null || defaultModsToggle == null ||
+            loaderDropdown.options == null || loaderDropdown.value < 0 ||
+            loaderDropdown.value >= loaderDropdown.options.Count)
+            return;
+
         string selectedModloader = loaderDropdown.options[loaderDropdown.value].text;
         defaultModsToggle.interactable = selectedModloader is "Fabric" or "Quilt";
         defaultModsToggle.isOn = selectedModloader is "Fabric" or "Quilt";
     }
 
+    private void ShowProfileMessage(string message)
+    {
+        if (JNIStorage.instance != null && JNIStorage.instance.uiHandler != null)
+            JNIStorage.instance.uiHandler.SetAndShowError(message);
+        else
+            Debug.LogWarning("[FoxCraft] " + message);
+    }
+
+    private bool CanMutateProfile()
+    {
+        if (Application.platform != RuntimePlatform.Android ||
+            JNIStorage.instance == null || JNIStorage.apiClass == null ||
+            JNIStorage.activity == null || JNIStorage.instancesObj == null)
+        {
+            ShowProfileMessage("Pojlib ещё не готов. Повторите после загрузки лаунчера.");
+            return false;
+        }
+        if (IsUpdatingProfiles || InstanceButton.IsInstallingInstance ||
+            ProgressBarManager.started)
+        {
+            ShowProfileMessage("Другая операция Minecraft ещё выполняется. " +
+                "Дождитесь завершения перед изменением сборок.");
+            return false;
+        }
+        return true;
+    }
+
+    private static bool IsSafeProfileName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name.Length > 64 ||
+            name == "." || name.Contains("..") || name.EndsWith("."))
+            return false;
+        foreach (char c in name)
+        {
+            if (char.IsControl(c) || c == '/' || c == '\\' ||
+                c == ':' || c == '*' || c == '?' || c == '"' ||
+                c == '<' || c == '>' || c == '|')
+                return false;
+        }
+        return true;
+    }
+
     public void CreateCustomInstance()
     {
+        if (!CanMutateProfile())
+            return;
+        if (instanceName == null || loaderDropdown == null ||
+            versionDropdown == null ||
+            loaderDropdown.options == null || versionDropdown.options == null ||
+            loaderDropdown.value < 0 || loaderDropdown.value >= loaderDropdown.options.Count ||
+            versionDropdown.value < 0 || versionDropdown.value >= versionDropdown.options.Count)
+        {
+            ShowProfileMessage("Выберите версию Minecraft и загрузчик модов.");
+            return;
+        }
+
+        string name = (instanceName.text ?? "").Trim();
+        if (!IsSafeProfileName(name))
+        {
+            ShowProfileMessage("Недопустимое имя сборки. Используйте 1–64 символа " +
+                "без специальных символов пути.");
+            return;
+        }
+
         try
         {
-            string selectedModloader = loaderDropdown.options[loaderDropdown.value].text;
-
-            instanceName.text = instanceName.text.Trim();
-            if (instanceName.text == "")
+            AndroidJavaObject[] installed =
+                JNIStorage.instancesObj.Call<AndroidJavaObject[]>("toArray");
+            if (installed != null)
             {
-                JNIStorage.instance.uiHandler.SetAndShowError("Instance name cannot be blank, please enter a name.");
-                return;
-            }
-            
-            HashSet<string> instanceNames = new HashSet<string>
-                (JNIStorage.instancesObj.Call<AndroidJavaObject[]>("toArray")
-                    .Select(instance => PojlibInstance.Parse(instance).instanceName.ToLower()));
-
-            if (instanceNames.Add(instanceName.text.ToLower()))
-            {
-                JNIStorage.apiClass.CallStatic<AndroidJavaObject>("createNewInstance", JNIStorage.activity, JNIStorage.instancesObj, instanceName.text, defaultModsToggle.isOn, versionDropdown.options[versionDropdown.value].text, selectedModloader, null);
-                JNIStorage.instance.uiHandler.SetAndShowError(instanceName.text + " is now being created.");
-            
-                JNIStorage.instance.UpdateInstances();
-            }
-            else
-                JNIStorage.instance.uiHandler.SetAndShowError("Instance already exists, please choose another name.");
-        }
-        catch (Exception e)
-        {
-            Debug.Log(e);
-            throw;
-        }
-    }
-    
-    public void CreateInstanceArray()
-    {
-        ResetArray();
-
-        foreach (var instanceObj in JNIStorage.instancesObj.Call<AndroidJavaObject[]>("toArray"))
-        {
-            async Task SetInstanceData()
-            {
-                PojlibInstance instance = PojlibInstance.Parse(instanceObj);
-                GameObject instanceGameObject = Instantiate(instancePrefab, new Vector3(-10, -10, -10), Quaternion.identity);
-                instanceGameObject.transform.GetChild(1).GetComponent<TextMeshProUGUI>().text = instance.instanceName; instanceGameObject.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = instance.versionName + " - Fabric";
-                instanceGameObject.transform.SetParent(instanceArray.transform, false);
-                instanceGameObject.name = instance.instanceName;
-
-                instanceGameObject.GetComponent<Button>().onClick.AddListener(delegate
+                foreach (AndroidJavaObject entry in installed)
                 {
-                    EventSystem.current.SetSelectedGameObject(instanceGameObject);
-                    GameObject instanceObject = GameObject.Find(EventSystem.current.currentSelectedGameObject.transform.name);
-                    CreateInstanceInfoPage(instanceObject.name);
-                });
-
-                if (instance.instanceImageURL != null)
-                {
-                    apiHandler.DownloadImage(instance.instanceImageURL, instanceGameObject.GetComponentInChildren<RawImage>());
+                    if (entry != null && string.Equals(
+                        entry.Get<string>("instanceName"), name,
+                        StringComparison.OrdinalIgnoreCase))
+                    {
+                        ShowProfileMessage("Сборка с таким именем уже существует.");
+                        return;
+                    }
                 }
             }
-            SetInstanceData();
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning("[FoxCraft] Cannot list profiles: " + exception.GetType().Name);
+            ShowProfileMessage("Не удалось проверить установленные сборки.");
+            return;
         }
 
-        if (instanceArray.transform.childCount == 0)
+        string version = versionDropdown.options[versionDropdown.value].text;
+        string loader = loaderDropdown.options[loaderDropdown.value].text;
+        if (string.IsNullOrWhiteSpace(version) || string.IsNullOrWhiteSpace(loader))
         {
-            GameObject instanceGameObject = Instantiate(instancePrefab, new Vector3(-10, -10, -10), Quaternion.identity);
-            instanceGameObject.GetComponentInChildren<RawImage>().texture = errorTexture;
-            instanceGameObject.GetComponentInChildren<RawImage>().color = Color.yellow;
-            instanceGameObject.transform.GetChild(1).GetComponent<TextMeshProUGUI>().text = "No instances could be found!";
-            instanceGameObject.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = "Make sure you have an instance downloaded.";
-            instanceGameObject.transform.SetParent(instanceArray.transform, false);
-            instanceGameObject.name = "ERROR";
+            ShowProfileMessage("Укажите корректную версию Minecraft и загрузчик.");
+            return;
+        }
+        bool installDefaults = defaultModsToggle != null && defaultModsToggle.isOn;
+        StartCoroutine(RunProfileOperation(name, false, null, version, loader, installDefaults));
+    }
+
+    private IEnumerator RunProfileOperation(string name, bool deleting,
+        AndroidJavaObject raw, string version, string loader, bool defaultMods)
+    {
+        ProfileWorkState state = new ProfileWorkState { deleting = deleting };
+        activeProfileWork = state;
+
+        // Snapshot JNI references on Unity's thread and attach the worker.
+        // Downloading or deleting a profile must not block VR rendering.
+        AndroidJavaClass api = JNIStorage.apiClass;
+        AndroidJavaObject activity = JNIStorage.activity;
+        AndroidJavaObject instances = JNIStorage.instancesObj;
+        Thread worker = new Thread(() =>
+        {
+            bool attached = false;
+            try
+            {
+                attached = AndroidJNI.AttachCurrentThread() >= 0;
+                if (!attached)
+                    throw new InvalidOperationException("Cannot attach profile worker to JVM");
+                if (deleting)
+                    state.success = api.CallStatic<bool>("deleteInstance", instances, raw);
+                else
+                {
+                    using (AndroidJavaObject created =
+                        api.CallStatic<AndroidJavaObject>("createNewInstance",
+                            activity, instances, name, defaultMods, version, loader, null))
+                    {
+                        state.success = created != null;
+                    }
+                }
+                if (!state.success)
+                    state.error = deleting
+                        ? "Pojlib не подтвердил удаление сборки."
+                        : "Pojlib не смог создать новую сборку.";
+            }
+            catch (Exception exception)
+            {
+                state.error = "Операция Minecraft завершилась ошибкой: " +
+                    exception.GetType().Name;
+            }
+            finally
+            {
+                if (attached)
+                    AndroidJNI.DetachCurrentThread();
+                state.completed = true;
+            }
+        });
+        worker.IsBackground = true;
+        worker.Start();
+
+        float timeout = deleting ? ProfileDeleteTimeoutSeconds : ProfileCreateTimeoutSeconds;
+        float deadline = Time.realtimeSinceStartup + timeout;
+        while (!state.completed && Time.realtimeSinceStartup < deadline)
+            yield return null;
+
+        if (!state.completed)
+        {
+            // The Java worker cannot safely be aborted while changing files.
+            // Keep blocking duplicate actions until it actually terminates.
+            ShowProfileMessage("Операция Minecraft выполняется слишком долго. " +
+                "Повторный запуск заблокирован, чтобы не повредить сборку.");
+            while (!state.completed)
+                yield return null;
+        }
+
+        if (state.error != null || !state.success)
+        {
+            activeProfileWork = null;
+            ShowProfileMessage(state.error ?? "Pojlib не смог завершить операцию.");
+            yield break;
+        }
+
+        try
+        {
+            ++instanceInfoRequestId; // Discard stale Modrinth results.
+            if (!deleting && JNIStorage.instance != null &&
+                JNIStorage.instance.configHandler != null &&
+                JNIStorage.instance.configHandler.IsLoaded)
+            {
+                ConfigHandler preferences = JNIStorage.instance.configHandler;
+                preferences.config.lastSelectedInstanceName = name;
+                preferences.SaveConfig();
+            }
+            if (JNIStorage.instance != null)
+                JNIStorage.instance.UpdateInstances();
+
+            if (deleting)
+            {
+                if (instanceRemoveMenu != null)
+                    instanceRemoveMenu.SetActive(false);
+                if (windowHandler != null)
+                    windowHandler.InstanceInfoUnsetter();
+            }
+            else if (windowHandler != null)
+                windowHandler.InstanceCreatorUnsetter();
+        }
+        catch (Exception exception)
+        {
+            ShowProfileMessage("Сборка изменена, но список не обновился: " +
+                exception.GetType().Name);
+            activeProfileWork = null;
+            yield break;
+        }
+
+        activeProfileWork = null;
+        ShowProfileMessage(deleting
+            ? "Сборка «" + name + "» удалена."
+            : "Сборка «" + name + "» установлена и доступна в списке.");
+    }
+
+    public void CreateInstanceArray()
+    {
+        if (instanceArray == null || instancePrefab == null)
+        {
+            ShowProfileMessage("Окно Minecraft-сборок не настроено.");
+            return;
+        }
+        ResetArray();
+
+        AndroidJavaObject[] installed = null;
+        try
+        {
+            if (JNIStorage.instancesObj != null)
+                installed = JNIStorage.instancesObj.Call<AndroidJavaObject[]>("toArray");
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning("[FoxCraft] Failed to list profiles: " + exception.GetType().Name);
+            ShowProfileMessage("Не удалось получить установленные сборки Minecraft.");
+        }
+
+        int visibleProfiles = 0;
+        if (installed != null)
+        {
+            foreach (AndroidJavaObject item in installed)
+            {
+                if (item == null)
+                    continue;
+                PojlibInstance profile;
+                try { profile = PojlibInstance.Parse(item); }
+                catch (Exception exception)
+                {
+                    Debug.LogWarning("[FoxCraft] Invalid profile: " + exception.GetType().Name);
+                    continue;
+                }
+                if (profile == null || string.IsNullOrWhiteSpace(profile.instanceName))
+                    continue;
+
+                string profileName = profile.instanceName;
+                GameObject card = Instantiate(instancePrefab,
+                    new Vector3(-10, -10, -10), Quaternion.identity);
+                card.transform.GetChild(1).GetComponent<TextMeshProUGUI>().text = profileName;
+                card.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text =
+                    profile.versionName + " - " +
+                    (string.IsNullOrWhiteSpace(profile.versionType)
+                        ? "Minecraft" : profile.versionType);
+                card.transform.SetParent(instanceArray.transform, false);
+                card.name = profileName;
+                card.GetComponent<Button>().onClick.AddListener(
+                    () => CreateInstanceInfoPage(profileName));
+
+                if (!string.IsNullOrWhiteSpace(profile.instanceImageURL) && apiHandler != null)
+                    apiHandler.DownloadImage(profile.instanceImageURL,
+                        card.GetComponentInChildren<RawImage>());
+                visibleProfiles++;
+            }
+        }
+
+        if (visibleProfiles == 0)
+        {
+            GameObject empty = Instantiate(instancePrefab,
+                new Vector3(-10, -10, -10), Quaternion.identity);
+            empty.GetComponentInChildren<RawImage>().texture = errorTexture;
+            empty.GetComponentInChildren<RawImage>().color = Color.yellow;
+            empty.transform.GetChild(1).GetComponent<TextMeshProUGUI>().text =
+                "Сборки Minecraft не найдены";
+            empty.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text =
+                "Создайте или скачайте сборку в FoxCraft.";
+            empty.transform.SetParent(instanceArray.transform, false);
+            empty.name = "EMPTY";
+            // Empty placeholder is a message, never a removable game profile.
+            empty.GetComponent<Button>().interactable = false;
         }
     }
 
     async void CreateInstanceInfoPage(string slug)
     {
+        // A slow Modrinth response must not render the previous profile's mods
+        // after the user has selected another Minecraft instance.
+        int requestId = ++instanceInfoRequestId;
         PojlibInstance instance = JNIStorage.GetInstance(slug);
+        if (instance == null)
+        {
+            if (JNIStorage.instance != null && JNIStorage.instance.uiHandler != null)
+                JNIStorage.instance.uiHandler.SetAndShowError(
+                    "Сборка Minecraft больше не найдена. Обновите список профилей.");
+            return;
+        }
         windowHandler.InstanceInfoSetter();
 
         instanceVersion.text = instance.versionName + " - Fabric";
@@ -139,17 +383,17 @@ public class InstanceManager : MonoBehaviour
         for (int i = modArray.transform.childCount - 1; i >= 0; i--)
             Destroy(modArray.transform.GetChild(i).gameObject);
 
-        PojlibMod[] modList = instance.GetMods();
+        PojlibMod[] modList = instance.GetMods() ?? Array.Empty<PojlibMod>();
 
         void CountMods(int count)
         {
             Color counterColor;
             if (count < 50)
-                counterColor = Color.Lerp(new Color(3, 152, 252), new Color(255, 108, 10), (float)count / 50);
+                counterColor = Color.Lerp(new Color(3f / 255f, 152f / 255f, 252f / 255f), new Color(1f, 108f / 255f, 10f / 255f), (float)count / 50);
             else if (count == 69)
                 counterColor = Color.green;
             else
-                counterColor = Color.Lerp(new Color(255, 108, 10), new Color(255, 0, 0), (count - 50) / 50.0f);
+                counterColor = Color.Lerp(new Color(1f, 108f / 255f, 10f / 255f), new Color(1f, 0f, 0f), (count - 50) / 50.0f);
             modCounter.text = $"Currently Installed mods: <color={ColorToHex(counterColor)}>{count}";
         }
 
@@ -159,41 +403,77 @@ public class InstanceManager : MonoBehaviour
 
         async Task GetModInfoArray()
         {
-            string request = "https://api.modrinth.com/v2/projects?ids=[";
-            foreach (PojlibMod mod in modList)
-                request += $"\"{mod.slug}\",";
-            request = request.Remove(request.Length - 1, 1) + "]";
+            // An empty instance is normal. Never call Modrinth with an
+            // invalid ?ids=] query or wait indefinitely for its response.
+            if (modList.Length == 0)
+                return;
 
-            UnityWebRequest www = UnityWebRequest.Get(request);
-            www.SetRequestHeader("User-Agent", "QuestCraftPlusPlus/QuestCraft/" + Application.version + " (discord.gg/questcraft)");
-            www.SendWebRequest();
-            while (!www.isDone)
-                await Task.Delay(16);
-            if (www.result != UnityWebRequest.Result.Success)
-                Debug.Log(www.error);
-            else
-                fetchedMods =
-                    new List<MetaParser>(JsonConvert.DeserializeObject<MetaParser[]>(www.downloadHandler.text));
-
-            HashSet<string> fetchedSlugs = new HashSet<string>(fetchedMods.Select(mod => mod.slug.ToLower()));
+            List<string> slugs = new List<string>();
             foreach (PojlibMod mod in modList)
             {
-                string currentSlug = mod.slug.ToLower();
-                if (fetchedSlugs.Add(currentSlug))
+                if (mod != null && !string.IsNullOrWhiteSpace(mod.slug) &&
+                    !slugs.Contains(mod.slug))
+                    slugs.Add(mod.slug);
+            }
+            if (slugs.Count == 0)
+                return;
+
+            string request = "https://api.modrinth.com/v2/projects?ids=" +
+                UnityWebRequest.EscapeURL(JsonConvert.SerializeObject(slugs));
+            using (UnityWebRequest www = UnityWebRequest.Get(request))
+            {
+                www.timeout = 15;
+                www.SetRequestHeader("User-Agent", "FoxCraft-VR/" + Application.version);
+                www.SendWebRequest();
+                while (!www.isDone)
+                    await Task.Delay(16);
+
+                if (www.result != UnityWebRequest.Result.Success)
                 {
-                    MetaParser newMod = new MetaParser
+                    Debug.LogWarning("[FoxCraft] Modrinth metadata unavailable: " + www.error);
+                }
+                else
+                {
+                    try
                     {
-                        slug = currentSlug,
-                        title = currentSlug,
+                        MetaParser[] response =
+                            JsonConvert.DeserializeObject<MetaParser[]>(www.downloadHandler.text);
+                        if (response != null)
+                            fetchedMods.AddRange(response.Where(mod => mod != null &&
+                                !string.IsNullOrWhiteSpace(mod.slug)));
+                    }
+                    catch (JsonException exception)
+                    {
+                        Debug.LogWarning("[FoxCraft] Invalid Modrinth metadata: " +
+                            exception.GetType().Name);
+                    }
+                }
+            }
+
+            // Network failure / deleted Modrinth project must not hide installed
+            // mods. Always render an offline record for each missing project.
+            HashSet<string> fetchedSlugs = new HashSet<string>(
+                fetchedMods.Select(mod => mod.slug), StringComparer.OrdinalIgnoreCase);
+            foreach (PojlibMod mod in modList)
+            {
+                if (mod == null || string.IsNullOrWhiteSpace(mod.slug))
+                    continue;
+                if (fetchedSlugs.Add(mod.slug))
+                {
+                    fetchedMods.Add(new MetaParser
+                    {
+                        slug = mod.slug,
+                        title = mod.slug,
                         description = "",
                         icon_url = "OFFLINE"
-                    };
-                    fetchedMods.Add(newMod);
+                    });
                 }
             }
         }
 
         await GetModInfoArray();
+        if (requestId != instanceInfoRequestId)
+            return;
 
         //sort it
         fetchedMods = fetchedMods.OrderBy(mod => mod.title).ToList();
@@ -230,9 +510,9 @@ public class InstanceManager : MonoBehaviour
 
     string ColorToHex(Color color)
     {
-        int r = (int)color.r;
-        int g = (int)color.g;
-        int b = (int)color.b;
+        int r = Mathf.RoundToInt(Mathf.Clamp01(color.r) * 255f);
+        int g = Mathf.RoundToInt(Mathf.Clamp01(color.g) * 255f);
+        int b = Mathf.RoundToInt(Mathf.Clamp01(color.b) * 255f);
         return "#" + r.ToString("X2") + g.ToString("X2") + b.ToString("X2");
     }
 
@@ -244,9 +524,16 @@ public class InstanceManager : MonoBehaviour
 
     public void RemoveInstance()
     {
-        JNIStorage.apiClass.CallStatic<bool>("deleteInstance", JNIStorage.instancesObj, JNIStorage.GetInstance(instanceTitle.text).raw);
-        instanceRemoveMenu.SetActive(false);
-        windowHandler.InstanceInfoUnsetter();
+        if (!CanMutateProfile())
+            return;
+        string name = instanceTitle != null ? instanceTitle.text : null;
+        PojlibInstance selected = JNIStorage.GetInstance(name);
+        if (selected == null || selected.raw == null)
+        {
+            ShowProfileMessage("Сборка для удаления не найдена. Обновите список.");
+            return;
+        }
+        StartCoroutine(RunProfileOperation(name, true, selected.raw, null, null, false));
     }
 
     private void ResetArray()

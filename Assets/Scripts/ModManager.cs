@@ -112,9 +112,15 @@ public class ModManager : MonoBehaviour
 
             //https://docs.modrinth.com/#tag/projects/operation/searchProjects
             
+            // Encode both user text and Modrinth's JSON facets. Raw '&', '#'
+            // and spaces previously broke searches in the Unity launcher.
+            string query = UnityWebRequest.EscapeURL(
+                searchQuery != null ? searchQuery.text : "");
+            string encodedFacets = UnityWebRequest.EscapeURL(
+                "[" + String.Join(", ", facets) + "]");
             string url = "https://api.modrinth.com/v2/search" +
-                         $"?query={searchQuery.text}" +
-                         $"&facets=[{String.Join(", ", facets)}]" +
+                         $"?query={query}" +
+                         $"&facets={encodedFacets}" +
                          $"&offset={page*20}" +
                          "&limit=20";
 
@@ -216,30 +222,38 @@ public class ModManager : MonoBehaviour
         CreateMods();
     }
 
-    async Task HasModCheck(string modSlug, string[]  fetchedmod = null)
+    void HasModCheck(string modSlug, string[] fetchedmod = null)
     {
-        if (fetchedmod != null)
+        // The original code read instance.versionName before its null check.
+        // Selecting Mods on a fresh FoxCraft install could crash the panel.
+        PojlibInstance installed = JNIStorage.GetInstance(InstanceButton.currInstName);
+        Button action = downloadButton != null
+            ? downloadButton.GetComponent<Button>() : null;
+        if (installed == null || installed.raw == null ||
+            JNIStorage.apiClass == null)
         {
-            if (!fetchedmod.Contains(JNIStorage.GetInstance(InstanceButton.currInstName).versionName))
-            {
-                downloadText.text = "No mod for version";
-                downloadButton.GetComponent<Button>().enabled = false;
-                return;
-            }
-        }
-        
-        if (JNIStorage.GetInstance(InstanceButton.currInstName) == null)
-        {
-            downloadText.text = "Instance Not Downloaded";
-            downloadButton.GetComponent<Button>().enabled = false;
+            if (downloadText != null)
+                downloadText.text = "Сначала установите сборку Minecraft";
+            if (action != null)
+                action.interactable = false;
             return;
         }
 
-        Debug.Log("Current instance: " + InstanceButton.currInstName + "\nChecking for mod " + modSlug);
+        if (fetchedmod != null && !fetchedmod.Contains(installed.versionName))
+        {
+            if (downloadText != null)
+                downloadText.text = "Мод несовместим с версией Minecraft";
+            if (action != null)
+                action.interactable = false;
+            return;
+        }
+
         bool hasMod = JNIStorage.apiClass.CallStatic<bool>("hasExtraProject",
-            JNIStorage.GetInstance(InstanceButton.currInstName).raw, modSlug);
-        downloadText.text = hasMod ? "Installed" : "Install";
-        downloadButton.GetComponent<Button>().enabled = !hasMod;
+            installed.raw, modSlug);
+        if (downloadText != null)
+            downloadText.text = hasMod ? "Установлено" : "Установить";
+        if (action != null)
+            action.interactable = !hasMod;
     }
 
     private void CreateModPage(string slug, RawImage image, string author)
@@ -269,9 +283,17 @@ public class ModManager : MonoBehaviour
     
     public void AddMod()
     {
+        PojlibInstance installed = JNIStorage.GetInstance(InstanceButton.currInstName);
+        if (installed == null || installed.raw == null || JNIStorage.apiClass == null)
+        {
+            if (uiHandler != null)
+                uiHandler.SetAndShowError("Сначала установите выбранную сборку Minecraft.");
+            return;
+        }
+
         MetaParser mp = apiHandler.GetModInfo(currModSlug);
         MetaInfo[] modInfos = apiHandler.GetModDownloads(mp.slug);
-        string currentInstanceVer = JNIStorage.GetInstance(InstanceButton.currInstName).versionName;
+        string currentInstanceVer = installed.versionName;
 
         foreach (MetaInfo metaInfo in modInfos)
         {

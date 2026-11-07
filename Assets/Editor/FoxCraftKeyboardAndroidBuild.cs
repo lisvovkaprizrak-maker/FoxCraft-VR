@@ -44,6 +44,11 @@ public static class FoxCraftKeyboardAndroidBuild
         AndroidArchitecture initialArchitectures = PlayerSettings.Android.targetArchitectures;
         bool initialCustomKeystore = PlayerSettings.Android.useCustomKeystore;
         bool initialExport = EditorUserBuildSettings.exportAsGoogleAndroidProject;
+        Texture2D[] initialIcons = PlayerSettings.GetIconsForTargetGroup(BuildTargetGroup.Android);
+        Texture2D foxIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(
+            "Assets/Resources/FoxCraftIcon.png");
+        if (foxIcon == null)
+            throw new FileNotFoundException("FoxCraft app icon was not imported by Unity.");
 
         string output = Path.Combine(root, "Builds", OutputFile);
         Directory.CreateDirectory(Path.GetDirectoryName(output));
@@ -52,6 +57,8 @@ public static class FoxCraftKeyboardAndroidBuild
         {
             PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, TestPackageId);
             PlayerSettings.productName = "FoxCraft VR";
+            PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Android,
+                new[] { foxIcon });
             PlayerSettings.companyName = "FoxCraft Project";
             PlayerSettings.bundleVersion = "0.1.0-alpha";
             PlayerSettings.Android.bundleVersionCode = 101;
@@ -81,6 +88,7 @@ public static class FoxCraftKeyboardAndroidBuild
             PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, initialId);
             PlayerSettings.productName = initialName;
             PlayerSettings.companyName = initialCompany;
+            PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Android, initialIcons);
             PlayerSettings.bundleVersion = initialVersion;
             PlayerSettings.Android.bundleVersionCode = initialCode;
             PlayerSettings.Android.targetArchitectures = initialArchitectures;

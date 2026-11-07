@@ -1,4 +1,4 @@
-name: FoxCraft 1.21.5 keyboard test APK (manual)
+name: FoxCraft Unity launcher APK (Quest / Android)
 
 on:
   pull_request:
@@ -9,6 +9,9 @@ on:
       - 'Assets/Scripts/FoxCraftVoiceBridge.cs'
       - 'Assets/Plugins/Android/AndroidManifest.xml'
       - 'Assets/Scripts/InstanceButton.cs'
+      - 'Assets/Scripts/InstanceManager.cs'
+      - 'Assets/Scripts/APIParser.cs'
+      - 'tests/unity-profile-compile/**'
       - 'tests/test_keyboard_apk_pipeline.py'
       - 'tools/check_foxcraft_pojlib_api.py'
       - 'tools/foxcraft_quest_smoke.py'
@@ -16,7 +19,41 @@ on:
       - 'tests/unity-compile/**'
       - 'tools/verify_foxcraft_test_apk.py'
       - 'tests/test_verify_foxcraft_test_apk.py'
+      - 'tests/test_foxcraft_launcher_modes.py'
+      - 'tests/test_foxcraft_unity_scene.py'
+      - 'Assets/Scenes/Main.unity'
+      - 'Assets/Scripts/DesktopCam.cs.meta'
+      - 'Assets/Scripts/ConfigHandler.cs'
+      - 'Assets/Scripts/DevHandler.cs'
+      - 'ProjectSettings/ProjectSettings.asset'
+      - 'Assets/Scripts/LoginHandler.cs'
+      - 'tests/unity-login-compile/**'
+      - 'Assets/Scripts/FoxCraftLaunchModeMenu.cs'
+      - 'Assets/Scripts/FoxCraftPhoneRuntime.cs'
+      - 'Assets/Scripts/LoadReleases.cs'
+      - 'Assets/Scripts/VersionChecker.cs'
+      - 'Assets/Scripts/UIHandler.cs'
+      - 'Assets/Scripts/JNIStorage.cs'
+      - 'Assets/Scripts/FoxCraftNetworkStatus.cs'
+      - 'Assets/Scripts/FoxCraftNetworkStatus.cs.meta'
+      - 'Assets/Scripts/ProgressBarManager.cs'
+      - 'Assets/Scripts/FoxCraftLaunchGate.cs'
+      - 'Assets/Scripts/FoxCraftLaunchGate.cs.meta'
+      - 'Assets/Scripts/KeyboardHandler.cs'
+      - 'Assets/Scripts/DesktopCam.cs'
+      - 'Assets/Scripts/FoxCraftDevice.cs'
+      - 'Assets/Scripts/FoxCraftPhoneTouchInput.cs'
+      - 'Assets/Resources/FoxCraftIcon.png'
+      - 'Assets/Resources/FoxCraftIcon.png.meta'
   workflow_dispatch:
+  # A one-off push on our development branch can attempt a proper Unity APK
+  # when the repository already has a license. Regular code pushes continue
+  # using source-only PR preflight; no paid build is started without secrets.
+  push:
+    branches:
+      - fix/foxcraft-launcher-updates-20261107
+    paths:
+      - '.github/workflows/foxcraft-keyboard-apk.yml'
 
 permissions:
   contents: read
@@ -44,15 +81,34 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - name: Compile launcher C# syntax with Unity API test doubles
-        run: dotnet build tests/unity-compile/FoxCraftUnitySyntax.csproj --configuration Release --nologo
+        run: |
+          dotnet build tests/unity-compile/FoxCraftUnitySyntax.csproj --configuration Release --nologo
+          dotnet run --project tests/unity-compile/FoxCraftUnitySyntax.csproj --configuration Release --no-build
+      - name: Compile and smoke-test asynchronous Minecraft profile management
+        run: |
+          dotnet build tests/unity-profile-compile/FoxCraftProfileSyntax.csproj --configuration Release --nologo
+          dotnet run --project tests/unity-profile-compile/FoxCraftProfileSyntax.csproj --configuration Release --no-build
+      - name: Compile and smoke-test configuration and Microsoft login startup
+        run: |
+          dotnet build tests/unity-login-compile/FoxCraftLoginSyntax.csproj --configuration Release --nologo
+          dotnet run --project tests/unity-login-compile/FoxCraftLoginSyntax.csproj --configuration Release --no-build
       - name: Verify Minecraft 1.21.5 APK configuration
         run: |
           python3 -m unittest discover -s tests -p 'test_keyboard_apk_pipeline.py' -v
           python3 -m unittest discover -s tests -p 'test_stage_foxcraft_ingame_keyboard.py' -v
           python3 -m unittest discover -s tests -p 'test_foxcraft_quest_smoke.py' -v
           python3 -m unittest discover -s tests -p 'test_verify_foxcraft_test_apk.py' -v
-      - name: Require configured Unity license for manual Android build
-        if: github.event_name == 'workflow_dispatch'
+          python3 -m unittest discover -s tests -p 'test_foxcraft_launcher_modes.py' -v
+          python3 -m unittest discover -s tests -p 'test_foxcraft_unity_scene.py' -v
+  unity-license-readiness:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        name: Check whether Unity license is configured (never print credentials)
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
@@ -60,15 +116,18 @@ jobs:
           UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
         shell: bash
         run: |
-          if [[ -z "$UNITY_LICENSE" && ( -z "$UNITY_EMAIL" || -z "$UNITY_PASSWORD" || -z "$UNITY_SERIAL" ) ]]; then
-            echo "::error::Set UNITY_LICENSE or UNITY_EMAIL, UNITY_PASSWORD and UNITY_SERIAL as GitHub Actions secrets."
-            exit 1
+          if [[ -n "$UNITY_LICENSE" || ( -n "$UNITY_EMAIL" && -n "$UNITY_PASSWORD" && -n "$UNITY_SERIAL" ) ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "Unity license configuration detected; full FoxCraft APK build can start."
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No Unity license secrets configured. Source checks run, but the Quest APK cannot be built yet. Configure UNITY_LICENSE or UNITY_EMAIL, UNITY_PASSWORD, UNITY_SERIAL privately in GitHub Actions."
           fi
 
   build-apk:
     # Never spend Unity build minutes or expose license data on a PR.
-    if: github.event_name == 'workflow_dispatch'
-    needs: preflight
+    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && needs.unity-license-readiness.outputs.ready == 'true'
+    needs: [preflight, unity-license-readiness]
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -117,7 +176,7 @@ jobs:
           unzip -p Assets/Plugins/Android/Pojlib-release.aar classes.jar > /tmp/foxcraft-pojlib-classes.jar
           javap -classpath /tmp/foxcraft-pojlib-classes.jar pojlib.API | grep -q 'public static boolean prelaunch('
           javap -classpath /tmp/foxcraft-pojlib-classes.jar pojlib.util.Constants | grep -q 'public static java.lang.String USER_HOME'
-      - name: Build separate FoxCraft test APK using Unity
+      - name: Build full FoxCraft Unity launcher APK
         uses: game-ci/unity-builder@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
@@ -129,9 +188,9 @@ jobs:
           targetPlatform: Android
           versioning: None
           buildMethod: FoxCraftKeyboardAndroidBuild.BuildTestApk
-      - name: Verify signed APK, ARM64, launch activity and embedded Fabric keyboard
+      - name: Verify signed FoxCraft launcher APK, ARM64, Pojlib and bundled game keyboard
         run: python3 tools/verify_foxcraft_test_apk.py Builds/FoxCraft-1.21.5-UNTESTED.apk
-      - name: Upload untested Meta Quest APK
+      - name: Publish full FoxCraft launcher APK for Quest hardware testing
         uses: actions/upload-artifact@v4
         with:
           name: FoxCraft-Quest-1.21.5-UNTESTED-APK

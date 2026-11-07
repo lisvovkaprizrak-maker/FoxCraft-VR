@@ -13,18 +13,41 @@ namespace UnityEngine
         public static string persistentDataPath { get; set; }
         public static string streamingAssetsPath { get; set; }
     }
+    public class Texture2D { }
+    public static class SystemInfo { public static string deviceModel { get; set; } }
+    public sealed class Camera { }
+    public sealed class Canvas
+    {
+        public Camera worldCamera { get; set; }
+        public GameObject gameObject { get; set; }
+        public T GetComponent<T>() where T : new() { return new T(); }
+    }
     public class GameObject
     {
         public GameObject() { }
         public GameObject(string name) { }
         public T AddComponent<T>() where T : new() { return new T(); }
+        public T GetComponent<T>() where T : new() { return new T(); }
+        public T[] GetComponents<T>() where T : new() { return System.Array.Empty<T>(); }
+        public void SetActive(bool active) { }
     }
     public static class Time { public static float realtimeSinceStartup { get; set; } }
+    public class WaitForSecondsRealtime
+    {
+        public float waitTime;
+        public WaitForSecondsRealtime(float seconds) { waitTime = seconds; }
+    }
     public class Coroutine { }
     public class MonoBehaviour
     {
-        protected Coroutine StartCoroutine(IEnumerator coroutine) { return null; }
+        public static int CoroutineStarts;
+        protected Coroutine StartCoroutine(IEnumerator coroutine)
+        {
+            CoroutineStarts++;
+            return new Coroutine();
+        }
         protected static void DontDestroyOnLoad(object target) { }
+        protected static T[] FindObjectsOfType<T>(bool includeInactive) { return System.Array.Empty<T>(); }
     }
     public class CanvasGroup
     {
@@ -41,17 +64,78 @@ namespace UnityEngine
     {
         public AndroidJavaObject() { }
         public AndroidJavaObject(string className, params object[] args) { }
+        public static bool VrTrackingFeature;
+        public static bool OculusVrFeature;
         public void Call(string method, params object[] args) { }
         public T Get<T>(string field) { return default(T); }
-        public T Call<T>(string method, params object[] args) { return default(T); }
+        public T Call<T>(string method, params object[] args)
+        {
+            if (method == "getPackageManager")
+                return (T)(object)new AndroidJavaObject();
+            if (method == "hasSystemFeature" && args.Length > 0)
+            {
+                string feature = args[0] as string;
+                bool result = feature == "android.hardware.vr.headtracking"
+                    ? VrTrackingFeature : feature == "com.oculus.feature.VR" &&
+                    OculusVrFeature;
+                return (T)(object)result;
+            }
+            return default(T);
+        }
         public void Dispose() { }
     }
     public class AndroidJavaClass : AndroidJavaObject
     {
+        public static int PrelaunchDelayMs;
+        public static int PrelaunchCallCount;
+        public static bool PrelaunchResult;
+        public static bool FailLaunchInstance;
+        public static int LaunchInstanceDelayMs;
+        public static int LaunchInstanceCallCount;
+        public static int InstallDelayMs;
+        public static int InstallCallCount;
+        public static bool FailInstall;
+        public static bool GameReady;
         public AndroidJavaClass(string name) { }
-        public T GetStatic<T>(string field) { return default(T); }
-        public T CallStatic<T>(string method, params object[] args) { return default(T); }
-        public void CallStatic(string method, params object[] args) { }
+        public T GetStatic<T>(string field)
+        {
+            if (field == "gameReady")
+                return (T)(object)GameReady;
+            if (field == "currentActivity")
+                return (T)(object)JNIStorage.activity;
+            return default(T);
+        }
+        public T CallStatic<T>(string method, params object[] args)
+        {
+            if (method == "prelaunch")
+            {
+                System.Threading.Interlocked.Increment(ref PrelaunchCallCount);
+                if (PrelaunchDelayMs > 0)
+                    System.Threading.Thread.Sleep(PrelaunchDelayMs);
+                return (T)(object)PrelaunchResult;
+            }
+            if (method == "createNewInstance")
+            {
+                System.Threading.Interlocked.Increment(ref InstallCallCount);
+                if (InstallDelayMs > 0)
+                    System.Threading.Thread.Sleep(InstallDelayMs);
+                if (FailInstall)
+                    throw new InvalidOperationException("Simulated Fabric installation failure");
+                return (T)(object)new AndroidJavaObject();
+            }
+            return default(T);
+        }
+        public void CallStatic(string method, params object[] args)
+        {
+            if (method == "launchInstance")
+            {
+                System.Threading.Interlocked.Increment(ref LaunchInstanceCallCount);
+                if (LaunchInstanceDelayMs > 0)
+                    System.Threading.Thread.Sleep(LaunchInstanceDelayMs);
+                if (FailLaunchInstance)
+                    throw new InvalidOperationException("Simulated Pojlib launch failure");
+            }
+        }
     }
     public sealed class AndroidJavaRunnable
     {
@@ -67,6 +151,31 @@ namespace UnityEngine
         public static void DetachCurrentThread() { }
     }
 }
+namespace UnityEngine.EventSystems
+{
+    public class BaseInputModule
+    {
+        public bool enabled { get; set; }
+    }
+    public class EventSystem
+    {
+        public static EventSystem current { get; set; }
+        public UnityEngine.GameObject gameObject { get; set; }
+        public T GetComponent<T>() where T : new() { return new T(); }
+        public T[] GetComponents<T>() where T : new() { return System.Array.Empty<T>(); }
+    }
+}
+namespace UnityEngine.InputSystem.UI
+{
+    public sealed class InputSystemUIInputModule : UnityEngine.EventSystems.BaseInputModule
+    {
+        public void AssignDefaultActions() { }
+    }
+}
+namespace UnityEngine.UI
+{
+    public sealed class GraphicRaycaster { }
+}
 namespace UnityEngine.Android
 {
     public static class Permission
@@ -80,7 +189,8 @@ namespace UnityEngine.XR.Management
 {
     public sealed class XRManagerSettings
     {
-        public void DeinitializeLoader() { }
+        public int DeinitializeCalls;
+        public void DeinitializeLoader() { DeinitializeCalls++; }
     }
     public sealed class XRGeneralSettings
     {
@@ -118,8 +228,14 @@ namespace UnityEditor
         public static BuildTarget activeBuildTarget { get; set; }
         public static bool exportAsGoogleAndroidProject { get; set; }
     }
+    public static class AssetDatabase
+    {
+        public static T LoadAssetAtPath<T>(string path) where T : class { return null; }
+    }
     public static class PlayerSettings
     {
+        public static UnityEngine.Texture2D[] GetIconsForTargetGroup(BuildTargetGroup group) { return Array.Empty<UnityEngine.Texture2D>(); }
+        public static void SetIconsForTargetGroup(BuildTargetGroup group, UnityEngine.Texture2D[] icons) { }
         public static string GetApplicationIdentifier(BuildTargetGroup target) { return null; }
         public static void SetApplicationIdentifier(BuildTargetGroup target, string value) { }
         public static string productName { get; set; }
@@ -171,10 +287,28 @@ public sealed class Dropdown
 }
 public sealed class UIHandler
 {
-    public void PlaySetter() { }
-    public void SetAndShowError(string message) { }
+    public int playCalls;
+    public int killCalls;
+    public string lastError;
+    public void PlaySetter() { playCalls++; }
+    public void KillSetter() { killCalls++; }
+    public void SetAndShowError(string message) { lastError = message; }
 }
-public sealed class ConfigHandler { public void SetLastSelectedInstance(int index) { } }
+public sealed class ConfigHandler
+{
+    public sealed class Config
+    {
+        public string lastSelectedInstanceName;
+    }
+    public Config config = new Config();
+    public bool IsLoaded => config != null;
+    public bool IsPhoneModeSelected { get; set; }
+    public string SelectedPhoneVersion { get; set; } = "1.21.5";
+    public int lastSelectedInstance = -1;
+    public int saveCalls;
+    public void SaveConfig() { saveCalls++; }
+    public void SetLastSelectedInstance(int index) { lastSelectedInstance = index; }
+}
 public sealed class PojlibInstance
 {
     public UnityEngine.AndroidJavaObject raw;
@@ -187,10 +321,13 @@ public sealed class JNIStorage
     public static UnityEngine.AndroidJavaObject activity, instancesObj, accountObj;
     public Dropdown instancesDropdown;
     public UIHandler uiHandler;
-    public static PojlibInstance GetInstance(string name) { return null; }
-    public void UpdateInstances() { }
+    public static PojlibInstance ActiveInstance;
+    public static PojlibInstance GetInstance(string name) { return ActiveInstance; }
+    public int refreshCalls;
+    public void UpdateInstances() { refreshCalls++; }
 }
 public static class ProgressBarManager { public static bool started; }
+public static class InstanceManager { public static bool IsUpdatingProfiles { get; set; } }
 public sealed class TweenDescriptor
 {
     public TweenDescriptor setOnUpdate(Action<float> action) { return this; }
@@ -198,8 +335,10 @@ public sealed class TweenDescriptor
 }
 public static class LeanTween
 {
+    public static int ValueCallCount;
     public static TweenDescriptor value(UnityEngine.GameObject go, float from, float to, float time)
     {
+        ValueCallCount++;
         return new TweenDescriptor();
     }
 }

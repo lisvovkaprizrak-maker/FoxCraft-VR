@@ -100,9 +100,14 @@ public class PojlibInstance
     {
         // Mods can change at runtime
         List<PojlibMod> mods = new List<PojlibMod>();
-        foreach (var mod in raw.Get<AndroidJavaObject[]>("extProjects"))
+        AndroidJavaObject[] installedMods = raw.Get<AndroidJavaObject[]>("extProjects");
+        if (installedMods == null)
+            return mods.ToArray();
+
+        foreach (AndroidJavaObject mod in installedMods)
         {
-            mods.Add(PojlibMod.Parse(mod));
+            if (mod != null)
+                mods.Add(PojlibMod.Parse(mod));
         }
 
         return mods.ToArray();

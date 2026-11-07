@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="ProfileApiStubs.cs" />
+    <Compile Include="ProfileSmoke.cs" />
+    <Compile Include="../../Assets/Scripts/InstanceManager.cs" Link="InstanceManager.cs" />
+  </ItemGroup>
+</Project>
