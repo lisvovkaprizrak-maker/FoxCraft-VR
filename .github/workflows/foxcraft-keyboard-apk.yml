@@ -6,6 +6,8 @@ on:
       - '.github/workflows/foxcraft-keyboard-apk.yml'
       - 'Assets/Editor/FoxCraftKeyboardAndroidBuild.cs'
       - 'Assets/Scripts/FoxCraftInGameKeyboardInstaller.cs'
+      - 'Assets/Scripts/FoxCraftVoiceBridge.cs'
+      - 'Assets/Plugins/Android/AndroidManifest.xml'
       - 'Assets/Scripts/InstanceButton.cs'
       - 'tests/test_keyboard_apk_pipeline.py'
       - 'tools/check_foxcraft_pojlib_api.py'

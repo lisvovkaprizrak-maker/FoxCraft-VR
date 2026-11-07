@@ -64,22 +64,23 @@ public final class VivecraftLeftPointer {
             @SuppressWarnings({"unchecked", "rawtypes"})
             Object leftHand = Enum.valueOf((Class<? extends Enum>) handType.asSubclass(Enum.class),
                 "LEFT");
-            boolean trigger = (Boolean) keyboardBinding.getClass()
-                .getMethod("isDown", handType).invoke(keyboardBinding, leftHand);
-
-            // Stock Oculus GUI bindings map left grip to GUI Shift, while
-            // only right trigger clicks the mouse. Left grip is a useful
-            // fallback until left trigger is bound to Keyboard Click in VR.
-            Object shiftBinding = gui.getField("KEY_SHIFT").get(null);
-            boolean leftGrip = (Boolean) shiftBinding.getClass()
-                .getMethod("isDown").invoke(shiftBinding);
+            // The detached panel and 2D fallback use identical, origin-
+            // verified click rules. No shift/grip or game-action remapping.
+            Object guiLeftClick = FoxCraftGuiClickInput.optionalBinding(gui, "KEY_LEFT_CLICK");
+            Object guiRightClick = FoxCraftGuiClickInput.optionalBinding(gui, "KEY_RIGHT_CLICK");
+            boolean nativeLeftClick = FoxCraftGuiClickInput.pressed(
+                provider, leftHand, keyboardBinding, guiLeftClick, guiRightClick,
+                FoxCraftGuiClickInput.optionalLeftUseBinding());
             boolean valid = u >= 0 && u <= 1 && v >= 0 && v <= 1;
             return new Sample(valid, u * guiWidth, v * guiHeight,
-                trigger || leftGrip);
+                nativeLeftClick);
         } catch (ClassNotFoundException e) {
             unavailable = true;
             return null;
         } catch (ReflectiveOperationException | LinkageError | ClassCastException e) {
+            // Opt-in diagnostics for the standalone bridge test only.
+            if (Boolean.getBoolean("foxcraft.vrBridgeDiagnostics"))
+                e.printStackTrace();
             // Some QuestCraft forks change Vivecraft internals. Never break
             // the already-tested right-controller path if reflection differs.
             unavailable = true;

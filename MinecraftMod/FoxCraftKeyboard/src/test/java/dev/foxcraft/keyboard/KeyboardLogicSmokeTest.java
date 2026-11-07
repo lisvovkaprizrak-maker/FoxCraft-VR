@@ -8,6 +8,8 @@ import java.io.IOException;
 /** Pure JDK 21 test; no Minecraft, Fabric, or Unity runtime required. */
 public final class KeyboardLogicSmokeTest {
     public static void main(String[] args) {
+        testQuickMessageComposer();
+        testQuickBinds();
         // Regression: on Quest, the world-selection text field must not
         // display FoxCraft over the menu, while in-world chat stays usable
         // even if the optional 3D Vivecraft hook never starts.
@@ -21,6 +23,32 @@ public final class KeyboardLogicSmokeTest {
             "World-selection menus must not be covered even when VR_RUNNING is false");
         require(KeyboardDisplayPolicy.showScreenOverlay(false, true, false),
             "Desktop chat retains the ordinary 2D keyboard");
+        require(!KeyboardDisplayPolicy.showScreenOverlay(true, false, false, true),
+            "Auto-focused world search must not cover world-selection buttons");
+        // The separate world-space VR panel MUST use the same request policy,
+        // or auto-focused world lists get a second overlapping keyboard.
+        require(!KeyboardDisplayPolicy.showRequested(false, true, false),
+            "VR plane must stay hidden on auto-focused world search");
+        require(KeyboardDisplayPolicy.showRequested(false, true, true),
+            "VR plane opens after an explicit edit-field click");
+        require(KeyboardDisplayPolicy.showRequested(true, true, false),
+            "Chat continues opening immediately with focused input");
+        require(!KeyboardDisplayPolicy.showRequested(true, false, true),
+            "No VR keyboard is drawn after the focused field disappears");
+        require(!KeyboardDisplayPolicy.showScreenOverlay(false, false, false, true),
+            "Auto-focused menu input must not open the keyboard outside VR");
+        require(KeyboardDisplayPolicy.showScreenOverlay(true, false, false, true, true),
+            "Clicking a VR menu text field opens fallback when no panel exists");
+        require(KeyboardDisplayPolicy.showScreenOverlay(false, false, false, true, true),
+            "Clicked field opens fallback even if VR_RUNNING temporarily reports false");
+        require(!KeyboardDisplayPolicy.showScreenOverlay(true, false, true, true, true),
+            "Do not duplicate an available detached VR panel");
+        require(!KeyboardDisplayPolicy.showScreenOverlay(true, false, false, false, true),
+            "Menu keyboard closes when editable focus is lost");
+        require(!KeyboardDisplayPolicy.showScreenOverlay(true, false, false, false),
+            "No keyboard over menu without active editable focus");
+        require(!KeyboardDisplayPolicy.showScreenOverlay(true, false, true, true),
+            "Working detached keyboard must not be duplicated on menu");
         try {
             Path tmp = Files.createTempDirectory("foxcraft-keyboard-pref-test");
             Path settings = tmp.resolve("size.txt");
@@ -61,9 +89,31 @@ public final class KeyboardLogicSmokeTest {
             }
         }
 
+        KeyboardLayout.Panel menuSource = KeyboardLayout.make(
+            854, 480, false, true, false, false, false);
+        KeyboardLayout.Panel menuLeftField = KeyboardLayout.dockForMenu(
+            menuSource, 854, 480, 35, 30, 200, 20);
+        require(menuLeftField.x() > 854 / 2,
+            "Menu field on left docks keyboard to the right half");
+        require(menuLeftField.y() >= 8 &&
+            menuLeftField.y() + menuLeftField.height() <= 472,
+            "Docked keyboard remains on the menu screen");
+        require(menuLeftField.keys().stream().allMatch(k ->
+            k.x() >= menuLeftField.x() &&
+            k.x() + k.width() <= menuLeftField.x() + menuLeftField.width()),
+            "Menu dock moves all keys together");
+        KeyboardLayout.Panel menuRightField = KeyboardLayout.dockForMenu(
+            menuSource, 854, 480, 640, 340, 180, 20);
+        require(menuRightField.x() == 8,
+            "Menu field on right docks keyboard to left edge");
+        KeyboardLayout.Panel menuWideField = KeyboardLayout.dockForMenu(
+            menuSource, 854, 480, 0, 350, 854, 24);
+        require(menuWideField.y() + menuWideField.height() <= 342,
+            "Wide bottom text field never sits under the docked keyboard");
+
         KeyboardLayout.Panel ru = KeyboardLayout.make(854, 480, true, true, false, false, false);
-        require(ru.width() == 280 && ru.height() <= 165,
-            "Compact 280px keyboard includes a 3-candidate correction strip");
+        require(ru.width() == 390 && ru.height() <= 190,
+            "Reference-width keyboard includes branding and stays compact");
         KeyboardLayout.Panel chatAnchored = KeyboardLayout.make(
             854, 480, true, true, false, false, false, 280, List.of(), 250);
         require(chatAnchored.y() >= 258,
@@ -78,17 +128,17 @@ public final class KeyboardLogicSmokeTest {
             854, 480, true, true, false, false, false);
         require(fallbackChat.y() > 8,
             "Chat layout fallback also uses a lower floating position");
-        require(ru.keys().stream().anyMatch(k ->
-            k.command() == KeyboardLayout.Command.RESIZE && "РАЗМ".equals(k.label())),
-            "Headset keyboard contains a size button");
-        for (int option : new int[]{240, 280, 320}) {
+        require(ru.keys().stream().noneMatch(k ->
+            k.command() == KeyboardLayout.Command.RESIZE),
+            "Size control must be removed for the fixed reference design");
+        for (int oldPreference : new int[]{240, 280, 320}) {
             KeyboardLayout.Panel sized = KeyboardLayout.make(
-                854, 480, true, true, false, false, false, option);
-            require(sized.width() == option,
-                "Configurable keyboard width matches selected VR size: " + option);
+                854, 480, true, true, false, false, false, oldPreference);
+            require(sized.width() == 390,
+                "Old saved width preferences cannot resize the reference keyboard");
             require(sized.keys().stream().allMatch(k ->
                 k.x() >= sized.x() && k.x() + k.width() <= sized.x() + sized.width()),
-                "All resized keys remain on panel");
+                "All fixed-size keys remain on panel");
         }
         KeyboardLayout.Panel detached = KeyboardLayout.make(
             854, 480, false, true, false, false, false, 280,
@@ -111,8 +161,16 @@ public final class KeyboardLogicSmokeTest {
         require("1234567890".contentEquals(numbers), "Permanent number row: " + numbers);
 
         require(ru.keys().stream().anyMatch(k ->
-            k.command() == KeyboardLayout.Command.ESCAPE && "ВЫХ".equals(k.label())),
-            "Russian layout includes an Escape key to close the chat");
+            k.command() == KeyboardLayout.Command.TYPE && ",".equals(k.value())),
+            "Russian main keyboard replaces redundant exit with comma");
+        // Comma and period must be neighbouring keys on the main row in both languages.
+        for (KeyboardLayout.Panel punctuationPanel : new KeyboardLayout.Panel[]{
+                ru, KeyboardLayout.make(854, 480, true, false, false, false, false)}) {
+            KeyboardLayout.Key comma = key(punctuationPanel.keys(), ",");
+            KeyboardLayout.Key period = key(punctuationPanel.keys(), ".");
+            require(comma.y() == period.y() && comma.x() + comma.width() + 2 == period.x(),
+                "Comma is immediately next to period on both language layouts");
+        }
         KeyboardLayout.Key letter = key(ru.keys(), "й");
         require("~".equals(letter.alternate()), "Russian Й has ~ legend");
         require("@".equals(key(ru.keys(), "ф").alternate()), "Russian Ф has @ legend");
@@ -122,8 +180,8 @@ public final class KeyboardLogicSmokeTest {
             "Russian hard sign must be available as a normal key");
         KeyboardLayout.Panel en = KeyboardLayout.make(854, 480, true, false, false, false, false);
         require(en.keys().stream().anyMatch(k ->
-            k.command() == KeyboardLayout.Command.ESCAPE && "ESC".equals(k.label())),
-            "English layout includes Escape for closing Minecraft screens");
+            k.command() == KeyboardLayout.Command.TYPE && ".".equals(k.value())),
+            "English main keyboard replaces redundant collapse with period");
         require("@".equals(key(en.keys(), "q").alternate()), "English Q has @ legend");
         KeyboardLayout.Panel ruShift = KeyboardLayout.make(854, 480, true, true, false, true, false);
         require("Ё".equals(key(ruShift.keys(), "Е").alternate()),
@@ -174,6 +232,45 @@ public final class KeyboardLogicSmokeTest {
         require(yoResult != null && yoResult.alternate() && "ё".equals(yoResult.text()),
             "Long press on Е selects Ё exactly once");
 
+        // Backspace tap deletes once; long press repeats one character at a time.
+        KeyboardLayout.Key backspace = ru.keys().stream()
+            .filter(k -> k.command() == KeyboardLayout.Command.BACKSPACE)
+            .findFirst().orElseThrow();
+        KeyboardPointerInput deleting = new KeyboardPointerInput();
+        Object deleteField = new Object();
+        int bx = backspace.x() + backspace.width() / 2;
+        int by = backspace.y() + backspace.height() / 2;
+        require(deleting.press(ru, bx, by, 40000, deleteField), "Backspace captures");
+        require(!deleting.repeatBackspace(40449, deleteField),
+            "No repeated deletion before 450 ms");
+        KeyboardPointerInput.Release shortDelete = deleting.release(
+            ru, bx, by, 40449, deleteField);
+        require(shortDelete.activation() != null &&
+            shortDelete.activation().key().command() == KeyboardLayout.Command.BACKSPACE,
+            "Short Backspace tap deletes one character on release");
+        require(deleting.press(ru, bx, by, 41000, deleteField),
+            "Backspace hold starts");
+        require(!deleting.repeatBackspace(41449, deleteField), "Hold delay respected");
+        require(deleting.repeatBackspace(41450, deleteField),
+            "Hold deletes first character at 450 ms");
+        require(!deleting.repeatBackspace(41534, deleteField),
+            "Repeat never fires earlier than 85 ms");
+        require(deleting.repeatBackspace(41535, deleteField),
+            "Hold deletes next character gradually");
+        KeyboardPointerInput.Release longDelete = deleting.release(
+            ru, bx, by, 41600, deleteField);
+        require(longDelete.consumed() && longDelete.activation() == null,
+            "Releasing held Backspace must not add another deletion");
+        require(!deleting.repeatBackspace(42000, deleteField),
+            "Releasing stops Backspace repeat");
+        require(deleting.press(ru, bx, by, 43000, deleteField),
+            "Backspace begins before focus changes");
+        require(!deleting.repeatBackspace(44000, new Object()),
+            "Backspace cannot delete into another field");
+        deleting.move(ru, -100, -100, deleteField);
+        require(!deleting.repeatBackspace(45000, deleteField),
+            "Moving off Backspace stops repeat");
+        deleting.release(ru, -100, -100, 45000, deleteField);
         KeyboardPointerInput pointer = new KeyboardPointerInput();
         require(!pointer.isPressed(letter), "Idle key is not visually pressed");
         require(pointer.press(ru, letter.x() + 1, letter.y() + 1, 7000),
@@ -399,12 +496,306 @@ public final class KeyboardLogicSmokeTest {
         require(collapsed.keys().stream().anyMatch(k -> k.command() == KeyboardLayout.Command.EXPAND),
             "Collapsed keyboard can reopen");
 
+        // Settings are a mode within the existing VR keyboard panel: no
+        // extra text field, no change to coordinates or fixed dimensions.
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.SETTINGS),
+            "Gear key must open theme settings");
+        KeyboardLayout.Panel settings = KeyboardLayout.themeMenu(ru, "NEW_YEAR");
+        require(settings.width() == ru.width() && settings.height() == ru.height(),
+            "Theme picker keeps the fixed VR keyboard dimensions");
+        require(settings.keys().stream().filter(k ->
+            k.command() == KeyboardLayout.Command.THEME).count() == 6,
+            "Theme picker offers classic plus five custom themes");
+        require(settings.keys().stream().anyMatch(k ->
+            "NEW_YEAR".equals(k.value()) && k.label().contains("Новый год")),
+            "New Year theme is selectable");
+        require(settings.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.BACK_TO_KEYS),
+            "Theme picker has a return control");
+        require(settings.keys().stream().noneMatch(k ->
+            k.command() == KeyboardLayout.Command.TYPE ||
+            k.command() == KeyboardLayout.Command.RESIZE),
+            "Theme picker cannot type or resize keyboard");
+        require(settings.keys().stream().allMatch(k ->
+            k.x() >= settings.x() && k.x() + k.width() <=
+                settings.x() + settings.width() &&
+            k.y() >= settings.y() && k.y() + k.height() <=
+                settings.y() + settings.height()),
+            "Every theme choice fits the VR panel");
+
+        // Navigation and command typing remain on the main layout.
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.TYPE && "/".equals(k.value())),
+            "Standalone slash is available without switching symbol pages");
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.HISTORY_PREVIOUS),
+            "Previous chat message has a dedicated key");
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.HISTORY_NEXT),
+            "Next chat message has a dedicated key");
+        KeyboardLayout.Panel enMain = KeyboardLayout.make(
+            854, 480, true, false, false, false, false);
+        require(enMain.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.TYPE && "/".equals(k.value())),
+            "Slash must remain on the English layout");
+        for (KeyboardLayout.Panel current : new KeyboardLayout.Panel[]{ru, enMain}) {
+            require(current.keys().stream().allMatch(k ->
+                k.x() >= current.x() && k.x() + k.width() <=
+                    current.x() + current.width() &&
+                k.y() >= current.y() && k.y() + k.height() <=
+                    current.y() + current.height()),
+                "Added control keys never exceed the fixed keyboard bounds");
+        }
+
+        // Russian swipe always starts uppercase. Auto punctuation spacing
+        // must avoid doubled spaces and preserve the word correction suffix.
+        require("Привет".equals(KeyboardLayout.swipeWord("привет", true, false, true)),
+            "Swipe Russian first word at line start is capitalized");
+        require("Спасибо".equals(KeyboardLayout.swipeWord("спасибо", true, true, false)),
+            "Russian capitalisation is stable with Shift");
+        require("hello".equals(KeyboardLayout.swipeWord("hello", false, false, true)),
+            "English words retain lowercase unless Shift requested");
+        require("Hello".equals(KeyboardLayout.swipeWord("hello", false, true, false)),
+            "English Shift still capitalises swipe");
+        require("привет".equals(KeyboardLayout.swipeWord("привет", true, false, false)),
+            "Middle-of-line Russian swipe stays lowercase without Shift");
+        require("".equals(KeyboardLayout.leadingSwipeSpace("", 0)),
+            "First swipe in an empty field must not start with a space");
+        require(" ".equals(KeyboardLayout.leadingSwipeSpace("Привет", 6)),
+            "A second swipe follows the first with exactly one separator");
+        require(" ".equals(KeyboardLayout.leadingSwipeSpace("Привет", 6)),
+            "A swipe after manually typed text also requires one separator");
+        require("".equals(KeyboardLayout.leadingSwipeSpace("Привет ", 7)),
+            "A manual space before a swipe must never be doubled");
+        require(" ".equals(KeyboardLayout.leadingSwipeSpace("Привет,", 7)),
+            "A swipe following punctuation needs a separator");
+        require("".equals(KeyboardLayout.leadingSwipeSpace("Привет", 0)),
+            "Inserting at the beginning of existing text cannot prepend whitespace");
+        require(" ".equals(KeyboardLayout.trailingWordSpace("Привет", 6)),
+            "Explicit punctuation may insert one trailing space");
+        require("".equals(KeyboardLayout.trailingWordSpace("Привет уже", 6)),
+            "Existing following space must not be duplicated");
+        require(KeyboardLayout.trimSpaceBeforeDot("Привет ", 7),
+            "Dot removes trailing auto-space before punctuation");
+        require(!KeyboardLayout.trimSpaceBeforeDot("Привет", 6),
+            "Dot after word must not erase a letter");
+        require(" ".equals(KeyboardLayout.trailingWordSpace("Привет.", 7)),
+            "Dot is followed by a space");
+
+        // New top-level actions must be reachable without shrinking the
+        // fixed physical VR panel or removing existing language keys.
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.MICROPHONE),
+            "Voice microphone action exists on the main keyboard");
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.QUICK_MESSAGES),
+            "Quick phrases action exists on the main keyboard");
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.CLIPBOARD),
+            "Clipboard has a dedicated main keyboard button");
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.BACKSPACE &&
+                k.y() < key(ru.keys(), "1").y()),
+            "Delete moved to the top-right controls");
+        require(ru.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.TYPE && "!".equals(k.value()) &&
+                k.y() < key(ru.keys(), "1").y()),
+            "Exclamation mark is directly available in the top toolbar");
+        require(ru.keys().stream().noneMatch(k ->
+            k.command() == KeyboardLayout.Command.COLLAPSE ||
+                k.command() == KeyboardLayout.Command.ESCAPE),
+            "No redundant bottom-left exit or input-adjacent collapse button");
+        KeyboardLayout.Panel toolbox = KeyboardLayout.toolMenu(ru,
+            new String[]{"Темы", "Микрофон", "Фразы", "Буфер", "Переместить",
+                "Контроллеры", "Назад"},
+            new KeyboardLayout.Command[]{KeyboardLayout.Command.THEMES_PAGE,
+                KeyboardLayout.Command.MICROPHONE,
+                KeyboardLayout.Command.QUICK_MESSAGES,
+                KeyboardLayout.Command.CLIPBOARD,
+                KeyboardLayout.Command.MOVE_MENU,
+                KeyboardLayout.Command.CONTROLLER_MENU,
+                KeyboardLayout.Command.BACK_TO_KEYS},
+            new String[]{"", "", "", "", "", "", ""});
+        require(toolbox.width() == ru.width() && toolbox.height() == ru.height(),
+            "Feature settings preserve original VR panel footprint");
+        require(toolbox.keys().stream().allMatch(k ->
+            k.x() >= toolbox.x() && k.x() + k.width() <=
+                toolbox.x() + toolbox.width() &&
+            k.y() >= toolbox.y() && k.y() + k.height() <=
+                toolbox.y() + toolbox.height()),
+            "Controller tool keys stay inside visible keyboard panel");
+
+
         System.out.println("FoxCraft keyboard logic smoke tests: OK");
+    }
+
+    private static void testQuickBinds() {
+        try {
+            Path config = Files.createTempFile("foxcraft-binds-", ".properties");
+            Files.deleteIfExists(config);
+            QuickBindingStore store = new QuickBindingStore(config);
+            require(store.count() == 6 && store.pages() == 1,
+                "New players start with six binds, not thirty unneeded placeholders");
+            require("Привет!".equals(store.message(0)),
+                "Original first starter bind remains");
+            require("Привет!".equals(store.outgoing(0)),
+                "Only the left field goes into chat");
+            require(store.put(0, "/home", "Домой"),
+                "A bind accepts separate command and button name");
+            require("/home".equals(store.outgoing(0)),
+                "Right label is never appended to the slash command");
+            require("Домой".equals(store.pageLabels(0)[0]),
+                "Visible bind button displays its right-hand name");
+
+            // Dynamic addition must create pages only as needed, not limit
+            // users to the original static 30 slots.
+            for (int i = 0; i < 31; i++)
+                require(store.add() == i + 6, "New bind index is append-only");
+            require(store.count() == 37 && store.pages() == 7,
+                "More than 30 binds can be added on demand");
+            require(store.put(36, "/spawn", "Спавн"),
+                "User can edit a bind well beyond former 30-slot limit");
+            require("Спавн".equals(store.pageLabels(6)[0]),
+                "Last dynamic page displays title rather than command");
+
+            require(store.remove(0), "Any existing bind can be deleted");
+            require(store.count() == 36 && store.pages() == 6,
+                "Deletion compacts slots and removes unneeded trailing pages");
+            require("Где ты?".equals(store.outgoing(0)),
+                "Remaining bind commands shift cleanly after deletion");
+            require("Спавн".equals(store.pageLabels(5)[5]),
+                "Last bind retains its title after compaction");
+
+            QuickBindingStore reloaded = new QuickBindingStore(config);
+            require(reloaded.count() == 36 &&
+                "Спавн".equals(reloaded.pageLabels(5)[5]) &&
+                "/spawn".equals(reloaded.outgoing(35)),
+                "All inserted/deleted binds persist across restarts");
+            KeyboardLayout.Panel original = KeyboardLayout.make(
+                854, 480, true, true, false, false, false);
+            for (int page = 0; page < reloaded.pages(); page++) {
+                KeyboardLayout.Panel binds = KeyboardLayout.quickBindingsMenu(
+                    original, reloaded.pageLabels(page), page, reloaded.pages());
+                require(binds.width() == original.width() &&
+                    binds.height() == original.height(),
+                    "Dynamic pages preserve calibrated VR panel size");
+                require(binds.keys().stream().filter(k ->
+                    k.command() == KeyboardLayout.Command.QUICK_MESSAGE).count() == 6 &&
+                    binds.keys().stream().filter(k ->
+                    k.command() == KeyboardLayout.Command.QUICK_EDIT).count() == 6 &&
+                    binds.keys().stream().filter(k ->
+                    k.command() == KeyboardLayout.Command.QUICK_DELETE).count() == 6,
+                    "Every card has independent name edit and remove controls");
+                require(binds.keys().stream().anyMatch(k ->
+                    k.command() == KeyboardLayout.Command.QUICK_ADD),
+                    "Every page has an add bind button");
+                for (KeyboardLayout.Key key : binds.keys()) {
+                    if (key.command() != KeyboardLayout.Command.QUICK_EDIT &&
+                        key.command() != KeyboardLayout.Command.QUICK_DELETE) continue;
+                    require(binds.at(key.x() + key.width() / 2.0,
+                        key.y() + key.height() / 2.0) == key,
+                        "Overlay edit/delete buttons must win over full card");
+                }
+            }
+
+            // Migration from old 30-slot config preserves nonempty entries
+            // instead of losing users' commands and annotations.
+            Path legacy = Files.createTempFile("foxcraft-binds-legacy-", ".properties");
+            java.util.Properties old = new java.util.Properties();
+            old.setProperty("text.0", "/home");
+            old.setProperty("note.0", "Домой");
+            old.setProperty("text.29", "/warp");
+            old.setProperty("note.29", "Телепорт");
+            try (java.io.OutputStream out = Files.newOutputStream(legacy)) {
+                old.store(out, "old quick-bind file");
+            }
+            QuickBindingStore migrated = new QuickBindingStore(legacy);
+            require(migrated.count() == 30 &&
+                "/home".equals(migrated.outgoing(0)) &&
+                "Домой".equals(migrated.pageLabels(0)[0]) &&
+                "/warp".equals(migrated.outgoing(29)),
+                "Legacy fixed binds are preserved and labels are converted");
+
+            Files.deleteIfExists(config);
+            Files.deleteIfExists(legacy);
+        } catch (IOException e) {
+            throw new AssertionError("Bind settings test failed", e);
+        }
     }
 
     private static KeyboardLayout.Key key(List<KeyboardLayout.Key> keys, String label) {
         return keys.stream().filter(k -> label.equals(k.label())).findFirst()
             .orElseThrow(() -> new AssertionError("Missing key: " + label));
+    }
+
+    private static void testQuickMessageComposer() {
+        QuickMessageDraft draft = new QuickMessageDraft();
+        require(!draft.canSend(), "Empty custom message must not be sent");
+        draft.insert("Привет");
+        draft.insert(" мир");
+        require("Привет мир".equals(draft.message()),
+            "Typing words must not insert automatic spaces");
+        draft.clear();
+        draft.insertSwipeWord("Привет");
+        require("Привет".equals(draft.message()),
+            "First compose swipe must not insert leading whitespace");
+        draft.insertSwipeWord("мир");
+        require("Привет мир".equals(draft.message()),
+            "Compose swipes are separated by one space");
+        draft.insert("!");
+        draft.insertSwipeWord("всем");
+        require("Привет мир! всем".equals(draft.message()),
+            "Manual typing followed by swipe must also be separated");
+        draft.insert(" ");
+        draft.insertSwipeWord("друзья");
+        require("Привет мир! всем друзья".equals(draft.message()),
+            "Existing space must not be duplicated in composer");
+        draft.clear();
+        draft.insert("Привет мир");
+        draft.dot();
+        require("Привет мир. ".equals(draft.message()),
+            "Dot must add one space after the sentence");
+        draft.selectNote(true);
+        draft.insert("важное примечание");
+        require(draft.editingNote() && "важное примечание".equals(draft.note()),
+            "Note is an independent editable field");
+        require("Привет мир.".equals(draft.outgoing()),
+            "Button title stays out of the sent Minecraft message");
+        draft.backspace();
+        require(draft.note().endsWith("примечани"),
+            "Backspace edits the selected note without altering message");
+        draft.selectNote(false);
+        draft.moveCursor(-2);
+        draft.insert("!");
+        require(draft.note().endsWith("примечани"),
+            "Switching back must not alter the note");
+        require(draft.canSend(), "Valid message with note is sendable");
+        draft.clear();
+        require(draft.message().isEmpty() && draft.note().isEmpty() && !draft.canSend(),
+            "Composer must reset cleanly");
+
+        KeyboardLayout.Panel original = KeyboardLayout.make(
+            854, 480, true, true, false, false, false);
+        KeyboardLayout.Panel editor = KeyboardLayout.composeMenu(
+            original, "Привет", "заметка", false, true, false);
+        require(editor.width() == original.width() && editor.height() == original.height(),
+            "Editor must preserve VR panel size and controller alignment");
+        require(editor.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.COMPOSE_MESSAGE) &&
+            editor.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.COMPOSE_NOTE) &&
+            editor.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.COMPOSE_SEND),
+            "Editor provides message, note, and explicit Send controls");
+        require(editor.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.TYPE &&
+            "й".equals(k.value())),
+            "Editor retains the physical Russian keyboard");
+        for (KeyboardLayout.Key key : editor.keys())
+            require(editor.at(key.x() + key.width() / 2.0,
+                key.y() + key.height() / 2.0) != null,
+                "Composer keys must remain hit-testable by VR controllers");
     }
 
     private static void require(boolean condition, String message) {

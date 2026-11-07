@@ -10,8 +10,17 @@ import java.util.Locale;
  */
 public final class KeyboardLayout {
     public enum Command {
-        NONE, TYPE, LANGUAGE, SYMBOLS, SHIFT, SPACE,
-        LEFT, RIGHT, BACKSPACE, ENTER, ESCAPE, RESIZE, COLLAPSE, EXPAND, SUGGESTION
+        NONE, TYPE, LANGUAGE, LANGUAGE_RU, LANGUAGE_EN, SYMBOLS, SHIFT, SPACE,
+        LEFT, RIGHT, BACKSPACE, ENTER, ESCAPE, RESIZE, COLLAPSE, EXPAND, SUGGESTION,
+        SETTINGS, THEME, BACK_TO_KEYS, HISTORY_PREVIOUS, HISTORY_NEXT,
+        THEMES_PAGE, SETTINGS_HOME, MICROPHONE, QUICK_MESSAGES, QUICK_MESSAGE,
+        QUICK_COMPOSE, QUICK_EDIT, QUICK_ADD, QUICK_DELETE,
+        QUICK_PAGE_PREVIOUS, QUICK_PAGE_NEXT,
+        COMPOSE_MESSAGE, COMPOSE_NOTE, COMPOSE_SEND, COMPOSE_CLEAR,
+        CLIPBOARD, COPY, PASTE, SELECT_ALL, MOVE_MENU, MOVE_STEP,
+        MOVE_GRAB, MOVE_RESET, CONTROLLER_MENU, HAPTIC_TOGGLE, HAPTIC_STRENGTH,
+        CONTROLLER_LEFT_TOGGLE, CONTROLLER_RIGHT_TOGGLE, BEAM_SHORTER,
+        BEAM_LONGER, DOT_SMALLER, DOT_LARGER
     }
 
     public record Key(String label, Command command, String value, String alternate,
@@ -26,6 +35,10 @@ public final class KeyboardLayout {
             return px >= x && px < x + width && py >= y && py < y + height;
         }
         public Key at(double px, double py) {
+            for (Key key : keys)
+                if ((key.command() == Command.QUICK_EDIT ||
+                     key.command() == Command.QUICK_DELETE) && key.contains(px, py))
+                    return key;
             for (Key key : keys)
                 if (key.contains(px, py)) return key;
             return null;
@@ -114,13 +127,20 @@ public final class KeyboardLayout {
                              List<String> suggestedWords, int chatInputBottomY,
                              boolean centerOnVrPlane) {
         if (screenWidth < 220 || screenHeight < 140) return null;
-        int width = Math.min(Math.max(220, Math.min(390, preferredWidth)),
-            screenWidth - 12);
+        // Fixed reference size. Shrink only when the GUI framebuffer is too
+        // small to contain it; no user resize preference can alter the panel.
+        int width = Math.min(390, screenWidth - 12);
         int x = (screenWidth - width) / 2;
-        int rowHeight = Math.max(14, Math.min(19, (screenHeight - 30) / 7));
+        // The additional branded top section must fit even on the smallest
+        // supported Minecraft GUI (220x140). Never clip the last key row.
+        int rowHeight = Math.max(10, Math.min(19, (screenHeight - 38) / 9));
         int gap = 2;
-        int headerHeight = rowHeight + 2;
-        int height = collapsed ? headerHeight + 8 : headerHeight + rowHeight * 6 + gap * 6 + 9;
+        int brandHeight = rowHeight + 7;
+        int headerHeight = rowHeight + 4;
+        boolean hasSuggestions = suggestedWords != null && !suggestedWords.isEmpty();
+        int contentRows = hasSuggestions ? 6 : 5;
+        int height = collapsed ? headerHeight + 8 :
+            brandHeight + headerHeight + rowHeight * contentRows + gap * (contentRows + 2) + 12;
         int y;
         if (centerOnVrPlane) {
             y = Math.max(8, (screenHeight - height) / 2);
@@ -154,22 +174,23 @@ public final class KeyboardLayout {
             return new Panel(x, y, width, height, List.copyOf(keys));
         }
 
+        // Reference silhouette has a centered raised fox crest above a separate
+        // control strip. The logo is decorative, not a clickable key.
+        rowY += brandHeight + gap;
         addWeighted(keys, insideX, rowY, insideWidth, headerHeight, gap,
-            new String[]{"FOXCRAFT", russian ? "РУС" : "ENG",
-                symbols ? "АБВ" : "123", "РАЗМ", "×"},
-            new Command[]{Command.NONE, Command.LANGUAGE, Command.SYMBOLS,
-                Command.RESIZE, Command.COLLAPSE},
-            new String[]{"", "", "", "", ""},
-            new int[]{5, 2, 2, 2, 1});
+            new String[]{"АБВ Русский", "ABC English", "!", "!?#",
+                "", "", "", "⚙", "⌫"},
+            new Command[]{Command.LANGUAGE_RU, Command.LANGUAGE_EN,
+                Command.TYPE, Command.SYMBOLS, Command.MICROPHONE,
+                Command.QUICK_MESSAGES, Command.CLIPBOARD, Command.SETTINGS,
+                Command.BACKSPACE},
+            new String[]{"", "", "!", "", "", "", "", "", ""},
+            new int[]{4, 4, 2, 2, 2, 2, 2, 2, 2});
         rowY += headerHeight + gap;
 
         // These are actual keys, not just a visual label: either VR hand can
         // replace the last inserted word by selecting an alternative.
-        if (suggestedWords == null || suggestedWords.isEmpty()) {
-            addWeighted(keys, insideX, rowY, insideWidth, rowHeight, gap,
-                new String[]{russian ? "СВАЙП → СЛОВО" : "SWIPE → WORD"},
-                new Command[]{Command.NONE}, new String[]{""}, new int[]{1});
-        } else {
+        if (hasSuggestions) {
             String[] labels = new String[3];
             Command[] commands = new Command[3];
             String[] values = new String[3];
@@ -181,8 +202,8 @@ public final class KeyboardLayout {
             }
             addWeighted(keys, insideX, rowY, insideWidth, rowHeight, gap,
                 labels, commands, values, new int[]{1, 1, 1});
+            rowY += rowHeight + gap;
         }
-        rowY += rowHeight + gap;
 
         // Dedicated always-visible number row. Letters retain their own long-press legends.
         addLetters(keys, insideX, rowY, insideWidth, rowHeight, gap, DIGITS, null, false);
@@ -197,15 +218,273 @@ public final class KeyboardLayout {
                 shift && !symbols);
             rowY += rowHeight + gap;
         }
+        // Main keyboard also provides chat-history navigation and a literal
+        // command slash. No extra row is added: the physical VR panel stays
+        // at the calibrated fixed size and preserves all previous controls.
         addWeighted(keys, insideX, rowY, insideWidth, rowHeight, gap,
-            new String[]{russian ? "ВЫХ" : "ESC", shift ? "SHIFT*" : "SHIFT", "←",
-                russian ? "ПРОБЕЛ" : "SPACE", "→", "⌫",
-                russian ? "ВВОД" : "ENTER"},
-            new Command[]{Command.ESCAPE, Command.SHIFT, Command.LEFT,
-                Command.SPACE, Command.RIGHT, Command.BACKSPACE, Command.ENTER},
-            new String[]{"", "", "", " ", "", "", ""},
-            new int[]{2, 3, 2, 8, 2, 2, 4});
+            new String[]{"/", shift ? "SHIFT*" : "SHIFT",
+                "↑", "↓", "←", russian ? "ПРОБЕЛ" : "SPACE",
+                "→", ",", ".", russian ? "ВВОД" : "ENTER"},
+            new Command[]{Command.TYPE, Command.SHIFT,
+                Command.HISTORY_PREVIOUS, Command.HISTORY_NEXT,
+                Command.LEFT, Command.SPACE, Command.RIGHT, Command.TYPE,
+                Command.TYPE, Command.ENTER},
+            new String[]{"/", "", "", "", "", " ", "", ",", ".", ""},
+            new int[]{2, 3, 2, 2, 2, 7, 2, 2, 2, 4});
         return new Panel(x, y, width, height, List.copyOf(keys));
+    }
+
+
+    /**
+     * In-keyboard settings page: the ordinary input widget keeps focus while
+     * the VR panel temporarily displays theme choices instead of key rows.
+     * Layout dimensions and hit coordinates match the existing panel exactly.
+     */
+    public static Panel themeMenu(Panel original, String selected) {
+        if (original == null) return null;
+        int x = original.x() + 7;
+        int y = original.y() + 30;
+        int width = original.width() - 14;
+        int availableHeight = original.height() - 39;
+        if (width < 100 || availableHeight < 70) return original;
+        List<Key> options = new ArrayList<>();
+        int gap = 3;
+        int rows = 7;
+        int rowHeight = Math.max(9, (availableHeight - gap * (rows - 1)) / rows);
+        // Keep the standalone geometry smoke test dependency-free; theme
+        // rendering and palette definitions are handled by KeyboardTheme.
+        String[] ids = {"CLASSIC", "MIDNIGHT", "OCEAN", "SAKURA", "AURORA", "NEW_YEAR"};
+        String[] names = {"FoxCraft", "Полночь", "Океан", "Сакура", "Сияние", "Новый год"};
+        for (int i = 0; i < ids.length; i++) {
+            int rowY = y + i * (rowHeight + gap);
+            String name = (ids[i].equals(selected) ? "✓ " : "") + names[i];
+            options.add(new Key(name, Command.THEME, ids[i], "",
+                x, rowY, width, rowHeight));
+        }
+        options.add(new Key("←  К клавиатуре", Command.BACK_TO_KEYS, "", "",
+            x, y + 6 * (rowHeight + gap), width, rowHeight));
+        return new Panel(original.x(), original.y(), original.width(),
+            original.height(), List.copyOf(options));
+    }
+
+    /**
+     * Tool pages share the same 390px shell and controller hit coordinates as
+     * the main keys. Two columns avoid tiny unreachable rows in compact GUI.
+     */
+    public static Panel toolMenu(Panel original, String[] labels,
+                                 Command[] commands, String[] values) {
+        if (original == null) return null;
+        if (labels.length != commands.length || labels.length != values.length ||
+            labels.length == 0) throw new IllegalArgumentException("Tool key arrays differ");
+        int x = original.x() + 7;
+        int y = original.y() + 30;
+        int width = original.width() - 14;
+        int availableHeight = original.height() - 37;
+        int gap = 3, columns = labels.length > 5 ? 2 : 1;
+        int rows = (labels.length + columns - 1) / columns;
+        int height = Math.max(8, (availableHeight - gap * (rows - 1)) / rows);
+        int keyWidth = (width - gap * (columns - 1)) / columns;
+        List<Key> keys = new ArrayList<>();
+        for (int i = 0; i < labels.length; i++) {
+            int col = i % columns, row = i / columns;
+            keys.add(new Key(labels[i], commands[i], values[i], "",
+                x + col * (keyWidth + gap), y + row * (height + gap),
+                col == columns - 1 ? width - col * (keyWidth + gap) : keyWidth,
+                height));
+        }
+        return new Panel(original.x(), original.y(), original.width(),
+            original.height(), List.copyOf(keys));
+    }
+
+
+    /**
+     * Variable number of custom binds, six per page. Each occupied card has
+     * an independent edit gear in the upper-right and delete cross upper-left.
+     * Empty slots are simply not hit-testable; + creates the next real bind.
+     */
+    public static Panel quickBindingsMenu(Panel original, String[] labels, int page) {
+        return quickBindingsMenu(original, labels, page, 5);
+    }
+
+    public static Panel quickBindingsMenu(Panel original, String[] labels,
+                                          int page, int totalPages) {
+        if (original == null) return null;
+        if (labels == null || labels.length > 6 || page < 0 ||
+            totalPages < 1 || page >= totalPages)
+            throw new IllegalArgumentException("Invalid bind page");
+        int x = original.x() + 7, y = original.y() + 30;
+        int width = original.width() - 14, height = original.height() - 37;
+        int gap = 4, rowHeight = Math.max(13, (height - 3 * gap) / 4);
+        int columnWidth = (width - gap) / 2;
+        List<Key> keys = new ArrayList<>();
+        for (int i = 0; i < labels.length; i++) {
+            int col = i % 2, row = i / 2;
+            int cellX = x + col * (columnWidth + gap);
+            int cellY = y + row * (rowHeight + gap);
+            int cellWidth = col == 1 ? width - columnWidth - gap : columnWidth;
+            String caption = (page * 6 + i + 1) + ". " +
+                (labels[i] == null || labels[i].isBlank()
+                    ? "Без названия" : labels[i]);
+            keys.add(new Key(caption, Command.QUICK_MESSAGE,
+                Integer.toString(page * 6 + i), "",
+                cellX, cellY, cellWidth, rowHeight));
+        }
+        // Cards are added first, then their overlay controls. Priority is
+        // explicitly checked in Panel.at before the full-card hitboxes.
+        for (int i = 0; i < labels.length; i++) {
+            int col = i % 2, row = i / 2;
+            int cellX = x + col * (columnWidth + gap);
+            int cellY = y + row * (rowHeight + gap);
+            int cellWidth = col == 1 ? width - columnWidth - gap : columnWidth;
+            int buttonHeight = Math.min(18, Math.max(10, rowHeight - 4));
+            keys.add(new Key("", Command.QUICK_DELETE,
+                Integer.toString(page * 6 + i), "",
+                cellX + 2, cellY + 2, 21, buttonHeight));
+            keys.add(new Key("", Command.QUICK_EDIT,
+                Integer.toString(page * 6 + i), "",
+                cellX + cellWidth - 23, cellY + 2, 21, buttonHeight));
+        }
+        addWeighted(keys, x, y + 3 * (rowHeight + gap), width, rowHeight, 3,
+            new String[]{"◀", (page + 1) + " / " + totalPages, "▶",
+                "+ БИНД", "НАЗАД"},
+            new Command[]{Command.QUICK_PAGE_PREVIOUS, Command.NONE,
+                Command.QUICK_PAGE_NEXT, Command.QUICK_ADD,
+                Command.BACK_TO_KEYS},
+            new String[]{"", "", "", "", ""},
+            new int[]{2, 2, 2, 3, 3});
+        return new Panel(original.x(), original.y(), original.width(),
+            original.height(), List.copyOf(keys));
+    }
+
+    /**
+     * Quick-message editor uses the calibrated main keyboard geometry.
+     * The upper strip contains two independently editable fields and Send;
+     * the keys below still support both Quest controllers and swipe typing.
+     */
+    public static Panel composeMenu(Panel original, String message, String note,
+                                    boolean editingNote, boolean russian,
+                                    boolean shift) {
+        return composeMenu(original, message, note, editingNote, russian, shift, false);
+    }
+
+    public static Panel composeMenu(Panel original, String message, String note,
+                                    boolean editingNote, boolean russian,
+                                    boolean shift, boolean savingBind) {
+        if (original == null) return null;
+        Key header = original.keys().stream()
+            .filter(k -> k.command() == Command.LANGUAGE_RU).findFirst().orElse(null);
+        Key footer = original.keys().stream()
+            .filter(k -> k.command() == Command.HISTORY_PREVIOUS).findFirst().orElse(null);
+        if (header == null || footer == null) return original;
+        List<Key> keys = new ArrayList<>();
+        for (Key key : original.keys()) {
+            if (key.y() != header.y() && key.y() != footer.y()) keys.add(key);
+        }
+        int innerX = original.x() + 5;
+        int innerWidth = original.width() - 10;
+        int gap = 2;
+        String messageTail = message.length() > 15
+            ? "…" + message.substring(message.length() - 15) : message;
+        String noteTail = note.length() > 13
+            ? "…" + note.substring(note.length() - 13) : note;
+        addWeighted(keys, innerX, header.y(), innerWidth, header.height(), gap,
+            new String[]{(editingNote ? "ТЕКСТ: " : "▸ ТЕКСТ: ") +
+                    (messageTail.isBlank() ? "…" : messageTail),
+                (editingNote ? "▸ НАЗВАНИЕ: " : "НАЗВАНИЕ: ") +
+                    (noteTail.isBlank() ? "…" : noteTail),
+                savingBind ? "СОХРАНИТЬ" : "ОТПРАВИТЬ"},
+            new Command[]{Command.COMPOSE_MESSAGE, Command.COMPOSE_NOTE,
+                Command.COMPOSE_SEND},
+            new String[]{"", "", ""}, new int[]{8, 7, 5});
+        addWeighted(keys, innerX, footer.y(), innerWidth, footer.height(), gap,
+            new String[]{"НАЗАД", russian ? "EN" : "RU", "123", shift ? "SHIFT*" : "SHIFT",
+                "←", russian ? "ПРОБЕЛ" : "SPACE", "→", "/", "⌫", "ОЧИСТ"},
+            new Command[]{Command.QUICK_MESSAGES, Command.LANGUAGE,
+                Command.SYMBOLS, Command.SHIFT, Command.LEFT, Command.SPACE,
+                Command.RIGHT, Command.TYPE, Command.BACKSPACE, Command.COMPOSE_CLEAR},
+            new String[]{"", "", "", "", "", " ", "", "/", "", ""},
+            new int[]{4, 2, 2, 3, 2, 7, 2, 2, 2, 3});
+        return new Panel(original.x(), original.y(), original.width(),
+            original.height(), List.copyOf(keys));
+    }
+
+    /**
+     * Dock the emergency Minecraft-GUI keyboard towards a free screen edge.
+     * Menu lists are normally central: a corner dock is less disruptive than
+     * the old bottom-centre overlay. Never cover the currently edited field.
+     */
+    public static Panel dockForMenu(Panel panel, int screenWidth, int screenHeight,
+                                    int fieldX, int fieldY, int fieldWidth,
+                                    int fieldHeight) {
+        if (panel == null) return null;
+        int margin = 8;
+        int leftX = margin;
+        int rightX = Math.max(margin, screenWidth - panel.width() - margin);
+        boolean fieldOnLeft = fieldX + fieldWidth / 2 < screenWidth / 2;
+        int x = fieldOnLeft ? rightX : leftX;
+        int y = Math.max(margin, screenHeight - panel.height() - margin);
+        if (overlaps(x, y, panel.width(), panel.height(),
+                     fieldX, fieldY, fieldWidth, fieldHeight)) {
+            int below = fieldY + fieldHeight + margin;
+            int above = fieldY - panel.height() - margin;
+            if (below + panel.height() + margin <= screenHeight) y = below;
+            else if (above >= margin) y = above;
+            else {
+                // Try the opposite edge before allowing any overlap.
+                int alternateX = fieldOnLeft ? leftX : rightX;
+                if (!overlaps(alternateX, y, panel.width(), panel.height(),
+                              fieldX, fieldY, fieldWidth, fieldHeight)) x = alternateX;
+            }
+        }
+        int dx = x - panel.x(), dy = y - panel.y();
+        List<Key> translated = new ArrayList<>(panel.keys().size());
+        for (Key k : panel.keys()) {
+            translated.add(new Key(k.label(), k.command(), k.value(),
+                k.alternate(), k.x() + dx, k.y() + dy, k.width(), k.height()));
+        }
+        return new Panel(x, y, panel.width(), panel.height(),
+                         List.copyOf(translated));
+    }
+
+    private static boolean overlaps(int ax, int ay, int aw, int ah,
+                                    int bx, int by, int bw, int bh) {
+        return ax < bx + bw && ax + aw > bx &&
+               ay < by + bh && ay + ah > by;
+    }
+
+    /**
+     * Swipe recognition outputs lowercase dictionary words. For Russian text
+     * always capitalise the word's FIRST letter, without changing the other
+     * characters. English obeys the existing Shift state.
+     */
+    public static String swipeWord(String word, boolean russian, boolean shift,
+                                   boolean atStartOfLine) {
+        if (word == null || word.isEmpty() || !shift && !(russian && atStartOfLine))
+            return word == null ? "" : word;
+        return word.substring(0, 1).toUpperCase(Locale.ROOT) +
+            word.substring(1);
+    }
+
+    /** Put a space BEFORE a swipe word whenever preceding text needs one.
+     * Works for ordinary typing followed by a swipe as well as two swipes.
+     * Never prepend a space in an empty field, at the beginning of text,
+     * or when the cursor already follows whitespace. */
+    public static String leadingSwipeSpace(String text, int cursor) {
+        return text != null && cursor > 0 && cursor <= text.length() &&
+            !Character.isWhitespace(text.charAt(cursor - 1)) ? " " : "";
+    }
+
+    /** Do not insert two automatic spaces when typing in an existing line. */
+    public static String trailingWordSpace(String text, int cursor) {
+        if (text != null && cursor >= 0 && cursor < text.length() &&
+            Character.isWhitespace(text.charAt(cursor))) return "";
+        return " ";
+    }
+
+    /** A dot joins the preceding word, not its automatically-added space. */
+    public static boolean trimSpaceBeforeDot(String text, int cursor) {
+        return text != null && cursor > 0 && cursor <= text.length() &&
+            text.charAt(cursor - 1) == ' ';
     }
 
     private static void addLetters(List<Key> keys, int x, int y, int width,
