@@ -354,8 +354,9 @@ public static class InstanceLaunchSmoke
                 "blocked reattempt does not create a second Java worker");
             nestedWorker.GetField("completed").SetValue(pendingWorker, true);
             watchdog.LaunchCurrentInstance();
-            Assert(watchUi.lastError != null &&
-                watchUi.lastError.Contains("installing"),
+            // CreateDefaultInstance reports installation via the shared
+            // JNIStorage UIHandler rather than this button's local handler.
+            Assert(ui.lastError != null && ui.lastError.Contains("installing"),
                 "the player can try again after the old Java worker finishes");
 
             Console.WriteLine("FoxCraft VR launch smoke: " + checks + " checks passed.");
