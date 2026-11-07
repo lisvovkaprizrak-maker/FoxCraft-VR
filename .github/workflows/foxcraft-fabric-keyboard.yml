@@ -49,13 +49,14 @@ jobs:
             src/main/java/dev/foxcraft/keyboard/KeyHoldController.java \
             src/main/java/dev/foxcraft/keyboard/SwipeGesture.java \
             src/main/java/dev/foxcraft/keyboard/GestureWordRecognizer.java \
+            src/main/java/dev/foxcraft/keyboard/FoxCraftUserWords.java \
             src/main/java/dev/foxcraft/keyboard/KeyboardPreferences.java \
             src/main/java/dev/foxcraft/keyboard/KeyboardPointerInput.java \
             src/main/java/dev/foxcraft/keyboard/FoxCraftGuiClickInput.java \
             src/main/java/dev/foxcraft/keyboard/VivecraftLeftPointer.java \
             src/main/java/dev/foxcraft/keyboard/FoxCraftQuestOpenXrInput.java \
             src/test/java/dev/foxcraft/keyboard/KeyboardLogicSmokeTest.java
-          java -cp build/smoke dev.foxcraft.keyboard.KeyboardLogicSmokeTest
+          java -cp build/smoke:src/main/resources dev.foxcraft.keyboard.KeyboardLogicSmokeTest
       - name: Verify second controller ray and Vivecraft bridge against API test doubles
         run: |
           mkdir -p build/vr-bridge

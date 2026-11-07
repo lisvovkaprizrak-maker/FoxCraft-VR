@@ -11,6 +11,7 @@ public final class KeyboardLogicSmokeTest {
         testQuickMessageComposer();
         testPersistentOptions();
         testRequestedTypingAndSwipe();
+        testLargeOfflineDictionaryAndPersonalWords();
         testQuickBinds();
         // Regression: on Quest, the world-selection text field must not
         // display FoxCraft over the menu, while in-world chat stays usable
@@ -832,6 +833,69 @@ public final class KeyboardLogicSmokeTest {
             }
             require(GestureWordRecognizer.suggest(ru, stroke, 3).contains(target),
                 "Exact Russian swipe must suggest " + target);
+        }
+    }
+
+    private static void testLargeOfflineDictionaryAndPersonalWords() {
+        require(GestureWordRecognizer.russianVocabularySize() >= 87000,
+            "All bundled frequency words must be available with no network");
+
+        KeyboardLayout.Panel original = KeyboardLayout.make(854, 480,
+            true, true, false, false, false);
+        KeyboardLayout.Panel editor = KeyboardLayout.wordEditorMenu(
+            original, "мое слово", true, false);
+        require(editor != null && editor.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.WORD_SAVE) &&
+            editor.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.WORD_REMOVE) &&
+            editor.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.TYPE && "й".equals(k.value())),
+            "The custom-word editor must have real Russian VR keys and save/delete");
+
+        try {
+            Path folder = Files.createTempDirectory("foxcraft-user-dictionary");
+            Path file = folder.resolve("personal.txt");
+            FoxCraftUserWords user = new FoxCraftUserWords(file);
+            require(user.size() == 0, "First-start personal dictionary must be empty");
+            require(FoxCraftUserWords.normalize("/home").isEmpty() &&
+                FoxCraftUserWords.normalize("одно слово").isEmpty() &&
+                FoxCraftUserWords.normalize("123").isEmpty(),
+                "Do not store commands, numbers or messages as personal words");
+            require(user.add("Фоксикс") && user.contains("фоксикс"),
+                "A unique custom Russian word is saved");
+            require(user.add("Questik") && user.contains("questik"),
+                "Personal English words can be saved too");
+            require(!user.add("ФОКСИКС"),
+                "Uppercase duplicate words are de-duplicated");
+            FoxCraftUserWords reloaded = new FoxCraftUserWords(file);
+            require(reloaded.size() == 2 && reloaded.contains("фоксикс"),
+                "Custom words must survive a full keyboard restart");
+
+            GestureWordRecognizer.setPersonalWords(reloaded.entries());
+            require(GestureWordRecognizer.russianVocabularySize() >= 87000,
+                "Custom word refresh must preserve the large offline corpus");
+            java.util.ArrayList<GestureWordRecognizer.Point> stroke =
+                new java.util.ArrayList<>();
+            for (char ch : "фоксикс".toCharArray()) {
+                KeyboardLayout.Key key = original.keys().stream()
+                    .filter(k -> k.command() == KeyboardLayout.Command.TYPE &&
+                        k.value().equals(String.valueOf(ch)))
+                    .findFirst().orElseThrow();
+                stroke.add(new GestureWordRecognizer.Point(
+                    key.x() + key.width() / 2.0,
+                    key.y() + key.height() / 2.0));
+            }
+            List<String> suggestions =
+                GestureWordRecognizer.suggest(original, stroke, 3);
+            require(suggestions.contains("фоксикс"),
+                "Personally added word must be recognized by swipe: " + suggestions);
+            require(reloaded.remove("фоксикс") && !reloaded.contains("фоксикс"),
+                "Personal word can be deleted while built-in words stay intact");
+            GestureWordRecognizer.setPersonalWords(reloaded.entries());
+            Files.deleteIfExists(file);
+            Files.deleteIfExists(folder);
+        } catch (IOException error) {
+            throw new AssertionError("Personal dictionary IO failed", error);
         }
     }
 
