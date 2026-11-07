@@ -495,7 +495,8 @@ public final class FoxCraftVrPlane {
             // closes its own keyboard. Accept ordinary GUI click ONLY when
             // its OpenXR origin identifies THIS physical controller.
             boolean down = tracked && FoxCraftGuiClickInput.pressed(
-                provider, handed, keyboardClick, guiLeftClick, guiRightClick);
+                provider, handed, keyboardClick, guiLeftClick, guiRightClick,
+                FoxCraftGuiClickInput.optionalLeftUseBinding());
             boolean accepted = down;
             if (down && !wasPressed[hand]) {
                 accepted = x >= 0 && y >= 0 &&
