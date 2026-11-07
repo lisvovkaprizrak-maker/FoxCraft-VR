@@ -277,6 +277,16 @@ public final class FoxCraftVrPlane {
     }
 
     /** Prevent secondary 2D chat clicks while pointing at FoxCraft in VR. */
+    /**
+     * Suppress ordinary world attack/use while a free-mode controller ray is
+     * touching an actual keyboard key. Away from the keyboard, all game
+     * controls remain untouched.
+     */
+    public static boolean interceptsGameplayControls() {
+        return keyboard != null && keyboard.isFreeMode() &&
+            (isPointingAtKeyboard(0) || isPointingAtKeyboard(1));
+    }
+
     public static boolean interceptsMainGuiMouse() {
         return isReady() && keyboard != null &&
             keyboard.detachedContains(cursorX[0], cursorY[0]);
