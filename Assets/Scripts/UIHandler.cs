@@ -84,38 +84,21 @@ public class UIHandler : MonoBehaviour
 
     public void UILoginCheck()
     {
-        // A saved display name alone is not proof of Microsoft authentication.
-        // Pojlib must complete login and publish its verified account object.
-        if (loginHandler == null || !loginHandler.HasAuthenticatedAccount)
-        {
-            dropdownMain.interactable = false;
-            modsButton.interactable = false;
-            instancesButton.interactable = false;
-            playButton.interactable = false;
-            return;
-        }
+        // A saved profile name is not proof of sign-in. Pojlib can still be
+        // downloading dependencies while login completes. Both conditions
+        // must be true before enabling Play or profile/mod operations.
+        bool authenticated = loginHandler != null &&
+            loginHandler.HasAuthenticatedAccount;
+        bool playReady = FoxCraftLaunchGate.CanPlay(authenticated,
+            ProgressBarManager.DownloadsReady, ProgressBarManager.started);
+        bool canManage = FoxCraftLaunchGate.CanManageInstances(authenticated,
+            loginHandler != null && loginHandler.isDemoMode,
+            ProgressBarManager.DownloadsReady, ProgressBarManager.started);
 
-        if (!loginHandler.isDemoMode)
-        {
-            dropdownMain.interactable = true;
-            modsButton.interactable = true;
-            instancesButton.interactable = true;
-            playButton.interactable = true;
-        }
-        else if (loginHandler.isDemoMode)
-        {
-            dropdownMain.interactable = false;
-            modsButton.interactable = false;
-            instancesButton.interactable = false;
-            playButton.interactable = true;
-        }
-        else
-        {
-            dropdownMain.interactable = false;
-            modsButton.interactable = false;
-            instancesButton.interactable = false;
-            playButton.interactable = false;
-        }
+        dropdownMain.interactable = canManage;
+        modsButton.interactable = canManage;
+        instancesButton.interactable = canManage;
+        playButton.interactable = playReady;
     }
     
     void OnToggleClicked(bool value, Toggle clickedToggle)
