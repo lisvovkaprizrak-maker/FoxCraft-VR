@@ -42,13 +42,15 @@ public class JNIStorage : MonoBehaviour
 
     private void Start()
     {
-		CrashReportHandler.enableCaptureExceptions = false;
         instance = this;
+        if (Application.platform != RuntimePlatform.Android)
+            return;
 
-        // Do not request/activate microphone recording while browsing a phone
-        // launcher menu. Preserve QuestCraft's VR microphone only when the user
-        // has already granted the Android microphone permission.
-        if (!FoxCraftDevice.IsAndroidPhone &&
+        CrashReportHandler.enableCaptureExceptions = false;
+
+        // QuestCraft's VR microphone should never be opened in the flat phone
+        // launcher. A Quest also needs an already-granted Android permission.
+        if (FoxCraftDevice.IsVrHeadset &&
             UnityEngine.Android.Permission.HasUserAuthorizedPermission(
                 UnityEngine.Android.Permission.Microphone) &&
             Microphone.devices.Length > 0)
@@ -56,13 +58,45 @@ public class JNIStorage : MonoBehaviour
             Microphone.Start(Microphone.devices[0], true, 1, 44100);
         }
 
-        apiClass = new AndroidJavaClass("pojlib.API");
-        instancesObj = apiClass.CallStatic<AndroidJavaObject>("loadAll");
-        configHandler.LoadConfig();
-        UpdateInstances();
-	    string headsetModel = OpenXRFeatureSystemInfo.GetHeadsetName();
-        if (!string.IsNullOrEmpty(headsetModel))
-            apiClass.SetStatic("model", headsetModel);
+        try
+        {
+            apiClass = new AndroidJavaClass("pojlib.API");
+            instancesObj = apiClass.CallStatic<AndroidJavaObject>("loadAll");
+            if (instancesObj == null)
+                throw new InvalidOperationException("Pojlib returned no installed Minecraft instances");
+
+            if (configHandler == null || uiHandler == null)
+                throw new InvalidOperationException("QuestCraft launcher scene references are missing");
+
+            configHandler.LoadConfig();
+            UpdateInstances();
+        }
+        catch (Exception exception)
+        {
+            Debug.LogError("[FoxCraft] Launcher initialization failed: " +
+                exception.GetType().Name);
+            if (uiHandler != null)
+                uiHandler.SetAndShowError("Не удалось инициализировать Pojlib/лаунчер. " +
+                    "Проверьте установку FoxCraft и журналы приложения.");
+            return;
+        }
+
+        // OpenXRFeatureSystemInfo is meaningful only on a headset. Querying
+        // it on a phone can fail before the flat Unity camera is initialized.
+        if (FoxCraftDevice.IsVrHeadset)
+        {
+            try
+            {
+                string headsetModel = OpenXRFeatureSystemInfo.GetHeadsetName();
+                if (!string.IsNullOrEmpty(headsetModel))
+                    apiClass.SetStatic("model", headsetModel);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning("[FoxCraft] OpenXR headset name unavailable: " +
+                    exception.GetType().Name);
+            }
+        }
         CheckConnection();
     }
 
