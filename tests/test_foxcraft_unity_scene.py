@@ -65,6 +65,46 @@ class FoxCraftSceneWiringTests(unittest.TestCase):
         self.assertIn("m_RenderMode: 2", main_canvas)
         self.assertIn("m_GameObject: {fileID: 1895559465}", main_canvas)
 
+    def test_collapsed_selector_avoids_existing_bottom_bar_buttons(self):
+        # Source coordinates come from the actual QuestCraft Main.unity
+        # rects, not an invented screenshot or a hard-coded UI mock.
+        canvas = object_block(self.scene, 224, "1895559466")
+        self.assertIn("m_SizeDelta: {x: 1200, y: 600}", canvas)
+        canvas_width = 1200.0
+
+        def bounds(rect_id: str):
+            rect = object_block(self.scene, 224, rect_id)
+            anchor = re.search(r"m_AnchorMin: \\{x: ([-0-9.]+),", rect)
+            position = re.search(r"m_AnchoredPosition: \\{x: ([-0-9.]+),", rect)
+            size = re.search(r"m_SizeDelta: \\{x: ([-0-9.]+),", rect)
+            self.assertTrue(anchor and position and size, rect_id)
+            cx = float(anchor.group(1)) * canvas_width + float(position.group(1))
+            width = float(size.group(1))
+            return cx - width / 2, cx + width / 2
+
+        mode = (ROOT / "Assets/Scripts/FoxCraftLaunchModeMenu.cs").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("toggleRect.anchorMin = new Vector2(1f, 0f)", mode)
+        self.assertIn("new Vector2(90f, 60f)", mode)
+        self.assertIn("new Vector2(-145f, 55f)", mode)
+        toggle_center = canvas_width - 145
+        toggle_left, toggle_right = toggle_center - 45, toggle_center + 45
+
+        for rect_id in (
+            "1773740999",  # Play
+            "2090878023",  # Instances
+            "1146946156",  # Manage instances
+            "287783866",   # Mods
+            "1703774663",  # Settings
+        ):
+            left, right = bounds(rect_id)
+            with self.subTest(button=rect_id):
+                self.assertTrue(
+                    toggle_right <= left or right <= toggle_left,
+                    f"FoxCraft selector overlaps QuestCraft bottom button {rect_id}"
+                )
+
     def test_phone_mode_is_attached_without_replacing_questcraft_scene(self):
         ui = (ROOT / "Assets/Scripts/UIHandler.cs").read_text(encoding="utf-8")
         self.assertIn("AddComponent<FoxCraftLaunchModeMenu>()", ui)
