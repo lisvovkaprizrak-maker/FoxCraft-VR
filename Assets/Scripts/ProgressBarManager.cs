@@ -42,6 +42,21 @@ public class ProgressBarManager : MonoBehaviour
 
         try
         {
+            if (InstanceManager.IsUpdatingProfiles)
+            {
+                DownloadsReady = false;
+                float profileProgress = InstanceManager.IsCreatingProfile
+                    ? JNIStorage.apiClass.CallStatic<float>("getDownloadPercentage")
+                    : 0f;
+                ShowProgress(InstanceManager.IsCreatingProfile
+                    ? "Создание сборки Minecraft…"
+                    : "Удаление сборки Minecraft…", profileProgress);
+                if (playButton != null)
+                    playButton.interactable = false;
+                if (accountDropdown != null)
+                    accountDropdown.interactable = false;
+                return;
+            }
             if (InstanceButton.IsInstallingInstance)
             {
                 DownloadsReady = false;
