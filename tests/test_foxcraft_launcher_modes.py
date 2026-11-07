@@ -86,6 +86,25 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         self.assertIn("authenticated && downloadsReady && !launchInProgress", gate)
         self.assertIn("!demoAccount", gate)
 
+    def test_unity_launcher_restart_clears_stale_jni_and_download_flags(self):
+        storage = read("Assets/Scripts/JNIStorage.cs")
+        progress = read("Assets/Scripts/ProgressBarManager.cs")
+        self.assertIn("Application.unloading -= CloseXR;", storage)
+        self.assertIn("Application.unloading += CloseXR;", storage)
+        startup = storage.split("private void Start()", 1)[1].split(
+            "private void FillSupportedVersions", 1
+        )[0]
+        for assignment in (
+            "apiClass = null;", "accountObj = null;",
+            "instancesObj = null;", "activity = null;"
+        ):
+            self.assertIn(assignment, startup)
+        awake = progress.split("private void Awake()", 1)[1].split(
+            "void Update()", 1
+        )[0]
+        self.assertIn("started = false;", awake)
+        self.assertIn("DownloadsReady = false;", awake)
+
     def test_phone_launch_never_uses_vr_renderer(self):
         button = read("Assets/Scripts/InstanceButton.cs")
         runtime = read("Assets/Scripts/FoxCraftPhoneRuntime.cs")
