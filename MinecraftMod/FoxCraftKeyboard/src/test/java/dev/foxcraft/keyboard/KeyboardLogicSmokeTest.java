@@ -399,6 +399,21 @@ public final class KeyboardLogicSmokeTest {
         require(collapsed.keys().stream().anyMatch(k -> k.command() == KeyboardLayout.Command.EXPAND),
             "Collapsed keyboard can reopen");
 
+        // Regression: exact hand-drawn words must be candidates, not replaced
+        // merely because the small original dictionary omitted them.
+        for (String target : new String[]{"куплю", "донки", "купить", "покупка"}) {
+            var exactStroke = new java.util.ArrayList<GestureWordRecognizer.Point>();
+            for (int letterIndex = 0; letterIndex < target.length(); letterIndex++) {
+                KeyboardLayout.Key letterKey = key(ru.keys(),
+                    target.substring(letterIndex, letterIndex + 1));
+                exactStroke.add(new GestureWordRecognizer.Point(
+                    letterKey.x() + letterKey.width() / 2.,
+                    letterKey.y() + letterKey.height() / 2.));
+            }
+            require(GestureWordRecognizer.suggest(ru, exactStroke, 3).contains(target),
+                "Russian swipe offers exact trajectory word: " + target);
+        }
+
         System.out.println("FoxCraft keyboard logic smoke tests: OK");
     }
 
