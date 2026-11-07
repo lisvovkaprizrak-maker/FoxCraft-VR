@@ -13,6 +13,7 @@ namespace UnityEngine
         public static string persistentDataPath { get; set; }
         public static string streamingAssetsPath { get; set; }
     }
+    public class Texture2D { }
     public class GameObject
     {
         public GameObject() { }
@@ -118,8 +119,14 @@ namespace UnityEditor
         public static BuildTarget activeBuildTarget { get; set; }
         public static bool exportAsGoogleAndroidProject { get; set; }
     }
+    public static class AssetDatabase
+    {
+        public static T LoadAssetAtPath<T>(string path) where T : class { return null; }
+    }
     public static class PlayerSettings
     {
+        public static UnityEngine.Texture2D[] GetIconsForTargetGroup(BuildTargetGroup group) { return Array.Empty<UnityEngine.Texture2D>(); }
+        public static void SetIconsForTargetGroup(BuildTargetGroup group, UnityEngine.Texture2D[] icons) { }
         public static string GetApplicationIdentifier(BuildTargetGroup target) { return null; }
         public static void SetApplicationIdentifier(BuildTargetGroup target, string value) { }
         public static string productName { get; set; }
