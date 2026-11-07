@@ -131,8 +131,19 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
         root.anchoredPosition = new Vector2(0f, 160f);
         panel.GetComponent<Image>().color = new Color(0.045f, 0.05f, 0.07f, 0.95f);
 
-        CreateText("РЕЖИМ ИГРЫ", panel.transform, new Vector2(530f, 30f),
-            new Vector2(0f, 92f), 23, White);
+        CreateText("FOXCRAFT  •  РЕЖИМ ИГРЫ", panel.transform,
+            new Vector2(480f, 32f), new Vector2(35f, 92f), 23, White);
+        Texture2D foxTexture = Resources.Load<Texture2D>("FoxCraftIcon");
+        if (foxTexture != null)
+        {
+            GameObject icon = CreateElement("FoxCraft fox icon", panel.transform,
+                new Vector2(42f, 42f), new Vector2(-238f, 91f));
+            Image image = icon.GetComponent<Image>();
+            image.sprite = Sprite.Create(foxTexture,
+                new Rect(0f, 0f, foxTexture.width, foxTexture.height),
+                new Vector2(0.5f, 0.5f));
+            image.preserveAspect = true;
+        }
 
         CreateModeButton("VR", new Vector2(-137f, 35f),
             ConfigHandler.VrMode, out vrBackground, out vrLabel);
