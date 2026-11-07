@@ -10,11 +10,26 @@ public sealed class FoxCraftPhoneTouchInput : MonoBehaviour
 {
     private IEnumerator Start()
     {
+        if (Application.platform != RuntimePlatform.Android)
+            yield break;
+
+        // Unity Start order is nondeterministic: on non-headset phones the
+        // PackageManager may not yet exist when UIHandler adds this component.
+        // Wait for classification rather than exiting permanently and losing
+        // all touchscreen input. The same 5-second bound is used by DesktopCam.
+        yield return null;
+        float deadline = Time.realtimeSinceStartup + 5f;
+        while (FoxCraftDevice.IsDetectionPending &&
+               Time.realtimeSinceStartup < deadline)
+            yield return null;
+        if (FoxCraftDevice.IsDetectionPending)
+            FoxCraftDevice.CompleteDetectionWithPhoneFallback();
+
+        // On Quest/Pico leave all original XR EventSystem modules untouched.
         if (!FoxCraftDevice.IsAndroidPhone)
             yield break;
 
         // Wait for the original QuestCraft scene's EventSystem to initialize.
-        yield return null;
         EventSystem events = EventSystem.current;
         if (events == null)
         {
