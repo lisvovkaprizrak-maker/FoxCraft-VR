@@ -1233,13 +1233,15 @@ public final class VirtualKeyboardOverlay {
                 FoxCraftVrPlane.beginGrab(hand, "FREE");
             }
         }
-        if (accepted && ("MOVE".equals(menuPage) ||
-            "KEYBOARD_POSITION".equals(menuPage) ||
-            "CHAT_POSITION".equals(menuPage))) {
+        // Grabs on the MAIN keyboard are active directly from its
+        // upper-left chat handle and upper-right keyboard handle.
+        // Other existing settings-page grab controls keep working.
+        // FREE mode has its own independent grab handled above.
+        if (accepted && !freeModeActive && hand == 0) {
             KeyboardLayout.Key key = panel.at(x, y);
-            if (key != null && key.command() == KeyboardLayout.Command.MOVE_GRAB)
-                if (hand == 0)
-                    FoxCraftVrPlane.beginGrab(hand, key.value());
+            if (key != null &&
+                key.command() == KeyboardLayout.Command.MOVE_GRAB)
+                FoxCraftVrPlane.beginGrab(hand, key.value());
         }
         return accepted;
     }
