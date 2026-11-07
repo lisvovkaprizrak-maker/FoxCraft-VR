@@ -271,8 +271,25 @@ public static class SmokeProgram
             Check(backups.Length == 1, "invalid config backed up");
             Check(File.ReadAllText(backups[0]) == "not valid json",
                 "invalid original bytes retained");
-            Check(recovered.config != null && recovered.config.accounts.Count == 0,
-                "recovered launcher has valid fresh defaults");
+            Check(recovered.config != null &&
+                recovered.config.accounts.Count == 1 &&
+                recovered.config.accounts[0].username == "LegacyAccount",
+                "valid previous config restores saved Microsoft accounts");
+            Check(!File.Exists(ConfigHandler.configPath + ".writing"),
+                "temporary config file removed after successful write");
+
+            // A backup can itself be corrupted. Keep the two invalid
+            // originals, and only then fall back to clean defaults.
+            File.WriteAllText(ConfigHandler.configPath + ".previous", "bad backup");
+            File.WriteAllText(ConfigHandler.configPath, "bad primary");
+            ConfigHandler noValidBackup = NewSettings();
+            noValidBackup.LoadConfig();
+            backups = Directory.GetFiles(folder, "launcher.conf.corrupt-*");
+            Check(backups.Length == 2,
+                "later corrupt primary is separately backed up");
+            Check(noValidBackup.config != null &&
+                noValidBackup.config.accounts.Count == 0,
+                "fresh defaults used when primary and previous are invalid");
 
             Console.WriteLine("FoxCraft configuration/login smoke: " +
                 checks + " checks passed.");
