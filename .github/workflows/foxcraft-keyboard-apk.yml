@@ -18,6 +18,8 @@ on:
       - 'tests/test_verify_foxcraft_test_apk.py'
       - 'tests/test_foxcraft_launcher_modes.py'
       - 'Assets/Scripts/ConfigHandler.cs'
+      - 'Assets/Scripts/LoginHandler.cs'
+      - 'tests/unity-login-compile/**'
       - 'Assets/Scripts/FoxCraftLaunchModeMenu.cs'
       - 'Assets/Scripts/FoxCraftPhoneRuntime.cs'
       - 'Assets/Scripts/LoadReleases.cs'
@@ -59,6 +61,8 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Compile launcher C# syntax with Unity API test doubles
         run: dotnet build tests/unity-compile/FoxCraftUnitySyntax.csproj --configuration Release --nologo
+      - name: Compile configuration and Microsoft account login lifecycle
+        run: dotnet build tests/unity-login-compile/FoxCraftLoginSyntax.csproj --configuration Release --nologo
       - name: Verify Minecraft 1.21.5 APK configuration
         run: |
           python3 -m unittest discover -s tests -p 'test_keyboard_apk_pipeline.py' -v
