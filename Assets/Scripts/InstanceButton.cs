@@ -57,16 +57,29 @@ public class InstanceButton : MonoBehaviour
     {
         if (Application.platform != RuntimePlatform.Android) return;
         if (JNIStorage.instance == null || JNIStorage.instance.instancesDropdown == null ||
+            JNIStorage.instance.instancesDropdown.options == null ||
             JNIStorage.instance.instancesDropdown.options.Count == 0)
             return;
-        currInstName = JNIStorage.instance.instancesDropdown.options[JNIStorage.instance.instancesDropdown.value].text;
-        configHandler.SetLastSelectedInstance(JNIStorage.instance.instancesDropdown.value);
+
+        var dropdown = JNIStorage.instance.instancesDropdown;
+        int index = dropdown.value;
+        if (index < 0 || index >= dropdown.options.Count)
+            return;
+        currInstName = dropdown.options[index].text;
+        if (configHandler != null)
+            configHandler.SetLastSelectedInstance(index);
     }
 
     private static void CreateDefaultInstance(string name)
     {
-        JNIStorage.apiClass.CallStatic<AndroidJavaObject>("createNewInstance", JNIStorage.activity, JNIStorage.instancesObj, name, true, name, "Fabric", null);
-        JNIStorage.instance.uiHandler.SetAndShowError(currInstName + " is now installing.");
+        if (string.IsNullOrWhiteSpace(name) || JNIStorage.apiClass == null ||
+            JNIStorage.activity == null || JNIStorage.instancesObj == null)
+            return;
+
+        JNIStorage.apiClass.CallStatic<AndroidJavaObject>("createNewInstance",
+            JNIStorage.activity, JNIStorage.instancesObj, name, true, name,
+            "Fabric", null);
+        JNIStorage.instance.uiHandler.SetAndShowError(name + " is now installing.");
         JNIStorage.instance.UpdateInstances();
     }
 
@@ -105,6 +118,31 @@ public class InstanceButton : MonoBehaviour
             // a headset. The selection is still allowed for future devices.
             uiHandler.SetAndShowError("Для VR-режима нужен совместимый VR-шлем. " +
                 "На телефоне выберите режим ТЕЛЕФОН.");
+            return;
+        }
+
+        // Read the dropdown at the moment of pressing Play. The old static
+        // currInstName may still refer to a previous profile after UI refresh.
+        if (JNIStorage.instance == null ||
+            JNIStorage.instance.instancesDropdown == null ||
+            JNIStorage.instance.instancesDropdown.options == null)
+        {
+            uiHandler.SetAndShowError("Список Minecraft-профилей ещё не загружен.");
+            return;
+        }
+        TMP_Dropdown selectedDropdown = JNIStorage.instance.instancesDropdown;
+        int selectedIndex = selectedDropdown.value;
+        if (selectedIndex < 0 ||
+            selectedIndex >= selectedDropdown.options.Count ||
+            selectedDropdown.options[selectedIndex] == null)
+        {
+            uiHandler.SetAndShowError("Сначала выберите сборку Minecraft.");
+            return;
+        }
+        currInstName = selectedDropdown.options[selectedIndex].text;
+        if (string.IsNullOrWhiteSpace(currInstName))
+        {
+            uiHandler.SetAndShowError("Название сборки Minecraft пустое.");
             return;
         }
 
@@ -159,7 +197,12 @@ public class InstanceButton : MonoBehaviour
         if (state.error != null)
         {
             launchInProgress = false;
-            if (uiHandler != null) uiHandler.SetAndShowError(state.error);
+            ProgressBarManager.started = false;
+            if (uiHandler != null)
+            {
+                uiHandler.KillSetter();
+                uiHandler.SetAndShowError(state.error);
+            }
             else Debug.LogError("[FoxCraft] " + state.error);
             yield break;
         }
@@ -213,7 +256,12 @@ public class InstanceButton : MonoBehaviour
                     mainThread.Post(_ =>
                     {
                         launchInProgress = false;
-                        if (uiHandler != null) uiHandler.SetAndShowError(message);
+                        ProgressBarManager.started = false;
+                        if (uiHandler != null)
+                        {
+                            uiHandler.KillSetter();
+                            uiHandler.SetAndShowError(message);
+                        }
                         else Debug.LogError("[FoxCraft] " + message);
                     }, null);
                 else
