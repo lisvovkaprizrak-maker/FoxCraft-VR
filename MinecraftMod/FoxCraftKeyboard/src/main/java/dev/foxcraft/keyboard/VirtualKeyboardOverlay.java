@@ -238,7 +238,7 @@ public final class VirtualKeyboardOverlay {
                         new String[]{"УДЕРЖИ: КЛАВ", "УДЕРЖИ: ПОЛЕ",
                             "УДЕРЖИ: ЧАТ", "КЛАВ ↑", "КЛАВ ↓",
                             "ПОЛЕ ↑", "ПОЛЕ ↓", "ЧАТ ↑", "ЧАТ ↓",
-                            "← Назад"},
+                            "СБРОС ПОЛОЖ.", "← Назад"},
                         new KeyboardLayout.Command[]{KeyboardLayout.Command.MOVE_GRAB,
                             KeyboardLayout.Command.MOVE_GRAB,
                             KeyboardLayout.Command.MOVE_GRAB,
@@ -248,10 +248,11 @@ public final class VirtualKeyboardOverlay {
                             KeyboardLayout.Command.ADJUST_OPTION,
                             KeyboardLayout.Command.ADJUST_OPTION,
                             KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.MOVE_RESET,
                             KeyboardLayout.Command.SETTINGS_HOME},
                         new String[]{"KEYBOARD", "INPUT", "HISTORY",
                             "KB_UP", "KB_DOWN", "FIELD_UP", "FIELD_DOWN",
-                            "CHAT_UP", "CHAT_DOWN", ""});
+                            "CHAT_UP", "CHAT_DOWN", "", ""});
                     case "KEYBOARD_OPTS" -> KeyboardLayout.toolMenu(panel,
                         new String[]{"РАЗМЕР −", "РАЗМЕР +", "БЛИЖЕ", "ДАЛЬШЕ",
                             "НАКЛОН −", "НАКЛОН +", "ПРОЗР. −",
@@ -1256,6 +1257,7 @@ public final class VirtualKeyboardOverlay {
         boolean deleteSwipeWord = result.key().command() ==
             KeyboardLayout.Command.BACKSPACE && validLastSwipe(field);
         int swipeLength = deleteSwipeWord ? lastInsertedWord.length() +
+            lastInsertedSuffix.length() +
             (lastSwipeLeadingSpace ? 1 : 0) : 0;
         clearSuggestions();
         if (deleteSwipeWord) {
