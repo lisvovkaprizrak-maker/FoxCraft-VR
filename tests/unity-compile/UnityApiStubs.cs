@@ -54,9 +54,24 @@ namespace UnityEngine
     {
         public AndroidJavaObject() { }
         public AndroidJavaObject(string className, params object[] args) { }
+        public static bool VrTrackingFeature;
+        public static bool OculusVrFeature;
         public void Call(string method, params object[] args) { }
         public T Get<T>(string field) { return default(T); }
-        public T Call<T>(string method, params object[] args) { return default(T); }
+        public T Call<T>(string method, params object[] args)
+        {
+            if (method == "getPackageManager")
+                return (T)(object)new AndroidJavaObject();
+            if (method == "hasSystemFeature" && args.Length > 0)
+            {
+                string feature = args[0] as string;
+                bool result = feature == "android.hardware.vr.headtracking"
+                    ? VrTrackingFeature : feature == "com.oculus.feature.VR" &&
+                    OculusVrFeature;
+                return (T)(object)result;
+            }
+            return default(T);
+        }
         public void Dispose() { }
     }
     public class AndroidJavaClass : AndroidJavaObject
@@ -72,6 +87,8 @@ namespace UnityEngine
         {
             if (field == "gameReady")
                 return (T)(object)GameReady;
+            if (field == "currentActivity")
+                return (T)(object)JNIStorage.activity;
             return default(T);
         }
         public T CallStatic<T>(string method, params object[] args)
