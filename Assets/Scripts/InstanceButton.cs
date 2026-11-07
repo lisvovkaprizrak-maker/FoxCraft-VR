@@ -18,6 +18,10 @@ public class InstanceButton : MonoBehaviour
     public CanvasGroup ScreenFade;
     bool gameReady = false;
     private bool launchInProgress;
+    private const float PrelaunchTimeoutSeconds = 150f;
+    // A timed-out Java worker cannot be safely killed. Keep blocking duplicate
+    // prelaunch calls until that worker actually terminates.
+    private PrelaunchState pendingPrelaunch;
 
     public void Update()
     {
@@ -94,6 +98,17 @@ public class InstanceButton : MonoBehaviour
     {
         if (Application.platform != RuntimePlatform.Android || launchInProgress)
             return;
+        if (pendingPrelaunch != null)
+        {
+            if (!pendingPrelaunch.completed)
+            {
+                if (uiHandler != null)
+                    uiHandler.SetAndShowError("Предыдущая подготовка Minecraft " +
+                        "ещё выполняется. Для безопасного повтора перезапустите FoxCraft.");
+                return;
+            }
+            pendingPrelaunch = null;
+        }
 
         if (JNIStorage.accountObj == null)
         {
@@ -168,6 +183,7 @@ public class InstanceButton : MonoBehaviour
         // differ, so the JNI return signature must match the shipped AAR.
         // Prelaunch updates installed mods; run it before staging FoxCraft.
         PrelaunchState state = new PrelaunchState();
+        pendingPrelaunch = state;
         Thread worker = new Thread(() =>
         {
             bool attached = false;
@@ -193,7 +209,25 @@ public class InstanceButton : MonoBehaviour
         worker.IsBackground = true;
         worker.Start();
 
-        while (!state.completed) yield return null;
+        float deadline = Time.realtimeSinceStartup + PrelaunchTimeoutSeconds;
+        while (!state.completed && Time.realtimeSinceStartup < deadline)
+            yield return null;
+        if (!state.completed)
+        {
+            // The Java worker may still be changing instance files. Unlock
+            // the UI but prevent another launch until it finishes or the app
+            // restarts. Thread.Abort would risk corrupting the Minecraft JRE.
+            launchInProgress = false;
+            ProgressBarManager.started = false;
+            if (uiHandler != null)
+            {
+                uiHandler.KillSetter();
+                uiHandler.SetAndShowError("Подготовка Minecraft превысила " +
+                    "150 секунд. Перезапустите FoxCraft перед повторным запуском.");
+            }
+            yield break;
+        }
+        pendingPrelaunch = null;
         if (state.error != null)
         {
             launchInProgress = false;
