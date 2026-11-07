@@ -9,6 +9,7 @@ import java.io.IOException;
 public final class KeyboardLogicSmokeTest {
     public static void main(String[] args) {
         testQuickMessageComposer();
+        testPersistentOptions();
         testQuickBinds();
         // Regression: on Quest, the world-selection text field must not
         // display FoxCraft over the menu, while in-world chat stays usable
@@ -803,6 +804,47 @@ public final class KeyboardLogicSmokeTest {
             require(editor.at(key.x() + key.width() / 2.0,
                 key.y() + key.height() / 2.0) != null,
                 "Composer keys must remain hit-testable by VR controllers");
+    }
+
+    private static void testPersistentOptions() {
+        try {
+            Path dir = Files.createTempDirectory("foxcraft-options");
+            Path options = dir.resolve("settings.properties");
+            Path binds = dir.resolve("binds.properties");
+            FoxCraftFeatureSettings prefs = new FoxCraftFeatureSettings(options);
+            require(prefs.inputY() == 0 && prefs.historyHeight() == 0f &&
+                prefs.keyboardSize() == 100, "VR defaults must be reachable");
+            prefs.adjustInputY(-12);
+            prefs.adjustHistoryHeight(8);
+            prefs.adjustKeyboardSize(20);
+            prefs.adjustKeyboardTilt(5);
+            prefs.togglePositionLock();
+            FoxCraftFeatureSettings fresh = new FoxCraftFeatureSettings(options);
+            require(fresh.inputY() == -12 &&
+                Math.abs(fresh.historyHeight() - 0.08f) < 0.001f &&
+                fresh.keyboardSize() == 120 && fresh.keyboardTilt() == -25 &&
+                fresh.positionLocked(),
+                "Independent VR position settings survive restart");
+            fresh.resetAllVisualSettings();
+            require(new FoxCraftFeatureSettings(options).inputY() == 0 &&
+                !new FoxCraftFeatureSettings(options).positionLocked(),
+                "Confirmed reset restores defaults");
+            QuickBindingStore quick = new QuickBindingStore(binds);
+            require(!quick.autoSend(0), "Text bind auto-send defaults OFF");
+            quick.toggleAutoSend(0);
+            require(new QuickBindingStore(binds).autoSend(0),
+                "Auto-send checkbox persists per bind");
+            require(!quick.autoSend(1),
+                "Other binds retain independent auto-send flags");
+            quick.remove(0);
+            require(!new QuickBindingStore(binds).autoSend(0),
+                "Deleted bind auto-send state does not leak to next slot");
+            Files.deleteIfExists(options);
+            Files.deleteIfExists(binds);
+            Files.deleteIfExists(dir);
+        } catch (IOException error) {
+            throw new AssertionError("VR preferences persistence smoke test failed", error);
+        }
     }
 
     private static void require(boolean condition, String message) {
