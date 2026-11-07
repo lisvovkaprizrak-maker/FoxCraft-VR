@@ -1003,6 +1003,20 @@ public final class KeyboardLogicSmokeTest {
                 fresh.keyboardSize() == 120 && fresh.keyboardTilt() == -25 &&
                 fresh.positionLocked(),
                 "Independent VR position settings survive restart");
+            // Reset the keyboard without affecting chat history or the input.
+            fresh.move(0.25f, 0.15f, 0.12f);
+            fresh.resetKeyboardPosition();
+            require(fresh.offsetRight() == 0f && fresh.offsetDown() == 0f &&
+                fresh.offsetForward() == 0f && fresh.inputY() == -12 &&
+                Math.abs(fresh.historyHeight() - 0.08f) < 0.001f,
+                "Keyboard reset must not move chat or its input field");
+            fresh.move(0.2f, 0.1f, -0.1f);
+            fresh.resetChatPosition();
+            require(Math.abs(fresh.offsetRight() - 0.2f) < 0.001f &&
+                Math.abs(fresh.offsetDown() - 0.1f) < 0.001f &&
+                Math.abs(fresh.offsetForward() + 0.1f) < 0.001f &&
+                fresh.inputY() == 0 && fresh.historyHeight() == 0f,
+                "Chat reset must not move the independently positioned keyboard");
             fresh.resetAllVisualSettings();
             require(new FoxCraftFeatureSettings(options).inputY() == 0 &&
                 !new FoxCraftFeatureSettings(options).positionLocked(),
