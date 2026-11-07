@@ -34,7 +34,102 @@ public final class GestureWordRecognizer {
     private static final String[] RU_WORDS = (RU_EXTRA + " " + RU).strip().split("\\s+");
     private static final String[] EN_WORDS = EN.strip().split("\\s+");
 
+    // Built-in resources are loaded once (never per-frame, never over network).
+    // Each corpus block preserves descending word frequency from the source.
+    private static final int CORPUS_PARTS = 7;
+    private static volatile List<String> userWords = List.of();
+    private static volatile Lexicon indexed;
+
+    private record Entry(String word, int rank, char last) {}
+    private record Lexicon(Map<Character, List<Entry>> ru,
+                           Map<Character, List<Entry>> en,
+                           int russianCount) {}
+
     private GestureWordRecognizer() {}
+
+    public static void setPersonalWords(List<String> updated) {
+        java.util.LinkedHashSet<String> filtered = new java.util.LinkedHashSet<>();
+        if (updated != null) {
+            for (String value : updated) {
+                String normalized = FoxCraftUserWords.normalize(value);
+                if (!normalized.isEmpty()) filtered.add(normalized);
+                if (filtered.size() >= FoxCraftUserWords.MAX_WORDS) break;
+            }
+        }
+        userWords = List.copyOf(filtered);
+        indexed = null;
+    }
+
+    /** Number of available offline Russian words, including user additions. */
+    public static int russianVocabularySize() {
+        return vocabulary().russianCount();
+    }
+
+    private static Lexicon vocabulary() {
+        Lexicon current = indexed;
+        if (current != null) return current;
+        synchronized (GestureWordRecognizer.class) {
+            current = indexed;
+            if (current != null) return current;
+            java.util.LinkedHashMap<String, Integer> ru = new java.util.LinkedHashMap<>();
+            java.util.LinkedHashMap<String, Integer> en = new java.util.LinkedHashMap<>();
+            int rank = 0;
+            // User words are placed first, so an exact custom shape is never
+            // crushed by corpus frequency or thousands of rare homographs.
+            for (String word : userWords) {
+                if (isRussian(word)) ru.putIfAbsent(word, -1000);
+                else en.putIfAbsent(word, -1000);
+            }
+            for (String word : RU_WORDS) {
+                if (isRussian(word)) ru.putIfAbsent(word, rank++);
+            }
+            for (int part = 0; part < CORPUS_PARTS; part++) {
+                String name = "/foxcraft/dictionary_ru_" + part + ".txt";
+                try (java.io.InputStream stream =
+                        GestureWordRecognizer.class.getResourceAsStream(name)) {
+                    if (stream == null) continue;
+                    try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                            new java.io.InputStreamReader(stream,
+                                java.nio.charset.StandardCharsets.UTF_8))) {
+                        String word;
+                        while ((word = reader.readLine()) != null) {
+                            if (isRussian(word)) ru.putIfAbsent(word, rank++);
+                        }
+                    }
+                } catch (java.io.IOException ignored) {
+                    // Bundled words already in the mod still work.
+                }
+            }
+            for (String word : EN_WORDS)
+                if (isEnglish(word)) en.putIfAbsent(word, en.size());
+            current = new Lexicon(indexFirst(ru), indexFirst(en), ru.size());
+            indexed = current;
+            return current;
+        }
+    }
+
+    private static boolean isRussian(String word) {
+        return word != null && word.length() >= 2 &&
+            word.length() <= 24 && word.matches("[а-яё]+");
+    }
+    private static boolean isEnglish(String word) {
+        return word != null && word.length() >= 2 &&
+            word.length() <= 24 && word.matches("[a-z]+");
+    }
+
+    /** Index on the starting letter: most words are rejected without shape work. */
+    private static Map<Character, List<Entry>> indexFirst(
+            Map<String, Integer> words) {
+        Map<Character, List<Entry>> output = new HashMap<>();
+        for (Map.Entry<String, Integer> word : words.entrySet()) {
+            String value = word.getKey();
+            char first = value.charAt(0);
+            output.computeIfAbsent(first, k -> new ArrayList<>())
+                .add(new Entry(value, word.getValue(),
+                    value.charAt(value.length() - 1)));
+        }
+        return output;
+    }
 
     public static List<String> suggest(KeyboardLayout.Panel panel, List<Point> stroke,
                                        int maxResults) {
@@ -51,35 +146,45 @@ public final class GestureWordRecognizer {
         }
         boolean russian = positions.containsKey("й");
         if (russian) positions.put("ё", positions.get("е"));
-        String[] dictionary = russian ? RU_WORDS : EN_WORDS;
+        Map<Character, List<Entry>> buckets = russian ?
+            vocabulary().ru() : vocabulary().en();
         List<Point> trace = resample(stroke, 24);
         if (trace.size() < 2) return List.of();
         Point start = stroke.get(0), end = stroke.get(stroke.size() - 1);
         double sx = Math.max(9.0, panel.width() / (russian ? 12.0 : 10.0));
         double sy = Math.max(9.0, panel.height() / 7.0);
         List<Match> matches = new ArrayList<>();
-        for (int rank = 0; rank < dictionary.length; rank++) {
-            String word = dictionary[rank];
-            if (word.length() < 2 || word.length() > 20) continue;
-            List<Point> letters = new ArrayList<>(word.length());
-            boolean known = true;
-            for (int i = 0; i < word.length(); i++) {
-                Point pos = positions.get(word.substring(i, i+1));
-                if (pos == null) { known = false; break; }
-                letters.add(pos);
+        for (Map.Entry<String, Point> letter : positions.entrySet()) {
+            if (squared(start, letter.getValue(), sx, sy) > 2.5) continue;
+            List<Entry> candidates = buckets.get(letter.getKey().charAt(0));
+            if (candidates == null) continue;
+            for (Entry candidate : candidates) {
+                String word = candidate.word();
+                Point last = positions.get(String.valueOf(candidate.last()));
+                if (last == null) continue;
+                double ending = squared(end, last, sx, sy);
+                if (ending > 2.5) continue;
+                // Shortlist via endpoints BEFORE allocating/resampling letter paths.
+                List<Point> letters = new ArrayList<>(word.length());
+                boolean known = true;
+                for (int i = 0; i < word.length(); i++) {
+                    Point pos = positions.get(word.substring(i, i + 1));
+                    if (pos == null) { known = false; break; }
+                    letters.add(pos);
+                }
+                if (!known) continue;
+                List<Point> expected = resample(letters, trace.size());
+                if (expected.size() != trace.size()) continue;
+                double shape = 0;
+                for (int j = 0; j < trace.size(); j++)
+                    shape += squared(trace.get(j), expected.get(j), sx, sy);
+                shape /= trace.size();
+                double first = squared(start, letters.get(0), sx, sy);
+                double score = shape + 0.27 * (first + ending) +
+                    (candidate.rank() < 0 ? -0.12 :
+                        Math.log1p(candidate.rank()) * 0.008);
+                if (score <= 2.2) matches.add(new Match(word, score));
             }
-            if (!known) continue;
-            double first = squared(start, letters.get(0), sx, sy);
-            double last = squared(end, letters.get(letters.size()-1), sx, sy);
-            if (first > 2.5 || last > 2.5) continue;
-            List<Point> expected = resample(letters, trace.size());
-            double shape = 0;
-            for (int j = 0; j < trace.size(); j++)
-                shape += squared(trace.get(j), expected.get(j), sx, sy);
-            shape /= trace.size();
-            double score = shape + 0.27 * (first + last) +
-                Math.log1p(rank) * 0.008;
-            if (score <= 2.2) matches.add(new Match(word, score));
         }
         matches.sort(Comparator.comparingDouble(Match::score));
         List<String> result = new ArrayList<>();
