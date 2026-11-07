@@ -16,7 +16,16 @@ public final class FreeKeyboardGameInput {
 
     public void tapModifier(String name) {
         int bit = FreeKeyboardKeys.modifierBit(name);
-        if (bit != 0) stickyModifiers ^= bit;
+        if (bit == 0) return;
+        int code = FreeKeyboardKeys.keyCode(name);
+        boolean alreadyOn = (stickyModifiers & bit) != 0;
+        if (alreadyOn) {
+            stickyModifiers &= ~bit;
+            send(code, GLFW.GLFW_RELEASE);
+        } else {
+            stickyModifiers |= bit;
+            send(code, GLFW.GLFW_PRESS);
+        }
     }
 
     public boolean modifierOn(String name) {
@@ -41,7 +50,14 @@ public final class FreeKeyboardGameInput {
             pressed.remove(key);
             send(key, GLFW.GLFW_RELEASE);
         }
-        stickyModifiers = 0;
+        // Modifier-down events must be paired even when leaving FREE mode.
+        for (String name : new String[]{"CTRL", "SHIFT", "ALT"}) {
+            int bit = FreeKeyboardKeys.modifierBit(name);
+            if ((stickyModifiers & bit) != 0) {
+                stickyModifiers &= ~bit;
+                send(FreeKeyboardKeys.keyCode(name), GLFW.GLFW_RELEASE);
+            }
+        }
     }
 
     private void send(int key, int action) {
