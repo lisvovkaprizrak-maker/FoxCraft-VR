@@ -275,18 +275,36 @@ public class InstanceButton : MonoBehaviour
 
     public void KillInstance()
     {
+        if (JNIStorage.apiClass == null || JNIStorage.activity == null)
+            return;
         JNIStorage.apiClass.CallStatic("restartLauncher", JNIStorage.activity);
     }
 
-    public async void MirrorNativesForInstance()
+    public void MirrorNativesForInstance()
     {
-        PojlibInstance instance = JNIStorage.GetInstance(currInstName);
-        JNIStorage.apiClass.CallStatic("mirrorNativesInFolder", JNIStorage.activity, JNIStorage.instancesObj, instance.raw, Path.Combine(Application.persistentDataPath, "natives"));
+        PojlibInstance selected = JNIStorage.GetInstance(currInstName);
+        if (selected == null || JNIStorage.apiClass == null ||
+            JNIStorage.activity == null || JNIStorage.instancesObj == null)
+        {
+            if (uiHandler != null)
+                uiHandler.SetAndShowError("Сначала установите и выберите сборку Minecraft.");
+            return;
+        }
+        JNIStorage.apiClass.CallStatic("mirrorNativesInFolder",
+            JNIStorage.activity, JNIStorage.instancesObj, selected.raw,
+            Path.Combine(Application.persistentDataPath, "natives"));
     }
 
-    public async void ImportSaves()
+    public void ImportSaves()
     {
-        PojlibInstance instance = JNIStorage.GetInstance(currInstName);
-        JNIStorage.apiClass.CallStatic("unzipSavesFromFolder", instance.raw, Path.Combine(Application.persistentDataPath, "import-saves"));
+        PojlibInstance selected = JNIStorage.GetInstance(currInstName);
+        if (selected == null || JNIStorage.apiClass == null)
+        {
+            if (uiHandler != null)
+                uiHandler.SetAndShowError("Сначала установите и выберите сборку Minecraft.");
+            return;
+        }
+        JNIStorage.apiClass.CallStatic("unzipSavesFromFolder",
+            selected.raw, Path.Combine(Application.persistentDataPath, "import-saves"));
     }
 }
