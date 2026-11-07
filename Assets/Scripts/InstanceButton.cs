@@ -5,7 +5,6 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using TMPro;
 using UnityEngine;
 using UnityEngine.XR;
 using UnityEngine.XR.Management;
@@ -131,7 +130,7 @@ public class InstanceButton : MonoBehaviour
             uiHandler.SetAndShowError("Список Minecraft-профилей ещё не загружен.");
             return;
         }
-        TMP_Dropdown selectedDropdown = JNIStorage.instance.instancesDropdown;
+        var selectedDropdown = JNIStorage.instance.instancesDropdown;
         int selectedIndex = selectedDropdown.value;
         if (selectedIndex < 0 ||
             selectedIndex >= selectedDropdown.options.Count ||
