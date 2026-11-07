@@ -24,14 +24,39 @@ public final class FoxCraftGuiClickInput {
         }
     }
 
+    /** The left index trigger may be mapped to ordinary Use by QuestCraft. */
+    public static Object optionalLeftUseBinding() {
+        try {
+            Class<?> clientClass = Class.forName("net.minecraft.client.MinecraftClient");
+            Object mc = clientClass.getMethod("getInstance").invoke(null);
+            Object options = clientClass.getField("options").get(mc);
+            return options.getClass().getField("useKey").get(options);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return null;
+        }
+    }
+
     public static boolean pressed(Object provider, Object hand, Object keyboardClick,
                                   Object guiLeftClick, Object guiRightClick) {
+        return pressed(provider, hand, keyboardClick, guiLeftClick, guiRightClick, null);
+    }
+
+    /**
+     * Optional read-only left-index Use fallback. This is NOT a remapping:
+     * it never changes Minecraft controls and only clicks when the action's
+     * actual OpenXR origin belongs to the LEFT physical controller.
+     * A right-trigger/Use event cannot fire the left ray.
+     */
+    public static boolean pressed(Object provider, Object hand, Object keyboardClick,
+                                  Object guiLeftClick, Object guiRightClick, Object leftUse) {
         if (provider == null || hand == null) return false;
         // All paths use the SAME origin validation. Do not call isDown()
         // directly even for the special Vivecraft handed keyboard action.
         return pressedFromOrigin(provider, hand, guiLeftClick) ||
             pressedFromOrigin(provider, hand, guiRightClick) ||
-            pressedFromOrigin(provider, hand, keyboardClick);
+            pressedFromOrigin(provider, hand, keyboardClick) ||
+            (hand instanceof Enum<?> e && "LEFT".equals(e.name()) &&
+             pressedFromOrigin(provider, hand, leftUse));
     }
 
     private static boolean pressedFromOrigin(Object provider, Object hand, Object binding) {
