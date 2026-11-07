@@ -119,6 +119,9 @@ public final class VirtualKeyboardOverlay {
     private boolean previousLanguageRussian = true, previousSymbols, previousShift;
 
     public boolean isFreeMode() { return freeModeActive; }
+    public boolean isFreeSettingsOpen() {
+        return freeModeActive && "FREE_SETTINGS".equals(menuPage);
+    }
 
     /** Clear held game keys whenever a mod opens its own GUI. */
     public void suspendFreeKeys() {
@@ -297,7 +300,19 @@ public final class VirtualKeyboardOverlay {
                 preferredWidth, featurePrefs.wordSuggestions()
                     ? suggestions : List.of(), chatInputBottomY, detached);
             if (freeModeActive && panel != null) {
-                panel = KeyboardLayout.freeKeyboard(panel);
+                if ("FREE_SETTINGS".equals(menuPage)) {
+                    panel = KeyboardLayout.toolMenu(panel,
+                        new String[]{"РАЗМЕР: " + featurePrefs.freeKeyboardSize() + "%",
+                            "− УМЕНЬШИТЬ", "+ УВЕЛИЧИТЬ",
+                            "100% ПО УМОЛЧАНИЮ", "← К КЛАВИАТУРЕ"},
+                        new KeyboardLayout.Command[]{KeyboardLayout.Command.NONE,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.BACK_TO_KEYS},
+                        new String[]{"", "FREE_SIZE_DOWN", "FREE_SIZE_UP",
+                            "FREE_SIZE_RESET", ""});
+                } else panel = KeyboardLayout.freeKeyboard(panel);
             } else if (settingsOpen && panel != null) {
                 panel = switch (menuPage) {
                     case "THEMES" -> KeyboardLayout.themeMenu(panel, theme.name());
@@ -1346,6 +1361,17 @@ public final class VirtualKeyboardOverlay {
             switch (result.key().command()) {
                 case FREE_RETURN -> leaveFreeMode();
                 case FREE_MODIFIER -> { gameKeys.tapModifier(result.key().value()); panel = null; }
+                case SETTINGS -> openPage("FREE_SETTINGS");
+                case BACK_TO_KEYS, SETTINGS_HOME -> openPage("FREE");
+                case ADJUST_OPTION -> {
+                    switch (result.key().value()) {
+                        case "FREE_SIZE_DOWN" -> featurePrefs.adjustFreeKeyboardSize(-5);
+                        case "FREE_SIZE_UP" -> featurePrefs.adjustFreeKeyboardSize(5);
+                        case "FREE_SIZE_RESET" -> featurePrefs.resetFreeKeyboardSize();
+                        default -> { }
+                    }
+                    panel = null;
+                }
                 default -> { }
             }
             return;

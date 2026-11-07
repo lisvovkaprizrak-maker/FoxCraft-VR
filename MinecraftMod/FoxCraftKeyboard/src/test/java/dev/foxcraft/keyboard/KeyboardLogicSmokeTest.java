@@ -14,6 +14,7 @@ public final class KeyboardLogicSmokeTest {
         testLargeOfflineDictionaryAndPersonalWords();
         testQuickBinds();
         testFreeKeyboard();
+        testFreeKeyboardGameplayGuard();
         testPrimaryVrDragHandles();
         // Regression: on Quest, the world-selection text field must not
         // display FoxCraft over the menu, while in-world chat stays usable
@@ -716,6 +717,11 @@ public final class KeyboardLogicSmokeTest {
                 "GLFW game key mapping " + name);
         }
         require(free.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.SETTINGS &&
+            k.x() > en.x() + en.width() * 3 / 4 &&
+            k.y() < en.y() + 26),
+            "The free keyboard must have its own top-right settings gear");
+        require(free.keys().stream().anyMatch(k ->
             k.command() == KeyboardLayout.Command.FREE_RETURN),
             "Free mode must return to normal chat keyboard");
         require(free.keys().stream().anyMatch(k ->
@@ -735,6 +741,24 @@ public final class KeyboardLogicSmokeTest {
         require(FreeKeyboardKeys.keyCode("F13") == -1 &&
             FreeKeyboardKeys.keyCode("HELLO") == -1,
             "Reject unsupported game-key sequences");
+    }
+
+    private static void testFreeKeyboardGameplayGuard() {
+        FreeKeyboardHitGuard guard = new FreeKeyboardHitGuard();
+        require(!guard.blocks(false), "Off-keyboard controls must work normally");
+        require(guard.blocks(true), "Hovering keyboard blocks world actions");
+        guard.update(0, true, true);
+        require(guard.blocks(false), "A pressed key captures the trigger");
+        guard.update(0, true, false);
+        require(guard.blocks(false), "Dragging off the key must not mine blocks");
+        guard.update(0, false, false);
+        require(!guard.blocks(false), "Release restores game controls");
+        guard.update(1, true, false);
+        require(!guard.blocks(false), "Off-keyboard trigger remains unmodified");
+        guard.update(1, true, true);
+        require(guard.blocks(false), "Left-hand key presses must be captured");
+        guard.clear();
+        require(!guard.blocks(false), "Closing the keyboard clears the capture");
     }
 
     private static void testQuickBinds() {
@@ -1092,12 +1116,22 @@ public final class KeyboardLogicSmokeTest {
             prefs.adjustInputY(-12);
             prefs.adjustHistoryHeight(8);
             prefs.adjustKeyboardSize(20);
+            prefs.adjustFreeKeyboardSize(-95);
+            require(prefs.freeKeyboardSize() == 5,
+                "Free keyboard can shrink to 5% independently");
+            prefs.adjustFreeKeyboardSize(-20);
+            require(prefs.freeKeyboardSize() == 5,
+                "Free size must not underflow");
+            prefs.adjustFreeKeyboardSize(135);
+            require(prefs.freeKeyboardSize() == 140,
+                "Free size can increase up to 140%");
             prefs.adjustKeyboardTilt(5);
             prefs.togglePositionLock();
             FoxCraftFeatureSettings fresh = new FoxCraftFeatureSettings(options);
             require(fresh.inputY() == -12 &&
                 Math.abs(fresh.historyHeight() - 0.08f) < 0.001f &&
-                fresh.keyboardSize() == 120 && fresh.keyboardTilt() == -25 &&
+                fresh.keyboardSize() == 120 && fresh.freeKeyboardSize() == 140 &&
+                fresh.keyboardTilt() == -25 &&
                 fresh.positionLocked(),
                 "Independent VR position settings survive restart");
             // Reset the keyboard without affecting chat history or the input.
@@ -1124,6 +1158,7 @@ public final class KeyboardLogicSmokeTest {
                 "Chat reset must not move the independently positioned keyboard");
             fresh.resetAllVisualSettings();
             require(new FoxCraftFeatureSettings(options).inputY() == 0 &&
+                new FoxCraftFeatureSettings(options).freeKeyboardSize() == 100 &&
                 !new FoxCraftFeatureSettings(options).positionLocked(),
                 "Confirmed reset restores defaults");
             QuickBindingStore quick = new QuickBindingStore(binds);

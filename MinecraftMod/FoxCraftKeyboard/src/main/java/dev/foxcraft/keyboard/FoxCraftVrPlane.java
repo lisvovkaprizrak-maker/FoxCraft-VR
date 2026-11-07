@@ -194,6 +194,8 @@ public final class FoxCraftVrPlane {
 
     // One ray and one press latch per controller; swipe paths stay separate.
     private static final boolean[] wasPressed = new boolean[2];
+    // Keep a keyboard-origin trigger exclusive to the keyboard until release.
+    private static final FreeKeyboardHitGuard gameplayGuard = new FreeKeyboardHitGuard();
     private static final double[] cursorX = new double[]{-100, -100};
     private static final double[] cursorY = new double[]{-100, -100};
 
@@ -210,6 +212,7 @@ public final class FoxCraftVrPlane {
     private FoxCraftVrPlane() {}
 
     public static void attach(VirtualKeyboardOverlay overlay) {
+        gameplayGuard.clear();
         keyboard = overlay;
     }
 
@@ -296,8 +299,48 @@ public final class FoxCraftVrPlane {
      * controls remain untouched.
      */
     public static boolean interceptsGameplayControls() {
-        return keyboard != null && keyboard.isFreeMode() &&
-            (isPointingAtKeyboard(0) || isPointingAtKeyboard(1));
+        if (keyboard == null || disabled || !keyboard.isFreeMode() ||
+            !isKeyboardActive()) return false;
+        // Rendered cursor positions can be a frame old when Minecraft's
+        // input tick runs BEFORE the next VR render. Project the live ray.
+        return gameplayGuard.blocks(
+            liveKeyboardHit(0) || liveKeyboardHit(1));
+    }
+
+    private static boolean liveKeyboardHit(int hand) {
+        if (keyboard == null || position == null || rotation == null ||
+            uiWidth <= 0 || uiHeight <= 0 || scale <= 0) return false;
+        FoxCraftFeatureSettings pref = keyboard.features();
+        if (hand == 0 ? !pref.rightHand() : !pref.leftHand()) return false;
+        try {
+            Object holder = Class.forName("org.vivecraft.client_vr.ClientDataHolderVR")
+                .getMethod("getInstance").invoke(null);
+            Object provider = holder.getClass().getField("vr").get(holder);
+            if (!(Boolean) provider.getClass()
+                .getMethod("isControllerTracking", int.class).invoke(provider, hand))
+                return false;
+            Object player = holder.getClass().getField("vrPlayer").get(holder);
+            Object room = player.getClass().getField("vrdata_room_pre").get(player);
+            Object controller = room.getClass().getMethod("getController", int.class)
+                .invoke(room, hand);
+            Class<?> gui = Class.forName(
+                "org.vivecraft.client_vr.gameplay.screenhandlers.GuiHandler");
+            for (Method method : gui.getMethods()) {
+                if (!method.getName().equals("getTexCoordsForCursor") ||
+                    method.getParameterCount() != 4) continue;
+                Object uv = method.invoke(null, position, rotation, scale, controller);
+                double u = ((Number) uv.getClass().getMethod("x").invoke(uv))
+                    .doubleValue();
+                double v = ((Number) uv.getClass().getMethod("y").invoke(uv))
+                    .doubleValue();
+                return u >= 0 && u <= 1 && v >= 0 && v <= 1 &&
+                    keyboard.detachedContains(u * uiWidth, v * uiHeight);
+            }
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            // Older QuestCraft forks can lack a live projector. Preserve the
+            // last valid ray rather than allowing click-through on a key.
+        }
+        return isPointingAtKeyboard(hand);
     }
 
     public static boolean interceptsMainGuiMouse() {
@@ -319,6 +362,7 @@ public final class FoxCraftVrPlane {
             keyboard.suspendFreeKeys();
             finishGrab(grabHand);
             wasPressed[0] = wasPressed[1] = false;
+            gameplayGuard.clear();
             ready = false;
             releaseBuffer();
             return;
@@ -391,9 +435,15 @@ public final class FoxCraftVrPlane {
                         (forward + (free ? settings.freeForward() : settings.offsetForward())) * guiScale))
                 .add(rotation.transformDirection(new Vector3f(0, 0, 1),
                     new Vector3f()).mul(TOWARDS_PLAYER * guiScale));
-            scale = Math.max(0.25f, guiScale *
+            // FREE has a separately saved 5–140% scale. Keep its settings
+            // page usable even if the player shrinks the keys to 5%.
+            float sizePercent = free ? settings.freeKeyboardSize()
+                : settings.keyboardSize();
+            if (free && keyboard.isFreeSettingsOpen())
+                sizePercent = Math.max(50f, sizePercent);
+            scale = Math.max(0.02f, guiScale *
                 (inChat ? SCALE_MULTIPLIER : MENU_SCALE_MULTIPLIER) *
-                settings.keyboardSize() / 100f);
+                sizePercent / 100f);
             int w = guiClass.getField("GUI_WIDTH").getInt(null);
             int h = guiClass.getField("GUI_HEIGHT").getInt(null);
             int sw = guiClass.getField("SCALED_WIDTH_MAX").getInt(null);
@@ -561,6 +611,7 @@ public final class FoxCraftVrPlane {
                 if (wasPressed[hand]) keyboard.vrReleased(original,
                     cursorX[hand], cursorY[hand], hand);
                 wasPressed[hand] = false;
+                gameplayGuard.update(hand, false, false);
                 cursorX[hand] = -100;
                 cursorY[hand] = -100;
                 continue;
@@ -594,6 +645,10 @@ public final class FoxCraftVrPlane {
             boolean down = tracked && FoxCraftGuiClickInput.pressed(
                 provider, handed, keyboardClick, guiLeftClick, guiRightClick,
                 FoxCraftGuiClickInput.optionalLeftUseBinding());
+            // Latch a keyboard-origin trigger until physical release, even
+            // when the player drags the ray off the keys mid-press.
+            gameplayGuard.update(hand, down,
+                down && x >= 0 && y >= 0 && keyboard.detachedContains(x, y));
             boolean accepted = down;
             if (down && !wasPressed[hand]) {
                 accepted = x >= 0 && y >= 0 &&
