@@ -150,8 +150,16 @@ public final class VirtualKeyboardOverlay {
      * the same explicit-menu-click rule.
      */
     public boolean shouldDisplayForScreen(Screen screen) {
-        if (freeModeActive)
-            return screen == null && MinecraftClient.getInstance().world != null;
+        if (freeModeActive && (screen instanceof ChatScreen ||
+            MinecraftClient.getInstance().world == null)) {
+            // Escape hatch: opening vanilla chat or leaving the world must
+            // never trap the player in an invisible game-key mode.
+            gameKeys.releaseAll();
+            freeModeActive = false;
+            freeField = null;
+            openPage("KEYBOARD");
+        }
+        if (freeModeActive) return screen == null;
         TextFieldWidget field = focusedField(screen);
         boolean menuRequested = screen == activatedMenuScreen
             && field != null && field == activatedMenuField;
