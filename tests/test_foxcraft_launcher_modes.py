@@ -122,6 +122,23 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         self.assertIn('new AndroidJavaClass(BridgeClass)', runtime)
         self.assertNotIn('CallStatic("launchInstance"', runtime)
 
+    def test_new_minecraft_profile_installation_is_nonblocking(self):
+        source = read("Assets/Scripts/InstanceButton.cs")
+        progress = read("Assets/Scripts/ProgressBarManager.cs")
+        ui = read("Assets/Scripts/UIHandler.cs")
+        self.assertIn("IEnumerator InstallDefaultInstance(string name)", source)
+        self.assertIn('new Thread(() =>', source)
+        self.assertIn('"createNewInstance"', source)
+        self.assertIn("pendingInstall", source)
+        self.assertIn("InstallTimeoutSeconds = 600f", source)
+        self.assertIn("IsInstallingInstance = true;", source)
+        self.assertIn("IsInstallingInstance = false;", source)
+        self.assertIn("StartCoroutine(InstallDefaultInstance(currInstName))", source)
+        self.assertIn("configHandler.config.lastSelectedInstanceName = name;", source)
+        self.assertIn("InstanceButton.IsInstallingInstance", ui)
+        self.assertIn("InstanceButton.IsInstallingInstance", progress)
+        self.assertIn("Установка сборки Minecraft", progress)
+
     def test_failed_vr_launch_restores_play_button_and_never_uses_stale_selection(self):
         button = read("Assets/Scripts/InstanceButton.cs")
         self.assertIn("var selectedDropdown = JNIStorage.instance.instancesDropdown;", button)
