@@ -391,6 +391,27 @@ public static class SmokeProgram
                 noValidBackup.config.accounts.Count == 0,
                 "fresh defaults used when primary and previous are invalid");
 
+            // Hand-edited or legacy launcher.conf files may carry invalid
+            // Minecraft version IDs; never feed unsafe or duplicate entries
+            // into the phone version picker after a cold restart.
+            noValidBackup.config.phoneVersion = "1.21.5";
+            noValidBackup.config.phoneVersionCache = new List<string> {
+                "../outside", "1.21.5", "1.21.5", "1.20.1", "", "1.20.1"
+            };
+            noValidBackup.SaveConfig();
+            ConfigHandler cleanCache = NewSettings();
+            cleanCache.LoadConfig();
+            Check(cleanCache.GetCachedPhoneVersions().SequenceEqual(
+                new[] { "1.21.5", "1.20.1" }),
+                "invalid and duplicated cached phone versions are cleaned on startup");
+            cleanCache.config.phoneVersionCache = new List<string> { "../../invalid" };
+            cleanCache.SaveConfig();
+            ConfigHandler fallbackCache = NewSettings();
+            fallbackCache.LoadConfig();
+            Check(fallbackCache.GetCachedPhoneVersions().SequenceEqual(
+                new[] { "1.21.5" }),
+                "all-invalid Minecraft cache falls back to selected safe version");
+
             Console.WriteLine("FoxCraft configuration/login smoke: " +
                 checks + " checks passed.");
             return 0;
