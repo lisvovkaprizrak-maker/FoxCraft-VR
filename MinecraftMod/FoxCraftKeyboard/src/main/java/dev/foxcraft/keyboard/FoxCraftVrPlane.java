@@ -127,7 +127,7 @@ public final class FoxCraftVrPlane {
         keyboard.features().savePosition();
     }
 
-    private static Vector3f controllerRoomPosition(int hand) {
+    static Vector3f controllerRoomPosition(int hand) {
         try {
             Class<?> holderType = Class.forName("org.vivecraft.client_vr.ClientDataHolderVR");
             Object holder = holderType.getMethod("getInstance").invoke(null);
@@ -317,6 +317,10 @@ public final class FoxCraftVrPlane {
 
             float guiScale = guiClass.getField("GUI_SCALE").getFloat(null);
             if (!(guiScale > 0)) return;
+            FoxCraftChatGrab.updateRoomPose(client.currentScreen,
+                chatPos instanceof Vector3f v ? v : null,
+                chatRotation instanceof Matrix4f m ? m : null,
+                guiScale);
             // Pin the keyboard to its own room pose for this screen. Subsequent
             // chat window movement must not drag the keyboard along with it.
             if ((!free && placementScreen != client.currentScreen) ||
