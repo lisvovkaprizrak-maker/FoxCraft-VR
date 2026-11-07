@@ -103,8 +103,18 @@ public final class FoxCraftVrPlane {
     public static void beginGrab(int hand, String target) {
         // Dragging is restricted to an explicitly pressed right-trigger
         // move button. Ordinary keyboard typing remains unchanged.
-        if (hand != 0 || keyboard == null ||
-            keyboard.features().positionLocked()) return;
+        if (hand != 0 || keyboard == null) return;
+        // The chat handle is independent of the keyboard position lock.
+        // It moves the WHOLE chat GUI, not just the input/history height.
+        if ("CHAT_GROUP".equals(target)) {
+            if (grabHand < 0 && FoxCraftChatGrab.beginFromKeyboard(hand)) {
+                grabHand = hand;
+                grabTarget = target;
+                grabStartController = null;
+            }
+            return;
+        }
+        if (keyboard.features().positionLocked() || grabHand >= 0) return;
         if (!"KEYBOARD".equals(target) && !"INPUT".equals(target) &&
             !"HISTORY".equals(target) && !"FREE".equals(target)) return;
         Vector3f controller = controllerRoomPosition(hand);
@@ -122,9 +132,12 @@ public final class FoxCraftVrPlane {
 
     public static void finishGrab(int hand) {
         if (hand != grabHand || keyboard == null) return;
+        boolean chatGroup = "CHAT_GROUP".equals(grabTarget);
         grabHand = -1;
         grabStartController = null;
-        keyboard.features().savePosition();
+        grabTarget = "KEYBOARD";
+        if (chatGroup) FoxCraftChatGrab.finish();
+        else keyboard.features().savePosition();
     }
 
     static Vector3f controllerRoomPosition(int hand) {
