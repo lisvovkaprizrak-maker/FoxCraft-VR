@@ -11,8 +11,58 @@ namespace UnityEngine
         public static string persistentDataPath { get; set; } = ".";
         public static RuntimePlatform platform { get; set; } = RuntimePlatform.Android;
     }
-    public class MonoBehaviour { }
-    public class GameObject { public void SetActive(bool value) { } }
+    public class MonoBehaviour
+    {
+        public GameObject gameObject = new GameObject();
+        protected object StartCoroutine(IEnumerator routine) => null;
+        protected static T FindObjectOfType<T>() where T : new() => new T();
+    }
+    public class GameObject
+    {
+        public Transform transform = new RectTransform();
+        public bool activeSelf;
+        public bool activeInHierarchy;
+        public GameObject() { }
+        public GameObject(string name, params Type[] types) { }
+        public void SetActive(bool value) { activeSelf = value; activeInHierarchy = value; }
+        public T GetComponent<T>() where T : new() => new T();
+        public T GetComponentInParent<T>() where T : new() => new T();
+        public T AddComponent<T>() where T : new() => new T();
+    }
+    public class Transform
+    {
+        public void SetParent(Transform parent, bool worldPositionStays) { }
+    }
+    public class RectTransform : Transform
+    {
+        public Vector2 anchorMin, anchorMax, anchoredPosition, sizeDelta;
+    }
+    public struct Vector2
+    {
+        public float x, y;
+        public Vector2(float x, float y) { this.x = x; this.y = y; }
+        public static Vector2 zero => new Vector2(0f, 0f);
+    }
+    public struct Color
+    {
+        public Color(float r, float g, float b, float a = 1f) { }
+    }
+    public struct Rect
+    {
+        public Rect(float x, float y, float w, float h) { }
+    }
+    public class Texture2D { public int width = 96, height = 96; }
+    public class Sprite
+    {
+        public static Sprite Create(Texture2D texture, Rect rect, Vector2 pivot) =>
+            new Sprite();
+    }
+    public static class Resources
+    {
+        public static T Load<T>(string name) where T : class => default(T);
+    }
+    public class Canvas { }
+
     public static class Debug
     {
         public static void Log(object message) { }
@@ -42,7 +92,21 @@ namespace UnityEngine
         public T GetStatic<T>(string name) => default(T);
     }
 }
-namespace UnityEngine.Networking { }
+namespace UnityEngine.Networking
+{
+    public class DownloadHandler { public string text; }
+    public class UnityWebRequest : IDisposable
+    {
+        public enum Result { Success, ConnectionError }
+        public Result result;
+        public string error;
+        public int timeout;
+        public DownloadHandler downloadHandler = new DownloadHandler();
+        public static UnityWebRequest Get(string uri) => new UnityWebRequest();
+        public object SendWebRequest() => null;
+        public void Dispose() { }
+    }
+}
 namespace UnityEngine.Serialization
 {
     [AttributeUsage(AttributeTargets.Field)]
@@ -66,6 +130,15 @@ namespace TMPro
         public void SetValueWithoutNotify(int selected) => value = selected;
     }
     public class TMP_InputField { public string text; public UnityEngine.GameObject gameObject = new UnityEngine.GameObject(); }
+    public enum TextAlignmentOptions { Center }
+    public class TextMeshProUGUI
+    {
+        public string text;
+        public float fontSize;
+        public UnityEngine.Color color;
+        public bool raycastTarget;
+        public TextAlignmentOptions alignment;
+    }
 }
 namespace UnityEngine.UI
 {
@@ -79,7 +152,21 @@ namespace UnityEngine.UI
         public bool isOn;
         public BoolEvent onValueChanged = new BoolEvent();
     }
-    public class Button { }
+    public sealed class ClickEvent
+    {
+        public void AddListener(Action callback) { }
+    }
+    public class Button
+    {
+        public UnityEngine.GameObject gameObject = new UnityEngine.GameObject();
+        public ClickEvent onClick = new ClickEvent();
+    }
+    public class Image
+    {
+        public UnityEngine.Color color;
+        public UnityEngine.Sprite sprite;
+        public bool preserveAspect, raycastTarget;
+    }
 }
 namespace Newtonsoft.Json
 {
@@ -101,17 +188,19 @@ namespace Newtonsoft.Json
             System.Text.Json.JsonSerializer.Serialize(value, Options(format == Formatting.Indented));
     }
 }
-public static class FoxCraftDevice { public static bool IsVrHeadset => false; }
 public class WindowHandler
 {
     public void LegalSetter() { }
     public void LogoutWindowUnsetter() { }
     public void LoadAv(string name) { }
+    public UnityEngine.GameObject mainPanel = new UnityEngine.GameObject();
 }
 public class UIHandler
 {
     public static int selectedInstance;
     public void UpdateDropdowns(bool initial, List<string> entries) { }
+    public UnityEngine.UI.Button playButton = new UnityEngine.UI.Button();
+    public TMPro.TMP_Dropdown dropdownMain = new TMPro.TMP_Dropdown();
 }
 public class SkinHandler { }
 public class JNIStorage
