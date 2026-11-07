@@ -19,8 +19,7 @@ public class DesktopCam : MonoBehaviour
                    Time.realtimeSinceStartup < deadline)
                 yield return null;
             if (FoxCraftDevice.IsDetectionPending)
-                Debug.LogWarning("[FoxCraft] Android hardware classification timed out; " +
-                    "falling back to flat launcher camera.");
+                FoxCraftDevice.CompleteDetectionWithPhoneFallback();
         }
 
         if (FoxCraftDevice.IsVrHeadset)
@@ -29,7 +28,7 @@ public class DesktopCam : MonoBehaviour
         if (DesktopCamera == null)
         {
             Debug.LogWarning("[FoxCraft] Flat launcher camera is not configured.");
-            return;
+            yield break;
         }
 
         if (VrCam != null)
