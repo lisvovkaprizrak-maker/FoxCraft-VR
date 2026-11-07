@@ -41,6 +41,7 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         runtime = read("Assets/Scripts/FoxCraftPhoneRuntime.cs")
         self.assertIn("configHandler.IsPhoneModeSelected", button)
         self.assertIn("FoxCraftPhoneRuntime.TryLaunch", button)
+        self.assertIn("FoxCraftDevice.IsAndroidPhone", button)
         self.assertIn("launchInstance", button)
         self.assertIn("MobileMinecraftBridge", runtime)
         self.assertIn('isAvailable', runtime)
