@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <OutputType>Library</OutputType>
+    <OutputType>Exe</OutputType>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="LauncherApiStubs.cs" />
+    <Compile Include="SmokeProgram.cs" />
     <Compile Include="../../Assets/Scripts/ConfigHandler.cs" Link="ConfigHandler.cs" />
     <Compile Include="../../Assets/Scripts/LoginHandler.cs" Link="LoginHandler.cs" />
     <Compile Include="../../Assets/Scripts/DevHandler.cs" Link="DevHandler.cs" />
