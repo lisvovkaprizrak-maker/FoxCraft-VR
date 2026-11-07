@@ -269,6 +269,7 @@ public class JNIStorage
     public static UnityEngine.AndroidJavaObject activity;
     public static UnityEngine.AndroidJavaObject accountObj;
     public ConfigHandler configHandler;
+    public bool InitializationFailed { get; set; }
     public UIHandler uiHandler;
     public void UpdateInstances() { }
     public TMPro.TMP_Dropdown instancesDropdown;
