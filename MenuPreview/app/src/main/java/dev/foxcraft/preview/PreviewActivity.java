@@ -9,6 +9,10 @@ import android.content.SharedPreferences;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
+import android.widget.ImageView;
+import android.widget.HorizontalScrollView;
+import android.text.TextUtils;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -27,7 +31,7 @@ public final class PreviewActivity extends Activity {
     private SharedPreferences settings;
     private String mode, tab, status;
     private int version;
-    private LinearLayout content, sidebar;
+    private LinearLayout content;
 
     private int dp(float d) {
         return Math.round(getResources().getDisplayMetrics().density * d);
@@ -83,7 +87,8 @@ public final class PreviewActivity extends Activity {
         button.setTextColor(WHITE);
         button.setTextSize(13);
         button.setPadding(dp(8), 0, dp(8), 0);
-        button.setMinHeight(dp(44));
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
         button.setBackground(background(active ? ORANGE : INSET, active ? ORANGE : 0));
         button.setOnClickListener(view -> callback.run());
         return button;
@@ -106,12 +111,23 @@ public final class PreviewActivity extends Activity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Use the full landscape canvas; Android status/navigation bars in
+        // screenshots consumed nearly a third of the already short viewport.
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        getWindow().getDecorView().setSystemUiVisibility(
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+            View.SYSTEM_UI_FLAG_FULLSCREEN |
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
         settings = getSharedPreferences("foxcraft_menu_preview", MODE_PRIVATE);
         mode = settings.getString("mode", "vr");
         tab = settings.getString("tab", "Главная");
         version = Math.max(0, Math.min(RELEASE_SAMPLES.length - 1,
             settings.getInt("version", 0)));
-        status = "Нажми кнопки меню и проверь, удобно ли ими пользоваться.";
+        status = "Тест меню: проверь переключатели и навигацию.";
         render();
     }
 
@@ -144,51 +160,53 @@ public final class PreviewActivity extends Activity {
     }
 
     private void render() {
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(18), dp(12), dp(18), dp(12));
+        // The previous menu used an unscrollable vertical sidebar with five
+        // 46dp buttons. On a landscape phone less than ~350dp high, three
+        // buttons disappeared. Use one compact scrollable tab row instead.
+        LinearLayout root = vertical(Color.TRANSPARENT, 0);
+        root.setPadding(dp(10), dp(8), dp(10), dp(8));
         root.setBackgroundColor(BG);
         setContentView(root);
 
         LinearLayout header = horizontal(Color.TRANSPARENT);
-        TextView logo = text("🦊  FOXCRAFT", 24, ORANGE, true);
-        header.addView(logo, new LinearLayout.LayoutParams(0, dp(52), 1));
-        TextView descriptor = text("МЕНЮ · ТЕСТОВАЯ ВЕРСИЯ", 13, MUTED, true);
-        descriptor.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-        header.addView(descriptor);
-        root.addView(header);
+        ImageView fox = new ImageView(this);
+        fox.setImageResource(R.drawable.foxcraft_logo);
+        fox.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        header.addView(fox, new LinearLayout.LayoutParams(dp(43), dp(43)));
+        TextView logo = text("  FOXCRAFT", 20, ORANGE, true);
+        header.addView(logo, new LinearLayout.LayoutParams(0, dp(45), 1));
+        TextView caption = text("ТЕСТ МЕНЮ", 11, MUTED, true);
+        caption.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        header.addView(caption, new LinearLayout.LayoutParams(dp(102), dp(45)));
+        root.addView(header, new LinearLayout.LayoutParams(-1, dp(47)));
         gap(root, 5);
 
-        TextView warning = text(
-            "ПРОТОТИП МЕНЮ • Не является Unity/QuestCraft APK. Аккаунты и Minecraft здесь не запускаются.",
-            11, WHITE, false);
-        warning.setPadding(dp(12), dp(5), dp(12), dp(5));
-        warning.setBackground(background(Color.rgb(90, 53, 24), ORANGE));
-        root.addView(warning, new LinearLayout.LayoutParams(-1, dp(34)));
-        gap(root, 12);
-
-        LinearLayout frame = horizontal(Color.TRANSPARENT);
-        root.addView(frame, new LinearLayout.LayoutParams(-1, 0, 1));
-
-        sidebar = vertical(PANEL, 10);
-        frame.addView(sidebar, new LinearLayout.LayoutParams(dp(184), -1));
-        label(sidebar, "НАВИГАЦИЯ", 12, MUTED, true);
-        gap(sidebar, 8);
+        HorizontalScrollView tabsScroll = new HorizontalScrollView(this);
+        tabsScroll.setHorizontalScrollBarEnabled(false);
+        tabsScroll.setFillViewport(true);
+        LinearLayout tabs = horizontal(PANEL);
+        tabs.setPadding(dp(5), dp(3), dp(5), dp(3));
         for (String name : new String[]{"Главная", "Аккаунты", "Сборки", "Моды", "Настройки"}) {
             Button item = button(name, name.equals(tab), () -> changeTab(name));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(46));
-            lp.bottomMargin = dp(8);
-            sidebar.addView(item, lp);
+            item.setTextSize(12);
+            item.setMinHeight(0);
+            item.setMinimumHeight(0);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(112), dp(39));
+            lp.setMargins(dp(2), 0, dp(2), 0);
+            tabs.addView(item, lp);
         }
-
-        View space = new View(this);
-        frame.addView(space, new LinearLayout.LayoutParams(dp(13), 1));
+        tabsScroll.addView(tabs, new HorizontalScrollView.LayoutParams(-2, -1));
+        root.addView(tabsScroll, new LinearLayout.LayoutParams(-1, dp(46)));
+        gap(root, 7);
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
-        content = vertical(PANEL, 17);
+        scroll.setVerticalScrollBarEnabled(true);
+        content = vertical(PANEL, 13);
         scroll.addView(content, new ScrollView.LayoutParams(-1, -2));
-        frame.addView(scroll, new LinearLayout.LayoutParams(0, -1, 1));
+        // Every section stays reachable on compact landscape screens. Only
+        // the middle content scrolls; header, tabs and Play remain in view.
+        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
 
         if ("Главная".equals(tab)) showHome();
         else if ("Аккаунты".equals(tab)) showAccounts();
@@ -196,22 +214,26 @@ public final class PreviewActivity extends Activity {
         else if ("Моды".equals(tab)) showMods();
         else showSettings();
 
-        gap(root, 10);
+        gap(root, 7);
         LinearLayout bottom = horizontal(PANEL);
-        bottom.setPadding(dp(10), dp(6), dp(10), dp(6));
-        root.addView(bottom, new LinearLayout.LayoutParams(-1, dp(65)));
-        TextView state = text(status, 12, MUTED, false);
+        bottom.setPadding(dp(8), dp(4), dp(8), dp(4));
+        root.addView(bottom, new LinearLayout.LayoutParams(-1, dp(54)));
+        TextView state = text(status, 11, MUTED, false);
+        state.setSingleLine(true);
+        state.setEllipsize(TextUtils.TruncateAt.END);
         bottom.addView(state, new LinearLayout.LayoutParams(0, -1, 1));
         Button play = button("▶ ИГРАТЬ", true, () ->
-            notice("Это тест меню. Игровой движок, авторизация и миры ещё не подключены."));
-        bottom.addView(play, new LinearLayout.LayoutParams(dp(172), dp(48)));
+            notice("Тест интерфейса: Minecraft и авторизация пока не подключены."));
+        play.setMinHeight(0);
+        play.setMinimumHeight(0);
+        bottom.addView(play, new LinearLayout.LayoutParams(dp(126), dp(43)));
     }
 
     private void title(String heading, String subtitle) {
-        label(content, heading, 23, WHITE, true);
+        label(content, heading, 20, WHITE, true);
         gap(content, 5);
         label(content, subtitle, 12, MUTED, false);
-        gap(content, 15);
+        gap(content, 9);
     }
 
     private void showHome() {
@@ -221,7 +243,7 @@ public final class PreviewActivity extends Activity {
         addButton(modes, "📱  ТЕЛЕФОН", mode.equals("phone"),
             () -> changeMode("phone"), 1);
         content.addView(modes);
-        gap(content, 12);
+        gap(content, 8);
         LinearLayout versionRow = horizontal(INSET);
         versionRow.setPadding(dp(7), dp(5), dp(7), dp(5));
         content.addView(versionRow);
@@ -231,12 +253,12 @@ public final class PreviewActivity extends Activity {
         Button next = button("▶", false, () -> changeVersion(1));
         versionRow.addView(prev, new LinearLayout.LayoutParams(dp(50), dp(45)));
         versionRow.addView(next, new LinearLayout.LayoutParams(dp(50), dp(45)));
-        gap(content, 12);
+        gap(content, 8);
         label(content, mode.equals("vr")
             ? "VR — будущий запуск через QuestCraft / OpenXR"
             : "ТЕЛЕФОН — будущий запуск через отдельный 2D-движок", 14, ORANGE, true);
         gap(content, 6);
-        label(content, "Версии в этом прототипе — примеры. " +
+        label(content, "Это тест интерфейса. Версии здесь демонстрационные. " +
             "В основном проекте есть загрузка официального списка Mojang.", 12, MUTED, false);
     }
 
