@@ -7,11 +7,11 @@ android {
     compileSdk 35
 
     defaultConfig {
-        applicationId 'dev.foxcraft.preview'
+        applicationId 'dev.foxcraft.preview.v2'
         minSdk 29
         targetSdk 34
-        versionCode 1
-        versionName '0.1-menu-test'
+        versionCode 2
+        versionName '0.2-menu-test'
     }
 
     compileOptions {
