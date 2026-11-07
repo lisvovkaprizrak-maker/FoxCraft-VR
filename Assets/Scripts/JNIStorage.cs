@@ -102,6 +102,9 @@ public class JNIStorage : MonoBehaviour
         string[] supportedVersionsArray = apiClass.CallStatic<string[]>("getQCSupportedVersions", activity);
         FillSupportedVersions(supportedVersionsArray);
         uiHandler.UpdateDropdowns(true, supportedVersions);
+        // TMP must receive its options before restoring the saved profile index.
+        if (configHandler != null)
+            configHandler.RestoreLastSelectedInstance();
     }
     
     public void CheckConnection()
