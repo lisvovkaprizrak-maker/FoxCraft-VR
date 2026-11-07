@@ -114,6 +114,25 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         self.assertIn("GraphicRaycaster", touch)
         self.assertIn("FoxCraftPhoneTouchInput", read("Assets/Scripts/UIHandler.cs"))
 
+    def test_phone_waits_for_android_detection_without_disabling_vr_input(self):
+        device = read("Assets/Scripts/FoxCraftDevice.cs")
+        camera = read("Assets/Scripts/DesktopCam.cs")
+        ui = read("Assets/Scripts/UIHandler.cs")
+        touch = read("Assets/Scripts/FoxCraftPhoneTouchInput.cs")
+        config = read("Assets/Scripts/ConfigHandler.cs")
+        self.assertIn("IsDetectionPending", device)
+        self.assertIn("CompleteDetectionWithPhoneFallback", device)
+        self.assertIn("FoxCraftDevice.IsDetectionPending", camera)
+        self.assertIn("yield break;", camera)
+        self.assertIn("CompleteDetectionWithPhoneFallback();", camera)
+        self.assertIn("Application.platform == RuntimePlatform.Android", ui)
+        self.assertIn("gameObject.AddComponent<FoxCraftPhoneTouchInput>()", ui)
+        self.assertIn("while (FoxCraftDevice.IsDetectionPending", touch)
+        self.assertIn("CompleteDetectionWithPhoneFallback();", touch)
+        self.assertIn("if (!FoxCraftDevice.IsAndroidPhone)", touch)
+        self.assertIn("autoLaunchMode", config)
+        self.assertIn("config.autoLaunchMode = false;", config)
+
     def test_android_activity_failure_does_not_leave_login_waiting_forever(self):
         storage = read("Assets/Scripts/JNIStorage.cs")
         login = read("Assets/Scripts/LoginHandler.cs")
