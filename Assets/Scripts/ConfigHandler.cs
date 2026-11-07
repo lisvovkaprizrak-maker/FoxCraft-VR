@@ -35,18 +35,52 @@ public class ConfigHandler : MonoBehaviour
     public string SelectedPhoneVersion => config != null && !string.IsNullOrWhiteSpace(config.phoneVersion)
         ? config.phoneVersion : "1.21.5";
 
+    // Cached, verified version IDs are available when the phone is offline.
+    // They never overwrite the separate VR instance selector.
+    public List<string> GetCachedPhoneVersions()
+    {
+        return config != null && config.phoneVersionCache != null
+            ? new List<string>(config.phoneVersionCache)
+            : new List<string>();
+    }
+
+    public void SetCachedPhoneVersions(List<string> versions)
+    {
+        if (config == null || versions == null || versions.Count == 0)
+            return;
+        List<string> safe = new List<string>();
+        foreach (string version in versions)
+        {
+            if (safe.Count >= 160)
+                break;
+            if (IsSafeVersionId(version) && !safe.Contains(version))
+                safe.Add(version);
+        }
+        if (safe.Count == 0)
+            return;
+        config.phoneVersionCache = safe;
+        File.WriteAllText(configPath, JsonConvert.SerializeObject(config, Formatting.Indented));
+    }
+
     public void SetPhoneVersion(string version)
     {
         // Version IDs come from the official Mojang version manifest.
-        if (config == null || string.IsNullOrWhiteSpace(version) || version.Length > 48)
+        if (config == null || !IsSafeVersionId(version))
             return;
+        config.phoneVersion = version;
+        File.WriteAllText(configPath, JsonConvert.SerializeObject(config, Formatting.Indented));
+    }
+
+    private static bool IsSafeVersionId(string version)
+    {
+        if (string.IsNullOrWhiteSpace(version) || version.Length > 48)
+            return false;
         foreach (char c in version)
         {
             if (!char.IsLetterOrDigit(c) && c != '-' && c != '_' && c != '.')
-                return;
+                return false;
         }
-        config.phoneVersion = version;
-        File.WriteAllText(configPath, JsonConvert.SerializeObject(config, Formatting.Indented));
+        return true;
     }
 
     private static string InitialModeForDevice()
@@ -95,6 +129,7 @@ public class ConfigHandler : MonoBehaviour
                 lastSelectedAccount = 0,
                 launchMode = InitialModeForDevice(),
                 phoneVersion = "1.21.5",
+                phoneVersionCache = new List<string> { "1.21.5" },
                 accounts = new List<Accounts>()
             };
 
@@ -158,6 +193,7 @@ public class ConfigHandler : MonoBehaviour
         public int lastSelectedAccount;
         public string launchMode;
         public string phoneVersion;
+        public List<string> phoneVersionCache;
         public List<Accounts> accounts;
     }
     
