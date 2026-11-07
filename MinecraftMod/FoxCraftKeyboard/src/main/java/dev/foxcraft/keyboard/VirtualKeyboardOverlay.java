@@ -627,7 +627,9 @@ public final class VirtualKeyboardOverlay {
             if (key.command() == KeyboardLayout.Command.THEME) caption = "      " + caption;
             // All labels obey a safe inner box, not merely the outer key
             // rectangle. Avoid text extending into neighbouring borders.
-            int maxCaptionWidth = Math.max(3, key.width() - 2 * labelInset);
+            int maxCaptionWidth = Math.max(3, key.width() -
+                (key.command() == KeyboardLayout.Command.QUICK_MESSAGE
+                    ? 50 : 2 * labelInset));
             if (font.getWidth(caption) > maxCaptionWidth) {
                 String fullCaption = caption;
                 while (caption.length() > 1 &&
@@ -640,8 +642,10 @@ public final class VirtualKeyboardOverlay {
             int captionWidth = font.getWidth(caption);
             int tx = key.x() + Math.max(labelInset,
                 (key.width() - captionWidth) / 2);
-            int ty = key.y() + Math.max(1, (key.height() - 8) / 2) +
-                (!key.alternate().isEmpty() && key.height() >= 18 ? 3 : 0);
+            int ty = key.command() == KeyboardLayout.Command.QUICK_MESSAGE
+                ? key.y() + 4
+                : key.y() + Math.max(1, (key.height() - 8) / 2) +
+                    (!key.alternate().isEmpty() && key.height() >= 18 ? 3 : 0);
             context.drawText(font,
                 (caption), tx, ty, textColor, false);
         }
@@ -1498,6 +1502,20 @@ public final class VirtualKeyboardOverlay {
                 quickDraft.load(quickBinds.message(editingQuickSlot),
                     quickBinds.note(editingQuickSlot));
                 openPage("COMPOSE");
+            }
+            case QUICK_MOVE_UP, QUICK_MOVE_DOWN -> {
+                int slot = Integer.parseInt(result.key().value());
+                int delta = result.key().command() ==
+                    KeyboardLayout.Command.QUICK_MOVE_UP ? -1 : 1;
+                int moved = quickBinds.move(slot, delta);
+                deleteQuickSlot = -1;
+                if (moved < 0) {
+                    showStatus(delta < 0 ? "Бинд уже первый" : "Бинд уже последний");
+                } else {
+                    quickPage = moved / QuickBindingStore.PAGE_SIZE;
+                    openPage("QUICK");
+                    showStatus(delta < 0 ? "Бинд перемещён выше" : "Бинд перемещён ниже");
+                }
             }
             case QUICK_COMPOSE -> {
                 editingQuickSlot = -1;
