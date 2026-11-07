@@ -32,6 +32,23 @@ public class ConfigHandler : MonoBehaviour
         File.WriteAllText(configPath, JsonConvert.SerializeObject(config, Formatting.Indented));
     }
 
+    public string SelectedPhoneVersion => config != null && !string.IsNullOrWhiteSpace(config.phoneVersion)
+        ? config.phoneVersion : "1.21.5";
+
+    public void SetPhoneVersion(string version)
+    {
+        // Version IDs come from the official Mojang version manifest.
+        if (config == null || string.IsNullOrWhiteSpace(version) || version.Length > 48)
+            return;
+        foreach (char c in version)
+        {
+            if (!char.IsLetterOrDigit(c) && c != '-' && c != '_' && c != '.')
+                return;
+        }
+        config.phoneVersion = version;
+        File.WriteAllText(configPath, JsonConvert.SerializeObject(config, Formatting.Indented));
+    }
+
     private static string InitialModeForDevice()
     {
         string model = (SystemInfo.deviceModel ?? "").ToLowerInvariant();
@@ -79,6 +96,7 @@ public class ConfigHandler : MonoBehaviour
                 lastSelectedInstance = 0,
                 lastSelectedAccount = 0,
                 launchMode = InitialModeForDevice(),
+                phoneVersion = "1.21.5",
                 accounts = new List<Accounts>()
             };
 
@@ -141,6 +159,7 @@ public class ConfigHandler : MonoBehaviour
         public int lastSelectedInstance;
         public int lastSelectedAccount;
         public string launchMode;
+        public string phoneVersion;
         public List<Accounts> accounts;
     }
     
