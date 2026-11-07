@@ -69,9 +69,11 @@ public class UIHandler : MonoBehaviour
         // independent FoxCraft VR / Phone choice without scene edits.
         FoxCraftLaunchModeMenu modes = gameObject.AddComponent<FoxCraftLaunchModeMenu>();
         modes.Initialize(this);
-        // Add touch support only on ordinary Android phones. VR pointers and
-        // the original QuestCraft UI remain unchanged on Quest and Pico.
-        if (FoxCraftDevice.IsAndroidPhone)
+        // Always register the deferred Android touch adapter. Unknown
+        // headset model codenames cannot be classified until Android exposes
+        // the PackageManager a few frames after Unity Start. The adapter
+        // itself exits on Quest/Pico without touching their VR pointer modules.
+        if (Application.platform == RuntimePlatform.Android)
             gameObject.AddComponent<FoxCraftPhoneTouchInput>();
     }
     
