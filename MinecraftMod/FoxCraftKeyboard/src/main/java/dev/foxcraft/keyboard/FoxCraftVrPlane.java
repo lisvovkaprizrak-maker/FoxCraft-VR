@@ -70,6 +70,10 @@ public final class FoxCraftVrPlane {
     private static int grabHand = -1;
     private static Vector3f grabStartController;
     private static float grabStartRight, grabStartDown, grabStartForward;
+    private static float grabStartHistory;
+    private static int grabStartInputY;
+    private static String grabTarget = "KEYBOARD";
+    private static Vector3f chatGuiReference, chatGuiOriginal, chatGuiRaised;
 
     public static FoxCraftFeatureSettings features() {
         return keyboard != null ? keyboard.features() : null;
@@ -80,7 +84,16 @@ public final class FoxCraftVrPlane {
      * ordinary typing key. Controller origin is in Vivecraft room coordinates.
      */
     public static void beginGrab(int hand) {
-        if (hand < 0 || hand >= 2 || keyboard == null) return;
+        beginGrab(hand, "KEYBOARD");
+    }
+
+    public static void beginGrab(int hand, String target) {
+        // Dragging is restricted to an explicitly pressed right-trigger
+        // move button. Ordinary keyboard typing remains unchanged.
+        if (hand != 0 || keyboard == null ||
+            keyboard.features().positionLocked()) return;
+        if (!"KEYBOARD".equals(target) && !"INPUT".equals(target) &&
+            !"HISTORY".equals(target)) return;
         Vector3f controller = controllerRoomPosition(hand);
         if (controller == null) return;
         FoxCraftFeatureSettings pref = keyboard.features();
@@ -89,6 +102,9 @@ public final class FoxCraftVrPlane {
         grabStartRight = pref.offsetRight();
         grabStartDown = pref.offsetDown();
         grabStartForward = pref.offsetForward();
+        grabStartHistory = pref.historyHeight();
+        grabStartInputY = pref.inputY();
+        grabTarget = target;
     }
 
     public static void finishGrab(int hand) {
@@ -128,6 +144,17 @@ public final class FoxCraftVrPlane {
             grabStartRight + delta.dot(localRight) / guiScale,
             grabStartDown - delta.dot(localUp) / guiScale,
             grabStartForward + delta.dot(localForward) / guiScale);
+        // Different targets do not move the keyboard pose. Edit only the
+        // selected target while the right trigger is held.
+        if ("HISTORY".equals(grabTarget)) {
+            keyboard.features().setPosition(grabStartRight, grabStartDown, grabStartForward);
+            keyboard.features().setHistoryHeight(
+                grabStartHistory + delta.dot(localUp) / guiScale);
+        } else if ("INPUT".equals(grabTarget)) {
+            keyboard.features().setPosition(grabStartRight, grabStartDown, grabStartForward);
+            keyboard.features().setInputY(grabStartInputY -
+                Math.round(150f * delta.dot(localUp) / guiScale));
+        }
     }
     // If the Vivecraft world-space draw hook never fires on a fork, the
     // original on-screen keyboard stays available instead of disappearing.
@@ -245,6 +272,8 @@ public final class FoxCraftVrPlane {
         ready = false;
         if (keyboard == null || disabled) return;
         MinecraftClient client = MinecraftClient.getInstance();
+        if (!(client.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen))
+            restoreChatGuiPosition();
         if (!keyboard.shouldDisplayForScreen(client.currentScreen)) {
             finishGrab(grabHand);
             wasPressed[0] = wasPressed[1] = false;
@@ -270,18 +299,32 @@ public final class FoxCraftVrPlane {
             if (!(guiScale > 0)) return;
             followGrab(guiRot, guiScale);
             FoxCraftFeatureSettings settings = keyboard.features();
+            // Offset the live chat plane without accumulating a translation
+            // on successive headset frames. Reset when the GUI is rebuilt.
+            boolean inChat = client.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen;
+            if (inChat) {
+                if (chatGuiReference != guiPos || chatGuiRaised == null ||
+                    guiPos.distanceSquared(chatGuiRaised) > 0.000001f) {
+                    chatGuiOriginal = new Vector3f(guiPos);
+                    chatGuiReference = guiPos;
+                }
+                chatGuiRaised = new Vector3f(chatGuiOriginal).add(
+                    guiRot.transformDirection(new Vector3f(0, 1, 0),
+                        new Vector3f()).mul(settings.historyHeight() * guiScale));
+                guiPos.set(chatGuiRaised);
+            }
             // Equivalent to QuestCraft's chat-relative keyboard positioning:
             // project down the GUI's local up axis and slightly toward player.
             // Neither KeyboardHandler.SHOWING nor its framebuffer is modified.
-            boolean inChat = client.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen;
             float down = inChat ? BELOW_CHAT : BELOW_MENU;
             float forward = inChat ? FORWARD_FROM_CHAT : MENU_FORWARD;
             rotation = new Matrix4f(guiRot)
-                .rotateX((float) Math.toRadians(-30.0));
+                .rotateX((float) Math.toRadians(settings.keyboardTilt()));
             float xCorrection = (inChat ? CHAT_RIGHT_SHIFT : MENU_RIGHT_SHIFT)
                 + settings.offsetRight();
             float yCorrection = (inChat ? CHAT_DOWN_SHIFT : MENU_DOWN_SHIFT)
-                + settings.offsetDown();
+                + settings.offsetDown() +
+                (inChat ? settings.historyHeight() : 0f);
             position = new Vector3f(guiPos)
                 .sub(guiRot.transformDirection(new Vector3f(0, 1, 0),
                     new Vector3f()).mul((down + yCorrection) * guiScale))
@@ -296,7 +339,8 @@ public final class FoxCraftVrPlane {
                 .add(rotation.transformDirection(new Vector3f(0, 0, 1),
                     new Vector3f()).mul(TOWARDS_PLAYER * guiScale));
             scale = Math.max(0.25f, guiScale *
-                (inChat ? SCALE_MULTIPLIER : MENU_SCALE_MULTIPLIER));
+                (inChat ? SCALE_MULTIPLIER : MENU_SCALE_MULTIPLIER) *
+                settings.keyboardSize() / 100f);
             int w = guiClass.getField("GUI_WIDTH").getInt(null);
             int h = guiClass.getField("GUI_HEIGHT").getInt(null);
             int sw = guiClass.getField("SCALED_WIDTH_MAX").getInt(null);
@@ -516,6 +560,16 @@ public final class FoxCraftVrPlane {
             // appears one frame after the controller press, retry.
             wasPressed[hand] = accepted;
         }
+    }
+
+    private static void restoreChatGuiPosition() {
+        if (chatGuiReference != null && chatGuiOriginal != null &&
+            chatGuiRaised != null &&
+            chatGuiReference.distanceSquared(chatGuiRaised) < 0.000001f)
+            chatGuiReference.set(chatGuiOriginal);
+        chatGuiReference = null;
+        chatGuiOriginal = null;
+        chatGuiRaised = null;
     }
 
     private static void releaseBuffer() {
