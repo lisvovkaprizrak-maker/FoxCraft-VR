@@ -74,9 +74,9 @@ class FoxCraftSceneWiringTests(unittest.TestCase):
 
         def bounds(rect_id: str):
             rect = object_block(self.scene, 224, rect_id)
-            anchor = re.search(r"m_AnchorMin: \\{x: ([-0-9.]+),", rect)
-            position = re.search(r"m_AnchoredPosition: \\{x: ([-0-9.]+),", rect)
-            size = re.search(r"m_SizeDelta: \\{x: ([-0-9.]+),", rect)
+            anchor = re.search(r"m_AnchorMin: \{x: ([-0-9.]+),", rect)
+            position = re.search(r"m_AnchoredPosition: \{x: ([-0-9.]+),", rect)
+            size = re.search(r"m_SizeDelta: \{x: ([-0-9.]+),", rect)
             self.assertTrue(anchor and position and size, rect_id)
             cx = float(anchor.group(1)) * canvas_width + float(position.group(1))
             width = float(size.group(1))
