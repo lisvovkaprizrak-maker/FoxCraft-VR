@@ -14,6 +14,16 @@ public class ProgressBarManager : MonoBehaviour
     public static bool DownloadsReady { get; private set; }
     private bool loggedDownloadFailure;
 
+    private void Awake()
+    {
+        // The Java restartLauncher path can recreate Unity's launcher without
+        // restarting Android's process. Static progress flags from the old
+        // session must never unlock Play on the new account/login screen.
+        started = false;
+        DownloadsReady = false;
+        loggedDownloadFailure = false;
+    }
+
     void Update()
     {
         if (Application.platform != RuntimePlatform.Android || started)
