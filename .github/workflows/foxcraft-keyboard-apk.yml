@@ -27,6 +27,7 @@ on:
       - 'Assets/Scripts/KeyboardHandler.cs'
       - 'Assets/Scripts/DesktopCam.cs'
       - 'Assets/Scripts/FoxCraftDevice.cs'
+      - 'Assets/Scripts/FoxCraftPhoneTouchInput.cs'
       - 'Assets/Resources/FoxCraftIcon.png'
       - 'Assets/Resources/FoxCraftIcon.png.meta'
   workflow_dispatch:
