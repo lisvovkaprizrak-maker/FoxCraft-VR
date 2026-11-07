@@ -1534,6 +1534,7 @@ public final class VirtualKeyboardOverlay {
             }
             case RESET_CONFIRM -> openPage("RESET_CONFIRM");
             case RESET_ALL -> {
+                FoxCraftVrPlane.resetKeyboardPlacement();
                 featurePrefs.resetAllVisualSettings();
                 panel = null;
                 openPage("SETTINGS");
@@ -1634,10 +1635,12 @@ public final class VirtualKeyboardOverlay {
             }
             case MOVE_GRAB -> { /* Held-controller movement is handled by VR plane. */ }
             case MOVE_RESET -> {
+                FoxCraftVrPlane.resetKeyboardPlacement();
                 featurePrefs.resetPosition();
                 showStatus("Положение сброшено");
             }
             case RESET_KEYBOARD_POSITION -> {
+                FoxCraftVrPlane.resetKeyboardPlacement();
                 featurePrefs.resetKeyboardPosition();
                 panel = null;
                 showStatus("Положение клавиатуры сброшено");
