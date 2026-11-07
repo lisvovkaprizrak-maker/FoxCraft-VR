@@ -39,11 +39,11 @@ public class DesktopCam : MonoBehaviour
         if (flatCamera == null)
         {
             Debug.LogWarning("[FoxCraft] Flat launcher camera component is missing.");
-            return;
+            yield break;
         }
 
         if (Canvases == null)
-            return;
+            yield break;
 
         foreach (Canvas screenCanvas in Canvases)
         {
