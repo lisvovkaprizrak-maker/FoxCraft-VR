@@ -162,6 +162,10 @@ public static class InstanceLaunchSmoke
                 uiHandler = javaLaunchUi,
                 ScreenFade = new CanvasGroup { gameObject = new GameObject() }
             };
+            typeof(InstanceButton).GetField("launchInProgress",
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic)
+                .SetValue(javaLaunchButton, true);
             IEnumerator launchError = (IEnumerator)prepare.Invoke(javaLaunchButton,
                 new object[] {
                     new PojlibInstance {
@@ -190,6 +194,10 @@ public static class InstanceLaunchSmoke
                 configHandler = prefs, uiHandler = successfulUi,
                 ScreenFade = new CanvasGroup { gameObject = new GameObject() }
             };
+            typeof(InstanceButton).GetField("launchInProgress",
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic)
+                .SetValue(successfulButton, true);
             IEnumerator success = (IEnumerator)prepare.Invoke(successfulButton,
                 new object[] {
                     new PojlibInstance {
