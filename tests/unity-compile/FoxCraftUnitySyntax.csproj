@@ -12,6 +12,8 @@
     <Compile Include="UnityApiStubs.cs" />
     <Compile Include="../../Assets/Scripts/InstanceButton.cs" Link="InstanceButton.cs" />
     <Compile Include="../../Assets/Scripts/FoxCraftPhoneRuntime.cs" Link="FoxCraftPhoneRuntime.cs" />
+    <Compile Include="../../Assets/Scripts/FoxCraftDevice.cs" Link="FoxCraftDevice.cs" />
+    <Compile Include="../../Assets/Scripts/DesktopCam.cs" Link="DesktopCam.cs" />
     <Compile Include="../../Assets/Scripts/FoxCraftInGameKeyboardInstaller.cs" Link="FoxCraftInGameKeyboardInstaller.cs" />
     <Compile Include="../../Assets/Scripts/FoxCraftVoiceBridge.cs" Link="FoxCraftVoiceBridge.cs" />
     <Compile Include="../../Assets/Editor/FoxCraftKeyboardAndroidBuild.cs" Link="FoxCraftKeyboardAndroidBuild.cs" />
