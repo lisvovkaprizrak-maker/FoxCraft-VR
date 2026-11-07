@@ -110,6 +110,38 @@ public static class SmokeProgram
             Check(reorderedReload.config.lastSelectedInstanceName == "1.21.5",
                 "missing profile fallback is saved to launcher config");
 
+            // Drive the real phone version picker with a short OFFLINE list.
+            // The 10-version shortcut previously generated a negative array
+            // index when the cached list contained fewer than 10 releases.
+            var selector = new FoxCraftLaunchModeMenu();
+            var configField = typeof(FoxCraftLaunchModeMenu).GetField("config",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            var listField = typeof(FoxCraftLaunchModeMenu).GetField("phoneVersions",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            var stepMethod = typeof(FoxCraftLaunchModeMenu).GetMethod("StepPhoneVersion",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Check(configField != null && listField != null && stepMethod != null,
+                "phone release picker controls are testable");
+            configField.SetValue(selector, reorderedReload);
+            var available = (List<string>)listField.GetValue(selector);
+            available.AddRange(new[] { "1.21.5", "1.20.1", "1.19.4" });
+            reorderedReload.SetPhoneVersion("1.20.1");
+            stepMethod.Invoke(selector, new object[] { -10 });
+            Check(reorderedReload.SelectedPhoneVersion == "1.21.5",
+                "back ten wraps correctly with only three offline releases");
+            stepMethod.Invoke(selector, new object[] { 10 });
+            Check(reorderedReload.SelectedPhoneVersion == "1.20.1",
+                "forward ten wraps correctly with three offline releases");
+            reorderedReload.SetPhoneVersion("1.18.2");
+            stepMethod.Invoke(selector, new object[] { -1 });
+            Check(reorderedReload.SelectedPhoneVersion == "1.19.4",
+                "removed selected phone version navigates to last cached version");
+            ConfigHandler phoneReload = NewSettings();
+            phoneReload.LoadConfig();
+            Check(phoneReload.SelectedPhoneVersion == "1.19.4" &&
+                phoneReload.config.lastSelectedInstanceName == "1.21.5",
+                "phone version and VR profile survive separately across restart");
+
             // Simulate a startup where LoginHandler starts BEFORE JNIStorage.
             JNIStorage.instance = null;
             JNIStorage.apiClass = null;
