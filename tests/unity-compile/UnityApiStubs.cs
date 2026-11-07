@@ -61,9 +61,20 @@ namespace UnityEngine
     }
     public class AndroidJavaClass : AndroidJavaObject
     {
+        public static int PrelaunchDelayMs;
+        public static int PrelaunchCallCount;
         public AndroidJavaClass(string name) { }
         public T GetStatic<T>(string field) { return default(T); }
-        public T CallStatic<T>(string method, params object[] args) { return default(T); }
+        public T CallStatic<T>(string method, params object[] args)
+        {
+            if (method == "prelaunch")
+            {
+                System.Threading.Interlocked.Increment(ref PrelaunchCallCount);
+                if (PrelaunchDelayMs > 0)
+                    System.Threading.Thread.Sleep(PrelaunchDelayMs);
+            }
+            return default(T);
+        }
         public void CallStatic(string method, params object[] args) { }
     }
     public sealed class AndroidJavaRunnable
