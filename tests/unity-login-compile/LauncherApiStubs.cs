@@ -83,6 +83,8 @@ namespace UnityEngine
     {
         public static bool VrTrackingFeature;
         public static bool OculusVrFeature;
+        public static bool HasActiveNetwork;
+        public static bool NetworkValidated;
         public string uuid;
         public string username;
         public bool isDemoMode;
@@ -96,8 +98,12 @@ namespace UnityEngine
         }
         public T Call<T>(string name, params object[] parameters)
         {
-            if (name == "getPackageManager")
+            if (name == "getPackageManager" || name == "getSystemService")
                 return (T)(object)new AndroidJavaObject();
+            if (name == "getActiveNetwork" || name == "getNetworkCapabilities")
+                return HasActiveNetwork ? (T)(object)new AndroidJavaObject() : default(T);
+            if (name == "hasCapability" && parameters.Length > 0)
+                return (T)(object)(NetworkValidated && (int)parameters[0] == 16);
             if (name == "hasSystemFeature" && parameters.Length > 0)
             {
                 string feature = parameters[0] as string;
