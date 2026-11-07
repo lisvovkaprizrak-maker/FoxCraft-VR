@@ -132,6 +132,8 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
         root.anchorMax = new Vector2(0.5f, 0f);
         root.anchoredPosition = new Vector2(0f, 160f);
         panel.GetComponent<Image>().color = new Color(0.045f, 0.05f, 0.07f, 0.95f);
+        // Decorative background must not swallow QuestCraft's original Play/menu clicks.
+        panel.GetComponent<Image>().raycastTarget = false;
 
         CreateText("FOXCRAFT  •  РЕЖИМ ИГРЫ", panel.transform,
             new Vector2(480f, 32f), new Vector2(35f, 92f), 23, White);
@@ -145,6 +147,7 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
                 new Rect(0f, 0f, foxTexture.width, foxTexture.height),
                 new Vector2(0.5f, 0.5f));
             image.preserveAspect = true;
+            image.raycastTarget = false;
         }
 
         CreateModeButton("VR", new Vector2(-137f, 35f),
@@ -157,6 +160,7 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
         phoneVersionRow = CreateElement("Phone Minecraft version", panel.transform,
             new Vector2(525f, 53f), new Vector2(0f, -80f));
         phoneVersionRow.GetComponent<Image>().color = Dark;
+        phoneVersionRow.GetComponent<Image>().raycastTarget = false;
         phoneVersionLabel = CreateText("1.21.5", phoneVersionRow.transform,
             new Vector2(260f, 48f), Vector2.zero, 23, White);
         CreateVersionArrow("◀", -208f, -1);
