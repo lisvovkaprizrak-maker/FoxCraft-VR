@@ -48,8 +48,14 @@ public class ConfigHandler : MonoBehaviour
         }
         UIHandler.selectedInstance = selected;
         dropdown.SetValueWithoutNotify(selected);
+        string selectedName = dropdown.options[selected] != null
+            ? dropdown.options[selected].text : "";
+        bool updated = config.lastSelectedInstance != selected ||
+            config.lastSelectedInstanceName != selectedName;
         config.lastSelectedInstance = selected;
-        config.lastSelectedInstanceName = dropdown.options[selected].text;
+        config.lastSelectedInstanceName = selectedName;
+        if (updated)
+            SaveConfig();
         if (JNIStorage.instance.uiHandler != null)
             JNIStorage.instance.uiHandler.UpdateDropdowns(false, null);
     }
