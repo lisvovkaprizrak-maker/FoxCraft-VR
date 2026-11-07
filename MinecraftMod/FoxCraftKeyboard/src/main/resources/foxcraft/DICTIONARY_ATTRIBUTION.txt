@@ -1,0 +1,16 @@
+FoxCraft offline Russian swipe vocabulary
+
+Source: hingston/russian
+https://github.com/hingston/russian
+File: 100000-russian-words.txt
+Source revision: blob a121c5a297bb174752eb4251984f86a57f49e24e
+Original corpus: University of Leeds Russian-language frequency corpus
+Licence: Creative Commons Attribution 2.5 (CC BY 2.5)
+https://creativecommons.org/licenses/by/2.5/
+
+Corpus cleanup and word-list preparation: hingston.
+FoxCraft modifications: lowercase normalisation, Cyrillic-only filtering,
+2-24 character limits and removing duplicates. Filtered result is 87,405
+Russian words, split into dictionary_ru_0.txt ... dictionary_ru_6.txt.
+The data remains in its original descending frequency order and is bundled
+locally with the mod. No network access is required during gameplay.
