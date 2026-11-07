@@ -163,13 +163,20 @@ public final class KeyboardLogicSmokeTest {
         require(ru.keys().stream().anyMatch(k ->
             k.command() == KeyboardLayout.Command.TYPE && ",".equals(k.value())),
             "Russian main keyboard replaces redundant exit with comma");
-        // Comma and period must be neighbouring keys on the main row in both languages.
+        // All languages: comma immediately LEFT of Space, dot immediately RIGHT.
         for (KeyboardLayout.Panel punctuationPanel : new KeyboardLayout.Panel[]{
                 ru, KeyboardLayout.make(854, 480, true, false, false, false, false)}) {
             KeyboardLayout.Key comma = key(punctuationPanel.keys(), ",");
             KeyboardLayout.Key period = key(punctuationPanel.keys(), ".");
-            require(comma.y() == period.y() && comma.x() + comma.width() + 2 == period.x(),
-                "Comma is immediately next to period on both language layouts");
+            KeyboardLayout.Key space = punctuationPanel.keys().stream()
+                .filter(k -> k.command() == KeyboardLayout.Command.SPACE)
+                .findFirst().orElseThrow();
+            KeyboardLayout.Key exclamation = key(punctuationPanel.keys(), "!");
+            require(comma.y() == space.y() && period.y() == space.y() &&
+                comma.x() < space.x() && space.x() < period.x(),
+                "Comma, Space, period are in the requested order for all languages");
+            require(exclamation.y() == space.y() && exclamation.x() < comma.x(),
+                "! must sit at the bottom left of both language layouts");
         }
         KeyboardLayout.Key letter = key(ru.keys(), "й");
         require("~".equals(letter.alternate()), "Russian Й has ~ legend");
