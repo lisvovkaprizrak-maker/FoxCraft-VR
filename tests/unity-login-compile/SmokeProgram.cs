@@ -110,6 +110,8 @@ public static class SmokeProgram
             JNIStorage.activity = new AndroidJavaObject();
             Check(!routine.MoveNext() && AndroidJavaClass.LoginCallCount == 1,
                 "account login begins exactly once when storage ready");
+            Check(!login.HasAuthenticatedAccount,
+                "Play remains blocked until Pojlib confirms Microsoft account");
 
             // Migrate a genuine older QuestCraft config without deleting accounts,
             // restoring compatibility with pre-FoxCraft launcher.conf files.
