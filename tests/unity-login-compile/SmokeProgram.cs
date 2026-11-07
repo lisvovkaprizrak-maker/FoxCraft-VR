@@ -359,12 +359,13 @@ public static class SmokeProgram
 
             JNIStorage.apiClass = new AndroidJavaClass();
             AndroidJavaClass.DownloadsCompleted = false;
-            AndroidJavaClass.DownloadPercentage = 0.42f;
+            AndroidJavaClass.DownloadPercentage = 42f;
             updateDownloads.Invoke(downloads, null);
             Check(!ProgressBarManager.DownloadsReady &&
                 downloads.progressBar.gameObject.activeSelf &&
-                downloads.progressBar.value > 0.4f,
-                "active download shows progress and keeps Play locked");
+                downloads.progressBar.normalizedValue > 0.41f &&
+                downloads.progressBar.normalizedValue < 0.43f,
+                "Pojlib 42 percent maps to 42% slider and keeps Play locked");
 
             AndroidJavaClass.DownloadsCompleted = true;
             updateDownloads.Invoke(downloads, null);
