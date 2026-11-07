@@ -114,9 +114,9 @@ public static class SmokeProgram
             // Migrate a genuine older QuestCraft config without deleting accounts,
             // restoring compatibility with pre-FoxCraft launcher.conf files.
             File.WriteAllText(ConfigHandler.configPath,
-                "{\\"acceptedLegal\\":true,\\"accounts\\":[{\\"username\\":\\"LegacyAccount\\"," +
-                "\\"uuid\\":\\"legacy-uuid\\"}],\\"lastSelectedInstance\\":1," +
-                "\\"customRAMValue\\":\\"3072\\"}");
+                "{\"acceptedLegal\":true,\"accounts\":[{\"username\":\"LegacyAccount\"," +
+                "\"uuid\":\"legacy-uuid\"}],\"lastSelectedInstance\":1," +
+                "\"customRAMValue\":\"3072\"}");
             ConfigHandler migrated = NewSettings();
             migrated.LoadConfig();
             Check(migrated.config.accounts.Count == 1 &&
