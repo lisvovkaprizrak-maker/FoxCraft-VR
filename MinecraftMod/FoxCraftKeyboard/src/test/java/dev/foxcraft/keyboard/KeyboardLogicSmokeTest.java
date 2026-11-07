@@ -14,6 +14,7 @@ public final class KeyboardLogicSmokeTest {
         testLargeOfflineDictionaryAndPersonalWords();
         testQuickBinds();
         testFreeKeyboard();
+        testPrimaryVrDragHandles();
         // Regression: on Quest, the world-selection text field must not
         // display FoxCraft over the menu, while in-world chat stays usable
         // even if the optional 3D Vivecraft hook never starts.
@@ -639,6 +640,54 @@ public final class KeyboardLogicSmokeTest {
 
 
         System.out.println("FoxCraft keyboard logic smoke tests: OK");
+    }
+
+    /**
+     * Regression for Quest 3 user report: the controls must be in the TOP
+     * CORNERS OF THE KEYBOARD, not attached to the chat history.
+     * One handle moves the complete chat in XYZ; one moves ONLY the keyboard.
+     */
+    private static void testPrimaryVrDragHandles() {
+        for (boolean russian : new boolean[]{true, false}) {
+            KeyboardLayout.Panel normal = KeyboardLayout.make(
+                854, 480, true, russian, false, false, false);
+            require(normal != null, "Normal chat keyboard must be visible");
+            List<KeyboardLayout.Key> drag = normal.keys().stream()
+                .filter(k -> k.command() == KeyboardLayout.Command.MOVE_GRAB)
+                .toList();
+            require(drag.size() == 2,
+                "Exactly two main keyboard controls, not duplicate chat handles");
+            KeyboardLayout.Key chat = drag.stream()
+                .filter(k -> "CHAT_GROUP".equals(k.value()))
+                .findFirst().orElseThrow();
+            KeyboardLayout.Key keyboard = drag.stream()
+                .filter(k -> "KEYBOARD".equals(k.value()))
+                .findFirst().orElseThrow();
+            require(chat.x() < normal.x() + normal.width() / 4 &&
+                keyboard.x() > normal.x() + 3 * normal.width() / 4,
+                "Whole chat grab must be top-left; keyboard grab top-right");
+            require(chat.y() < normal.y() + 27 &&
+                keyboard.y() == chat.y(),
+                "Both controls must be in the top crest row of keyboard");
+            require(chat.x() + chat.width() < keyboard.x(),
+                "Keyboard and chat handles must never overlap");
+            require(normal.at(chat.x() + 2, chat.y() + 2) == chat &&
+                normal.at(keyboard.x() + 2, keyboard.y() + 2) == keyboard,
+                "VR trigger must select each independent grab button");
+            require(normal.keys().stream()
+                .filter(k -> k != chat && k != keyboard)
+                .noneMatch(k -> k.contains(chat.x() + 2, chat.y() + 2) ||
+                                k.contains(keyboard.x() + 2, keyboard.y() + 2)),
+                "Grab keys must not be covered by letter/menu keys");
+        }
+        KeyboardLayout.Panel english = KeyboardLayout.make(
+            854, 480, false, false, false, false, false);
+        KeyboardLayout.Panel free = KeyboardLayout.freeKeyboard(english);
+        require(free.keys().stream().filter(k ->
+                k.command() == KeyboardLayout.Command.MOVE_GRAB).count() == 1 &&
+            free.keys().stream().noneMatch(k ->
+                "CHAT_GROUP".equals(k.value())),
+            "Free game keyboard keeps just its OWN grab and no chat control");
     }
 
     private static void testFreeKeyboard() {
