@@ -1059,11 +1059,19 @@ public final class KeyboardLogicSmokeTest {
                 Math.abs(fresh.historyHeight() - 0.08f) < 0.001f,
                 "Keyboard reset must not move chat or its input field");
             fresh.move(0.2f, 0.1f, -0.1f);
+            fresh.setChatRoomPosition(0.35f, -0.18f, 0.55f);
+            fresh.savePosition();
+            FoxCraftFeatureSettings chatSaved = new FoxCraftFeatureSettings(options);
+            require(Math.abs(chatSaved.chatRight() - 0.35f) < 0.001f &&
+                Math.abs(chatSaved.chatForward() - 0.55f) < 0.001f,
+                "Moved chat group must persist independent XY/Z offsets");
             fresh.resetChatPosition();
             require(Math.abs(fresh.offsetRight() - 0.2f) < 0.001f &&
                 Math.abs(fresh.offsetDown() - 0.1f) < 0.001f &&
                 Math.abs(fresh.offsetForward() + 0.1f) < 0.001f &&
-                fresh.inputY() == 0 && fresh.historyHeight() == 0f,
+                fresh.inputY() == 0 && fresh.historyHeight() == 0f &&
+                fresh.chatRight() == 0f && fresh.chatDown() == 0f &&
+                fresh.chatForward() == 0f,
                 "Chat reset must not move the independently positioned keyboard");
             fresh.resetAllVisualSettings();
             require(new FoxCraftFeatureSettings(options).inputY() == 0 &&
