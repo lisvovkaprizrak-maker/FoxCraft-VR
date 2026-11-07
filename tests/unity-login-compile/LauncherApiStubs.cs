@@ -62,6 +62,7 @@ namespace UnityEngine
         public static T Load<T>(string name) where T : class => default(T);
     }
     public class Canvas { public Transform transform = new Transform(); }
+    public class AudioSource { public int playCount; public void Play() { playCount++; } }
 
     public static class Debug
     {
