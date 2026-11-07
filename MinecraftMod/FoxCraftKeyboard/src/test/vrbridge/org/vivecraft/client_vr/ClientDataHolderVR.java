@@ -1,5 +1,7 @@
 package org.vivecraft.client_vr;
 
+import org.vivecraft.client_vr.provider.ControllerType;
+
 /** Fake Vivecraft API for offline bridge tests only; not packaged with mod. */
 public final class ClientDataHolderVR {
     public static final ClientDataHolderVR INSTANCE = new ClientDataHolderVR();
@@ -16,12 +18,14 @@ public final class ClientDataHolderVR {
         public FakeAction getInputAction(Object binding) {
             if (binding instanceof org.vivecraft.client_vr.gameplay.screenhandlers.GuiHandler.FakeGuiClick click)
                 return click.action;
+            if (binding instanceof org.vivecraft.client_vr.gameplay.screenhandlers.GuiHandler.FakeHandedClick click)
+                return click.action;
             return null;
         }
-        protected org.vivecraft.client_vr.provider.ControllerType getOriginControllerType(long origin) {
+        protected ControllerType getOriginControllerType(long origin) {
             return switch ((int) origin) {
-                case 100 -> org.vivecraft.client_vr.provider.ControllerType.LEFT;
-                case 200 -> org.vivecraft.client_vr.provider.ControllerType.RIGHT;
+                case 100 -> ControllerType.LEFT;
+                case 200 -> ControllerType.RIGHT;
                 default -> null;
             };
         }
@@ -31,9 +35,22 @@ public final class ClientDataHolderVR {
         public boolean active;
         public boolean pressed;
         public long origin;
+        public boolean handed;
+        public boolean leftPressed;
+        public boolean rightPressed;
+        public long leftOrigin;
+        public long rightOrigin;
+        public ControllerType hand = ControllerType.RIGHT;
+        public boolean isHanded() { return handed; }
+        public ControllerType getCurrentHand() { return hand; }
+        public void setCurrentHand(ControllerType h) { hand = h; }
         public boolean isActive() { return active; }
-        public boolean isButtonPressed() { return pressed; }
-        public long getLastOrigin() { return origin; }
+        public boolean isButtonPressed() {
+            return handed ? (hand == ControllerType.LEFT ? leftPressed : rightPressed) : pressed;
+        }
+        public long getLastOrigin() {
+            return handed ? (hand == ControllerType.LEFT ? leftOrigin : rightOrigin) : origin;
+        }
     }
 
     public static final class FakePlayer {
