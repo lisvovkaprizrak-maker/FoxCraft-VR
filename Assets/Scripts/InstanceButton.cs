@@ -85,6 +85,15 @@ public class InstanceButton : MonoBehaviour
             return;
         }
 
+        if (FoxCraftDevice.IsAndroidPhone)
+        {
+            // Never initialize Vivecraft/OpenXR rendering on a phone lacking
+            // a headset. The selection is still allowed for future devices.
+            uiHandler.SetAndShowError("Для VR-режима нужен совместимый VR-шлем. " +
+                "На телефоне выберите режим ТЕЛЕФОН.");
+            return;
+        }
+
         PojlibInstance selected = JNIStorage.GetInstance(currInstName);
         if (selected == null)
         {
