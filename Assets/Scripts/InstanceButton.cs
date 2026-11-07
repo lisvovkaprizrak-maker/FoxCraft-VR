@@ -28,7 +28,11 @@ public class InstanceButton : MonoBehaviour
     private PrelaunchState pendingPrelaunch;
     private PrelaunchState pendingInstall;
     private const float InstallTimeoutSeconds = 600f;
-    public static bool IsInstallingInstance { get; private set; }
+    // A Java installer can outlive its Unity coroutine after a timeout.
+    // Use one shared worker flag across all Play buttons and recreated panels.
+    private static PrelaunchState activeInstall;
+    public static bool IsInstallingInstance =>
+        activeInstall != null && !activeInstall.completed;
 
     public void Update()
     {
@@ -129,6 +133,13 @@ public class InstanceButton : MonoBehaviour
 
     private IEnumerator InstallDefaultInstance(string name)
     {
+        if (IsInstallingInstance)
+        {
+            if (uiHandler != null)
+                uiHandler.SetAndShowError("Установка Minecraft уже выполняется. " +
+                    "Дождитесь завершения перед повторной попыткой.");
+            yield break;
+        }
         if (string.IsNullOrWhiteSpace(name) || JNIStorage.apiClass == null ||
             JNIStorage.activity == null || JNIStorage.instancesObj == null)
         {
@@ -139,7 +150,7 @@ public class InstanceButton : MonoBehaviour
 
         PrelaunchState state = new PrelaunchState();
         pendingInstall = state;
-        IsInstallingInstance = true;
+        activeInstall = state;
 
         // Pojlib.createNewInstance can download libraries, Fabric and assets.
         // Never call it on Unity's main thread: the Quest launcher would
@@ -177,7 +188,6 @@ public class InstanceButton : MonoBehaviour
         while (!state.completed && Time.realtimeSinceStartup < deadline)
             yield return null;
 
-        IsInstallingInstance = false;
         if (!state.completed)
         {
             // Leave pendingInstall in place: starting the second download
@@ -230,6 +240,13 @@ public class InstanceButton : MonoBehaviour
     {
         if (Application.platform != RuntimePlatform.Android || launchInProgress)
             return;
+        if (IsInstallingInstance)
+        {
+            if (uiHandler != null)
+                uiHandler.SetAndShowError("Установка Minecraft уже выполняется. " +
+                    "Дождитесь завершения перед повторным запуском.");
+            return;
+        }
         if (pendingInstall != null)
         {
             if (!pendingInstall.completed)
