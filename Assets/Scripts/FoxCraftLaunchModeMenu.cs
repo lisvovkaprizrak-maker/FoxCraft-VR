@@ -1,6 +1,11 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using Newtonsoft.Json;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Networking;
 
 // Adds the mode selector at runtime, without modifying the existing QuestCraft
 // scene/prefab bindings. The installed Minecraft version picker is reused.
@@ -21,10 +26,30 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
     private TextMeshProUGUI detail;
     private bool? displayedPhone;
     private string displayedVersion;
+    private readonly List<string> phoneVersions = new List<string>();
+    private GameObject phoneVersionRow;
+    private TextMeshProUGUI phoneVersionLabel;
+    private bool versionsRequested;
+
+    private sealed class MinecraftManifest
+    {
+        public List<MinecraftRelease> versions;
+    }
+
+    private sealed class MinecraftRelease
+    {
+        public string id;
+        public string type;
+    }
 
     public void Initialize(UIHandler owner)
     {
         ui = owner;
+        if (!versionsRequested)
+        {
+            versionsRequested = true;
+            StartCoroutine(LoadPhoneVersions());
+        }
     }
 
     private void Update()
@@ -52,12 +77,17 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
             return;
 
         bool phone = config != null && config.IsPhoneModeSelected;
-        string gameVersion = SelectedVersion();
+        string gameVersion = phone && config != null
+            ? config.SelectedPhoneVersion : SelectedVersion();
         if (displayedPhone == phone && displayedVersion == gameVersion)
             return;
 
         displayedPhone = phone;
         displayedVersion = gameVersion;
+        if (phoneVersionRow != null)
+            phoneVersionRow.SetActive(phone);
+        if (phoneVersionLabel != null)
+            phoneVersionLabel.text = gameVersion;
         vrBackground.color = phone ? Dark : Orange;
         phoneBackground.color = phone ? Orange : Dark;
         vrLabel.color = White;
@@ -94,22 +124,31 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
             return;
 
         panel = CreateElement("FoxCraft • VR / Phone", canvas.transform,
-            new Vector2(570f, 145f), new Vector2(0f, 0f));
+            new Vector2(570f, 230f), new Vector2(0f, 0f));
         RectTransform root = panel.GetComponent<RectTransform>();
         root.anchorMin = new Vector2(0.5f, 0f);
         root.anchorMax = new Vector2(0.5f, 0f);
-        root.anchoredPosition = new Vector2(0f, 125f);
+        root.anchoredPosition = new Vector2(0f, 160f);
         panel.GetComponent<Image>().color = new Color(0.045f, 0.05f, 0.07f, 0.95f);
 
         CreateText("РЕЖИМ ИГРЫ", panel.transform, new Vector2(530f, 30f),
-            new Vector2(0f, 55f), 23, White);
+            new Vector2(0f, 92f), 23, White);
 
-        CreateModeButton("VR", new Vector2(-137f, 4f),
+        CreateModeButton("VR", new Vector2(-137f, 35f),
             ConfigHandler.VrMode, out vrBackground, out vrLabel);
-        CreateModeButton("ТЕЛЕФОН", new Vector2(137f, 4f),
+        CreateModeButton("ТЕЛЕФОН", new Vector2(137f, 35f),
             ConfigHandler.PhoneMode, out phoneBackground, out phoneLabel);
         detail = CreateText("Версия Minecraft", panel.transform, new Vector2(535f, 32f),
-            new Vector2(0f, -52f), 18, White);
+            new Vector2(0f, -22f), 18, White);
+
+        phoneVersionRow = CreateElement("Phone Minecraft version", panel.transform,
+            new Vector2(525f, 53f), new Vector2(0f, -80f));
+        phoneVersionRow.GetComponent<Image>().color = Dark;
+        phoneVersionLabel = CreateText("1.21.5", phoneVersionRow.transform,
+            new Vector2(260f, 48f), Vector2.zero, 23, White);
+        CreateVersionArrow("◀", -208f, -1);
+        CreateVersionArrow("▶", 208f, 1);
+        phoneVersionRow.SetActive(false);
     }
 
     private void CreateModeButton(string title, Vector2 position, string mode,
@@ -123,6 +162,68 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
         button.onClick.AddListener(() => ChooseMode(mode));
         label = CreateText(title, buttonObject.transform, new Vector2(250f, 54f),
             Vector2.zero, 25, White);
+    }
+
+    private void CreateVersionArrow(string glyph, float x, int step)
+    {
+        GameObject arrow = CreateElement("Change phone version", phoneVersionRow.transform,
+            new Vector2(72f, 48f), new Vector2(x, 0f));
+        arrow.GetComponent<Image>().color = Orange;
+        Button button = arrow.AddComponent<Button>();
+        button.onClick.AddListener(() => StepPhoneVersion(step));
+        CreateText(glyph, arrow.transform, new Vector2(68f, 46f),
+            Vector2.zero, 22, White);
+    }
+
+    private void StepPhoneVersion(int step)
+    {
+        if (config == null || phoneVersions.Count == 0)
+            return;
+
+        int index = phoneVersions.IndexOf(config.SelectedPhoneVersion);
+        if (index < 0)
+            index = 0;
+        int destination = (index + step + phoneVersions.Count) % phoneVersions.Count;
+        config.SetPhoneVersion(phoneVersions[destination]);
+        displayedPhone = null;
+    }
+
+    private IEnumerator LoadPhoneVersions()
+    {
+        // Show actual release IDs, not the small VR-only QuestCraft profile list.
+        const string manifest =
+            "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
+        using (UnityWebRequest request = UnityWebRequest.Get(manifest))
+        {
+            request.timeout = 20;
+            yield return request.SendWebRequest();
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogWarning("[FoxCraft] Phone version list unavailable: " + request.error);
+                yield break;
+            }
+
+            try
+            {
+                MinecraftManifest list = JsonConvert.DeserializeObject<MinecraftManifest>(
+                    request.downloadHandler.text);
+                if (list != null && list.versions != null)
+                {
+                    foreach (MinecraftRelease entry in list.versions)
+                    {
+                        if (entry != null && entry.type == "release" &&
+                            !string.IsNullOrWhiteSpace(entry.id) && phoneVersions.Count < 160)
+                            phoneVersions.Add(entry.id);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[FoxCraft] Invalid Minecraft version list: " + ex.Message);
+            }
+        }
+
+        displayedPhone = null;
     }
 
     private static GameObject CreateElement(string name, Transform parent,
