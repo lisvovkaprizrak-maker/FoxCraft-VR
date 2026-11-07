@@ -78,7 +78,8 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
             r'<uses-feature[^>]*android:name="android.hardware.vr.headtracking"[^>]*>',
             manifest,
         )
-        self.assertTrue(flags)
+        self.assertEqual(len(flags), 1)
+        self.assertIn('tools:replace="android:required"', flags[0])
         for flag in flags:
             self.assertIn('android:required="false"', flag)
         self.assertIn('android.intent.category.LAUNCHER', manifest)
