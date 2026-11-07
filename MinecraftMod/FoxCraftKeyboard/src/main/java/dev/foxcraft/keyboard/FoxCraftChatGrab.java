@@ -30,10 +30,19 @@ public final class FoxCraftChatGrab {
         if (!(screen instanceof ChatScreen) || !FoxCraftVrPlane.isVrSession()) return;
         activeWidth = screen.width;
         activeHeight = screen.height;
-        drawHandle(draw, 9, Math.max(8, screen.height - 215), "✥",
-            grab == 1);
-        drawHandle(draw, Math.max(9, screen.width - 35),
-            Math.max(8, screen.height - 67), "↔", grab == 2);
+        // Both handles belong to the chat history's top edge (about 340
+        // logical pixels wide), not the far right of Minecraft's entire GUI.
+        // This keeps them visible/reachable next to the chat itself in VR.
+        drawHandle(draw, 9, handleY(screen), "✥", grab == 1);
+        drawHandle(draw, rightHandleX(screen), handleY(screen), "↔", grab == 2);
+    }
+
+    private static int handleY(Screen screen) {
+        return Math.max(8, screen.height - 215);
+    }
+
+    private static int rightHandleX(Screen screen) {
+        return Math.max(38, Math.min(320, screen.width - 31));
     }
 
     private static void drawHandle(DrawContext draw, int x, int y,
@@ -48,9 +57,8 @@ public final class FoxCraftChatGrab {
     public static boolean mousePressed(Screen screen, double x, double y, int button) {
         if (!(screen instanceof ChatScreen) || button != 0 ||
             !FoxCraftVrPlane.isVrSession()) return false;
-        int kind = inHandle(x,y,9,Math.max(8,screen.height-215)) ? 1 :
-            inHandle(x,y,Math.max(9,screen.width-35),
-                Math.max(8,screen.height-67)) ? 2 : 0;
+        int kind = inHandle(x,y,9,handleY(screen)) ? 1 :
+            inHandle(x,y,rightHandleX(screen),handleY(screen)) ? 2 : 0;
         if (kind == 0) return false;
         Vector3f controller = FoxCraftVrPlane.controllerRoomPosition(0);
         if (controller == null) return false;
