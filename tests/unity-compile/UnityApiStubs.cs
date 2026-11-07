@@ -215,15 +215,19 @@ public sealed class Dropdown
 }
 public sealed class UIHandler
 {
-    public void PlaySetter() { }
-    public void KillSetter() { }
-    public void SetAndShowError(string message) { }
+    public int playCalls;
+    public int killCalls;
+    public string lastError;
+    public void PlaySetter() { playCalls++; }
+    public void KillSetter() { killCalls++; }
+    public void SetAndShowError(string message) { lastError = message; }
 }
 public sealed class ConfigHandler
 {
     public bool IsPhoneModeSelected { get; set; }
     public string SelectedPhoneVersion { get; set; } = "1.21.5";
-    public void SetLastSelectedInstance(int index) { }
+    public int lastSelectedInstance = -1;
+    public void SetLastSelectedInstance(int index) { lastSelectedInstance = index; }
 }
 public sealed class PojlibInstance
 {
@@ -237,7 +241,8 @@ public sealed class JNIStorage
     public static UnityEngine.AndroidJavaObject activity, instancesObj, accountObj;
     public Dropdown instancesDropdown;
     public UIHandler uiHandler;
-    public static PojlibInstance GetInstance(string name) { return null; }
+    public static PojlibInstance ActiveInstance;
+    public static PojlibInstance GetInstance(string name) { return ActiveInstance; }
     public void UpdateInstances() { }
 }
 public static class ProgressBarManager { public static bool started; }
