@@ -104,6 +104,20 @@ public final class QuickBindingStore {
         return index;
     }
 
+    /** Reorder a whole saved bind by one position, including its title,
+     * chat command and auto-send flag. Returns the new slot or -1 at edges. */
+    public int move(int slot, int direction) {
+        if (slot < 0 || slot >= count() ||
+            (direction != -1 && direction != 1)) return -1;
+        int target = slot + direction;
+        if (target < 0 || target >= count()) return -1;
+        java.util.Collections.swap(messages, slot, target);
+        java.util.Collections.swap(labels, slot, target);
+        java.util.Collections.swap(autoSend, slot, target);
+        save();
+        return target;
+    }
+
     /** Removes the bind completely and compacts the following page slots. */
     public boolean remove(int slot) {
         if (slot < 0 || slot >= count()) return false;
