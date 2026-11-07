@@ -139,6 +139,63 @@ public static class InstanceLaunchSmoke
                 "no duplicate Java prelaunch starts during unresolved timeout");
             AndroidJavaClass.PrelaunchDelayMs = 0;
 
+            // launchInstance can throw after a successful Fabric/Vanilla
+            // prelaunch. Unity must restore Play on the coroutine's main
+            // thread; an Android worker may have no SynchronizationContext.
+            AndroidJavaClass.PrelaunchResult = true;
+            AndroidJavaClass.FailLaunchInstance = true;
+            var javaLaunchUi = new UIHandler();
+            var javaLaunchButton = new InstanceButton {
+                configHandler = prefs,
+                uiHandler = javaLaunchUi,
+                ScreenFade = new CanvasGroup { gameObject = new GameObject() }
+            };
+            IEnumerator launchError = (IEnumerator)prepare.Invoke(javaLaunchButton,
+                new object[] {
+                    new PojlibInstance {
+                        versionName = "1.20.1", raw = new AndroidJavaObject()
+                    }
+                });
+            running = true;
+            for (int i = 0; i < 250 && running; i++)
+            {
+                running = launchError.MoveNext();
+                if (running) Thread.Sleep(4);
+            }
+            Assert(!running, "Pojlib launch failure completes its Unity coroutine");
+            Assert(javaLaunchUi.playCalls == 1 && javaLaunchUi.killCalls == 1 &&
+                !ProgressBarManager.started,
+                "failed Java Minecraft launch restores Play and clears progress");
+            Assert(javaLaunchUi.lastError != null &&
+                javaLaunchUi.lastError.Contains("Minecraft launch failed"),
+                "Java launch failure is displayed instead of silently logged");
+            Assert(AndroidJavaClass.LaunchInstanceCallCount == 1,
+                "launchInstance is invoked exactly once after successful prelaunch");
+
+            AndroidJavaClass.FailLaunchInstance = false;
+            var successfulUi = new UIHandler();
+            var successfulButton = new InstanceButton {
+                configHandler = prefs, uiHandler = successfulUi,
+                ScreenFade = new CanvasGroup { gameObject = new GameObject() }
+            };
+            IEnumerator success = (IEnumerator)prepare.Invoke(successfulButton,
+                new object[] {
+                    new PojlibInstance {
+                        versionName = "1.20.1", raw = new AndroidJavaObject()
+                    }
+                });
+            running = true;
+            for (int i = 0; i < 250 && running; i++)
+            {
+                running = success.MoveNext();
+                if (running) Thread.Sleep(4);
+            }
+            Assert(!running && AndroidJavaClass.LaunchInstanceCallCount == 2,
+                "successful Java launch hands off exactly once");
+            Assert(successfulUi.killCalls == 0 && ProgressBarManager.started,
+                "successful launch leaves VR handoff active until gameReady");
+            ProgressBarManager.started = false;
+
             Console.WriteLine("FoxCraft VR launch smoke: " + checks + " checks passed.");
             return 0;
         }
