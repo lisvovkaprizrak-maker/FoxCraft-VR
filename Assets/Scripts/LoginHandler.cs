@@ -12,6 +12,7 @@ using UnityEngine.Serialization;
 public class LoginHandler : MonoBehaviour
 {
     bool isLoggedIn;
+    private int loginRevision;
     public bool HasAuthenticatedAccount => isLoggedIn && JNIStorage.accountObj != null;
     
     [SerializeField] private TMP_Dropdown accountDropdown;
@@ -52,16 +53,22 @@ public class LoginHandler : MonoBehaviour
     {
 	    if (Application.platform != RuntimePlatform.Android) return;
 		isLoggedIn = false;
+        int revision = ++loginRevision;
+        JNIStorage.accountObj = null;
         if (JNIStorage.apiClass == null || JNIStorage.activity == null ||
-            accountDropdown.options == null || accountDropdown.options.Count == 0)
+            accountDropdown == null || accountDropdown.options == null ||
+            accountDropdown.options.Count == 0)
             return;
         int safeIndex = Mathf.Clamp(accountDropdown.value, 0, accountDropdown.options.Count - 1);
         selectedAccountUsername = accountDropdown.options[safeIndex].text;
         if (!accountUUIDMap.TryGetValue(selectedAccountUsername, out selectedAccountUUID))
             return;
-	    loginText.SetActive(true);
-	    JNIStorage.apiClass.CallStatic("login", JNIStorage.activity, selectedAccountUsername == "Add Account" ? null : selectedAccountUUID);
-	    CheckVerification();
+        if (loginText != null)
+            loginText.SetActive(true);
+        string requestedUUID = selectedAccountUsername == "Add Account"
+            ? null : selectedAccountUUID;
+        JNIStorage.apiClass.CallStatic("login", JNIStorage.activity, requestedUUID);
+        CheckVerification(revision, requestedUUID);
     }
 
     public void ParseAccounts()
@@ -106,60 +113,117 @@ public class LoginHandler : MonoBehaviour
         accountDropdown.SetValueWithoutNotify(selected);
     }
     
-    private async void CheckVerification() {
-	    if (Application.platform != RuntimePlatform.Android) return;
-	    while (!isLoggedIn)
-	    {
-		    await Task.Delay(1500);
-		    
-		    Debug.Log("Check Login State");
-		    if (JNIStorage.accountObj != JNIStorage.apiClass.GetStatic<AndroidJavaObject>("currentAcc"))
-		    {
-			    JNIStorage.accountObj = JNIStorage.apiClass.GetStatic<AndroidJavaObject>("currentAcc");
-			    if (JNIStorage.accountObj != null)
-			    {
-				    string accName = JNIStorage.apiClass.GetStatic<string>("profileName");
-				    string accUUID = JNIStorage.apiClass.GetStatic<string>("profileUUID");
-                    Debug.Log("[FoxCraft] Microsoft account verification completed.");
-				    loginText.SetActive(false);
-				    isLoggedIn = true;
-                    config = JNIStorage.instance.configHandler.config;
-                    bool accExists = config.accounts.Any(account => account.uuid == accUUID);
-                    if (!accExists)
-				    {
-					    config.accounts.Add(new ConfigHandler.Accounts { username = accName, uuid = accUUID });
-				    }
+    private async void CheckVerification(int revision, string requestedUUID)
+    {
+        if (Application.platform != RuntimePlatform.Android)
+            return;
 
-				    config.lastSelectedAccount = accountDropdown.value;
-                    JNIStorage.instance.configHandler.SaveConfig();
-				    isDemoMode = JNIStorage.apiClass.GetStatic<bool>("isDemoMode");
-				    if (!accExists)
-				    {
-					    ParseAccounts();
-				    }
+        // Every new Login() invalidates previous polling attempts. Comparing
+        // AndroidJavaObject wrappers by reference does not identify Java
+        // account changes; validate the actual UUID on the returned object.
+        while (revision == loginRevision && !isLoggedIn)
+        {
+            await Task.Delay(1500);
+            if (revision != loginRevision || JNIStorage.apiClass == null)
+                return;
 
-				    selectedAccountUsername = accName;
-				    selectedAccountUUID = accUUID;
-				    if (accName != "Add Account")
-				    {
-					    handler.LoadAv(selectedAccountUsername);
-				    }
-				    else
-				    {
-					    handler.LoadAv(accName);
-				    }
-			    }
-		    }
-	    }
+            try
+            {
+                AndroidJavaObject candidate =
+                    JNIStorage.apiClass.GetStatic<AndroidJavaObject>("currentAcc");
+                if (candidate == null)
+                    continue;
+
+                string uuid = candidate.Get<string>("uuid");
+                string username = candidate.Get<string>("username");
+                if (string.IsNullOrWhiteSpace(uuid) ||
+                    string.IsNullOrWhiteSpace(username))
+                    continue;
+
+                // Pojlib can still expose the OLD session while a cached
+                // account refresh is running. Never enable Play for it.
+                if (requestedUUID != null &&
+                    !string.Equals(requestedUUID, uuid, System.StringComparison.Ordinal))
+                    continue;
+
+                CompleteVerifiedLogin(candidate, username, uuid);
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogWarning("[FoxCraft] Microsoft verification check failed: " +
+                    exception.GetType().Name);
+            }
+        }
     }
-    
+
+    private void CompleteVerifiedLogin(AndroidJavaObject candidate,
+        string accountName, string accountUUID)
+    {
+        if (JNIStorage.instance == null ||
+            JNIStorage.instance.configHandler == null ||
+            !JNIStorage.instance.configHandler.IsLoaded)
+            return;
+
+        ConfigHandler settings = JNIStorage.instance.configHandler;
+        config = settings.config;
+        if (config.accounts == null)
+            config.accounts = new List<ConfigHandler.Accounts>();
+
+        // UUIDs are stable when a Microsoft display name changes. Record the
+        // actual authenticated identity, not the earlier "Add Account" slot.
+        int index = config.accounts.FindIndex(a =>
+            a != null && a.uuid == accountUUID);
+        if (index < 0)
+        {
+            config.accounts.Add(new ConfigHandler.Accounts
+            {
+                username = accountName,
+                uuid = accountUUID
+            });
+            index = config.accounts.Count - 1;
+        }
+        else
+        {
+            config.accounts[index].username = accountName;
+        }
+
+        config.lastSelectedAccount = index;
+        settings.SaveConfig();
+        selectedAccountUsername = accountName;
+        selectedAccountUUID = accountUUID;
+        ParseAccounts();
+
+        isDemoMode = candidate.Get<bool>("isDemoMode");
+        JNIStorage.accountObj = candidate;
+        isLoggedIn = true;
+        if (loginText != null)
+            loginText.SetActive(false);
+        if (handler != null)
+            handler.LoadAv(accountName);
+        Debug.Log("[FoxCraft] Microsoft account verified and saved.");
+    }
+
+    private void OnDestroy()
+    {
+        // Prevent detached async pollers from mutating the next launcher.
+        loginRevision++;
+    }
+
     public void RemoveAccount()
     {
-	    JNIStorage.accountObj = null;
-	    JNIStorage.apiClass.CallStatic<bool>("removeAccount", JNIStorage.activity, selectedAccountUUID);
-	    
+        loginRevision++;
+        isLoggedIn = false;
+        JNIStorage.accountObj = null;
+        if (JNIStorage.apiClass == null || JNIStorage.activity == null ||
+            string.IsNullOrWhiteSpace(selectedAccountUUID) ||
+            selectedAccountUUID == "null")
+            return;
+
+        JNIStorage.apiClass.CallStatic<bool>("removeAccount",
+            JNIStorage.activity, selectedAccountUUID);
         config = JNIStorage.instance.configHandler.config;
-        config.accounts.RemoveAll(account => account.username == selectedAccountUsername);
+        config.accounts.RemoveAll(account =>
+            account != null && account.uuid == selectedAccountUUID);
         config.lastSelectedAccount = 0;
         JNIStorage.instance.configHandler.SaveConfig();
 	    
