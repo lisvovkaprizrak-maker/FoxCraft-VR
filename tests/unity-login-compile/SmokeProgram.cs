@@ -111,6 +111,24 @@ public static class SmokeProgram
             Check(!routine.MoveNext() && AndroidJavaClass.LoginCallCount == 1,
                 "account login begins exactly once when storage ready");
 
+            // Migrate a genuine older QuestCraft config without deleting accounts,
+            // restoring compatibility with pre-FoxCraft launcher.conf files.
+            File.WriteAllText(ConfigHandler.configPath,
+                "{\\"acceptedLegal\\":true,\\"accounts\\":[{\\"username\\":\\"LegacyAccount\\"," +
+                "\\"uuid\\":\\"legacy-uuid\\"}],\\"lastSelectedInstance\\":1," +
+                "\\"customRAMValue\\":\\"3072\\"}");
+            ConfigHandler migrated = NewSettings();
+            migrated.LoadConfig();
+            Check(migrated.config.accounts.Count == 1 &&
+                migrated.config.accounts[0].username == "LegacyAccount",
+                "legacy Microsoft accounts retained on migration");
+            Check(migrated.config.lastSelectedInstance == 1 &&
+                migrated.config.customRAMValue == "3072",
+                "legacy instance and memory preferences retained");
+            Check(migrated.config.launchMode == ConfigHandler.PhoneMode &&
+                migrated.config.phoneVersion == "1.21.5",
+                "missing FoxCraft phone settings initialized on migration");
+
             // Corruption must be backed up, not silently overwrite the old file.
             File.WriteAllText(ConfigHandler.configPath, "not valid json");
             ConfigHandler recovered = NewSettings();
