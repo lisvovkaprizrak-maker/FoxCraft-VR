@@ -6,6 +6,10 @@ package dev.foxcraft.keyboard;
  */
 public final class KeyHoldController {
     public static final long LONG_PRESS_MS = 450;
+    private static volatile long holdDurationMs = LONG_PRESS_MS;
+    public static void setHoldDuration(int ms) {
+        holdDurationMs = Math.max(250, Math.min(850, ms));
+    }
 
     public record Activation(KeyboardLayout.Key key, String text, boolean alternate) {}
 
@@ -25,7 +29,7 @@ public final class KeyHoldController {
 
         boolean alternate = pressed.command() == KeyboardLayout.Command.TYPE &&
             !pressed.alternate().isEmpty() &&
-            nowMs - pressedAt >= LONG_PRESS_MS;
+            nowMs - pressedAt >= holdDurationMs;
 
         return new Activation(pressed,
             alternate ? pressed.alternate() : pressed.value(),
@@ -38,14 +42,14 @@ public final class KeyHoldController {
     }
 
     public boolean isHolding(KeyboardLayout.Key key, long nowMs) {
-        return pending != null && pending.equals(key) && nowMs - pressedAt >= LONG_PRESS_MS;
+        return pending != null && pending.equals(key) && nowMs - pressedAt >= holdDurationMs;
     }
 
     /** Fraction of time elapsed toward the alternate symbol, for visual feedback. */
     public float progress(KeyboardLayout.Key key, long nowMs) {
         if (pending == null || !pending.equals(key) || key.alternate().isEmpty())
             return 0f;
-        return Math.max(0f, Math.min(1f, (nowMs - pressedAt) / (float) LONG_PRESS_MS));
+        return Math.max(0f, Math.min(1f, (nowMs - pressedAt) / (float) holdDurationMs));
     }
 
     public boolean hasPending() { return pending != null; }

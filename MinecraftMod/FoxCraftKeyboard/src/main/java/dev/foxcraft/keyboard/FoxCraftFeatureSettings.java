@@ -22,6 +22,21 @@ public final class FoxCraftFeatureSettings {
     private float offsetRight;
     private float offsetDown;
     private float offsetForward;
+    // Independent accessibility options; no typed content is recorded here.
+    private float historyHeight;
+    private int inputY;
+    private int keyboardSize = 100;
+    private int keyboardTilt = -30;
+    private int opacity = 100;
+    private int chatTextSize = 100;
+    private int swipeSensitivity = 100;
+    private int keyGap = 2;
+    private int longPressMs = 450;
+    private boolean clickSound;
+    private boolean wordSuggestions = true;
+    private boolean autoCorrect = true;
+    private boolean autoSpace = true;
+    private boolean positionLocked;
 
     public FoxCraftFeatureSettings(Path path) {
         this.path = path;
@@ -37,6 +52,86 @@ public final class FoxCraftFeatureSettings {
     public float offsetRight() { return offsetRight; }
     public float offsetDown() { return offsetDown; }
     public float offsetForward() { return offsetForward; }
+    public float historyHeight() { return historyHeight; }
+    public int inputY() { return inputY; }
+    public int keyboardSize() { return keyboardSize; }
+    public int keyboardTilt() { return keyboardTilt; }
+    public int opacity() { return opacity; }
+    public int chatTextSize() { return chatTextSize; }
+    public int swipeSensitivity() { return swipeSensitivity; }
+    public int keyGap() { return keyGap; }
+    public int longPressMs() { return longPressMs; }
+    public boolean clickSound() { return clickSound; }
+    public boolean wordSuggestions() { return wordSuggestions; }
+    public boolean autoCorrect() { return autoCorrect; }
+    public boolean autoSpace() { return autoSpace; }
+    public boolean positionLocked() { return positionLocked; }
+    public void togglePositionLock() { positionLocked = !positionLocked; save(); }
+    public void toggleClickSound() { clickSound = !clickSound; save(); }
+    public void toggleWordSuggestions() { wordSuggestions = !wordSuggestions; save(); }
+    public void toggleAutoCorrect() { autoCorrect = !autoCorrect; save(); }
+    public void toggleAutoSpace() { autoSpace = !autoSpace; save(); }
+
+    public void adjustHistoryHeight(int centimetres) {
+        setHistoryHeight(historyHeight + centimetres / 100f);
+        save();
+    }
+    public void setHistoryHeight(float height) {
+        historyHeight = clamp(height, -0.35f, 0.35f);
+    }
+    public void adjustInputY(int pixels) {
+        setInputY(inputY + pixels);
+        save();
+    }
+    public void setInputY(int pixels) {
+        inputY = clamp(pixels, -90, 90);
+    }
+    public void adjustKeyboardSize(int percent) {
+        keyboardSize = clamp(keyboardSize + percent, 70, 140);
+        save();
+    }
+    public void adjustKeyboardTilt(int degrees) {
+        keyboardTilt = clamp(keyboardTilt + degrees, -65, 20);
+        save();
+    }
+    public void adjustOpacity(int percent) {
+        opacity = clamp(opacity + percent, 30, 100);
+        save();
+    }
+    public void adjustChatTextSize(int percent) {
+        chatTextSize = clamp(chatTextSize + percent, 70, 150);
+        save();
+    }
+    public void adjustSwipeSensitivity(int percent) {
+        swipeSensitivity = clamp(swipeSensitivity + percent, 50, 160);
+        save();
+    }
+    public void adjustKeyGap(int pixels) {
+        keyGap = clamp(keyGap + pixels, 1, 5);
+        save();
+    }
+    public void adjustLongPressMs(int milliseconds) {
+        longPressMs = clamp(longPressMs + milliseconds, 250, 850);
+        save();
+    }
+    public void resetAllVisualSettings() {
+        setPosition(0, 0, 0);
+        historyHeight = 0f;
+        inputY = 0;
+        keyboardSize = 100;
+        keyboardTilt = -30;
+        opacity = 100;
+        chatTextSize = 100;
+        swipeSensitivity = 100;
+        keyGap = 2;
+        longPressMs = 450;
+        positionLocked = false;
+        clickSound = false;
+        wordSuggestions = true;
+        autoCorrect = true;
+        autoSpace = true;
+        save();
+    }
 
     public void toggleHaptics() { haptics = !haptics; save(); }
     public void adjustHapticStrength() {
@@ -73,6 +168,8 @@ public final class FoxCraftFeatureSettings {
     public void savePosition() { save(); }
     public void resetPosition() {
         setPosition(0, 0, 0);
+        historyHeight = 0f;
+        inputY = 0;
         save();
     }
 
@@ -89,6 +186,20 @@ public final class FoxCraftFeatureSettings {
             dotRadius = clamp(asInt(p, "dotRadius", 2), 1, 5);
             setPosition(asFloat(p, "right", 0),
                 asFloat(p, "down", 0), asFloat(p, "forward", 0));
+            historyHeight = clamp(asFloat(p, "historyHeight", 0), -0.35f, 0.35f);
+            inputY = clamp(asInt(p, "inputY", 0), -90, 90);
+            keyboardSize = clamp(asInt(p, "keyboardSize", 100), 70, 140);
+            keyboardTilt = clamp(asInt(p, "keyboardTilt", -30), -65, 20);
+            opacity = clamp(asInt(p, "opacity", 100), 30, 100);
+            chatTextSize = clamp(asInt(p, "chatTextSize", 100), 70, 150);
+            swipeSensitivity = clamp(asInt(p, "swipeSensitivity", 100), 50, 160);
+            keyGap = clamp(asInt(p, "keyGap", 2), 1, 5);
+            longPressMs = clamp(asInt(p, "longPressMs", 450), 250, 850);
+            positionLocked = Boolean.parseBoolean(p.getProperty("positionLocked", "false"));
+            clickSound = Boolean.parseBoolean(p.getProperty("clickSound", "false"));
+            wordSuggestions = Boolean.parseBoolean(p.getProperty("wordSuggestions", "true"));
+            autoCorrect = Boolean.parseBoolean(p.getProperty("autoCorrect", "true"));
+            autoSpace = Boolean.parseBoolean(p.getProperty("autoSpace", "true"));
         } catch (IOException ignored) {
             // First run or read-only Android configuration: keep defaults.
         }
@@ -105,6 +216,20 @@ public final class FoxCraftFeatureSettings {
         p.setProperty("right", Float.toString(offsetRight));
         p.setProperty("down", Float.toString(offsetDown));
         p.setProperty("forward", Float.toString(offsetForward));
+        p.setProperty("historyHeight", Float.toString(historyHeight));
+        p.setProperty("inputY", Integer.toString(inputY));
+        p.setProperty("keyboardSize", Integer.toString(keyboardSize));
+        p.setProperty("keyboardTilt", Integer.toString(keyboardTilt));
+        p.setProperty("opacity", Integer.toString(opacity));
+        p.setProperty("chatTextSize", Integer.toString(chatTextSize));
+        p.setProperty("swipeSensitivity", Integer.toString(swipeSensitivity));
+        p.setProperty("keyGap", Integer.toString(keyGap));
+        p.setProperty("longPressMs", Integer.toString(longPressMs));
+        p.setProperty("positionLocked", Boolean.toString(positionLocked));
+        p.setProperty("clickSound", Boolean.toString(clickSound));
+        p.setProperty("wordSuggestions", Boolean.toString(wordSuggestions));
+        p.setProperty("autoCorrect", Boolean.toString(autoCorrect));
+        p.setProperty("autoSpace", Boolean.toString(autoSpace));
         try {
             Files.createDirectories(path.getParent());
             try (OutputStream out = Files.newOutputStream(path)) {

@@ -7,6 +7,8 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.sound.PositionedSoundInstance;
+import net.minecraft.sound.SoundEvents;
 import org.lwjgl.glfw.GLFW;
 import java.util.List;
 import java.util.Locale;
@@ -66,6 +68,9 @@ public final class VirtualKeyboardOverlay {
     private boolean symbols;
     private boolean shift;
     private boolean collapsed;
+    private TextFieldWidget positionedChatField;
+    private int originalInputY;
+    private int appliedInputY = Integer.MIN_VALUE;
     private boolean settingsOpen;
     private boolean layoutSettingsOpen;
     private String menuPage = "KEYBOARD";
@@ -132,7 +137,14 @@ public final class VirtualKeyboardOverlay {
                                 int height, boolean detached,
                                 double detachedLeftX, double detachedLeftY) {
         FoxCraftVoiceInput.poll();
+        KeyHoldController.setHoldDuration(featurePrefs.longPressMs());
+        SwipeGesture.setSensitivity(featurePrefs.swipeSensitivity());
+        KeyboardLayout.setKeyGap(featurePrefs.keyGap());
         if (screen != previousScreen) {
+            if (positionedChatField != null)
+                positionedChatField.setY(originalInputY);
+            positionedChatField = null;
+            appliedInputY = Integer.MIN_VALUE;
             previousScreen = screen;
             clearSuggestions();
             pointer.cancel();
@@ -171,6 +183,20 @@ public final class VirtualKeyboardOverlay {
             !activeField.getSelectedText().isEmpty()))
             clearSuggestions();
         boolean chat = screen instanceof ChatScreen;
+        if (chat && FoxCraftVrPlane.isVrSession()) {
+            if (positionedChatField != activeField) {
+                positionedChatField = activeField;
+                originalInputY = activeField.getY();
+                appliedInputY = Integer.MIN_VALUE;
+            }
+            int desired = Math.max(3, Math.min(screen.height -
+                activeField.getHeight() - 3, originalInputY + featurePrefs.inputY()));
+            if (desired != appliedInputY) {
+                activeField.setY(desired);
+                appliedInputY = desired;
+                panel = null;
+            }
+        }
         // Use the actual lower edge of the chat field. The keyboard occupies
         // the free area below it instead of being drawn inside the text box.
         int chatInputBottomY = chat && !detached
@@ -190,20 +216,98 @@ public final class VirtualKeyboardOverlay {
             !layoutMenuPage.equals(menuPage)) {
             panel = KeyboardLayout.make(width, height,
                 chat && !detached, russian, symbols, shift, collapsed,
-                preferredWidth, suggestions, chatInputBottomY, detached);
+                preferredWidth, featurePrefs.wordSuggestions()
+                    ? suggestions : List.of(), chatInputBottomY, detached);
             if (settingsOpen && panel != null) {
                 panel = switch (menuPage) {
                     case "THEMES" -> KeyboardLayout.themeMenu(panel, theme.name());
                     case "SETTINGS" -> KeyboardLayout.toolMenu(panel,
-                        new String[]{"ТЕМЫ", "МИКРОФОН", "Бинды",
-                            "ПЕРЕМЕЩЕНИЕ", "КОНТРОЛЛЕРЫ", "← К клавиатуре"},
-                        new KeyboardLayout.Command[]{KeyboardLayout.Command.THEMES_PAGE,
-                            KeyboardLayout.Command.MICROPHONE,
-                            KeyboardLayout.Command.QUICK_MESSAGES,
-                            KeyboardLayout.Command.MOVE_MENU,
+                        new String[]{"ПОЛОЖЕНИЕ", "КЛАВИАТУРА", "ЧАТ И ТЕКСТ",
+                            "СВАЙП", "КОНТРОЛЛЕРЫ", "БИНДЫ", "ТЕМЫ",
+                            "← К клавиатуре"},
+                        new KeyboardLayout.Command[]{KeyboardLayout.Command.POSITION_PAGE,
+                            KeyboardLayout.Command.KEYBOARD_PAGE,
+                            KeyboardLayout.Command.CHAT_PAGE,
+                            KeyboardLayout.Command.SWIPE_PAGE,
                             KeyboardLayout.Command.CONTROLLER_MENU,
+                            KeyboardLayout.Command.QUICK_MESSAGES,
+                            KeyboardLayout.Command.THEMES_PAGE,
                             KeyboardLayout.Command.BACK_TO_KEYS},
-                        new String[]{"", "", "", "", "", ""});
+                        new String[]{"", "", "", "", "", "", "", ""});
+                    case "POSITION" -> KeyboardLayout.toolMenu(panel,
+                        new String[]{"УДЕРЖИ: КЛАВ", "УДЕРЖИ: ПОЛЕ",
+                            "УДЕРЖИ: ЧАТ", "КЛАВ ↑", "КЛАВ ↓",
+                            "ПОЛЕ ↑", "ПОЛЕ ↓", "ЧАТ ↑", "ЧАТ ↓",
+                            "СБРОС ПОЛОЖ.", "← Назад"},
+                        new KeyboardLayout.Command[]{KeyboardLayout.Command.MOVE_GRAB,
+                            KeyboardLayout.Command.MOVE_GRAB,
+                            KeyboardLayout.Command.MOVE_GRAB,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.MOVE_RESET,
+                            KeyboardLayout.Command.SETTINGS_HOME},
+                        new String[]{"KEYBOARD", "INPUT", "HISTORY",
+                            "KB_UP", "KB_DOWN", "FIELD_UP", "FIELD_DOWN",
+                            "CHAT_UP", "CHAT_DOWN", "", ""});
+                    case "KEYBOARD_OPTS" -> KeyboardLayout.toolMenu(panel,
+                        new String[]{"РАЗМЕР −", "РАЗМЕР +", "БЛИЖЕ", "ДАЛЬШЕ",
+                            "НАКЛОН −", "НАКЛОН +", "ПРОЗР. −",
+                            "ПРОЗР. +", featurePrefs.positionLocked()
+                                ? "ПОЗИЦИЯ: ЗАМОК" : "ПОЗИЦИЯ: СВОБ",
+                            "← Назад"},
+                        new KeyboardLayout.Command[]{KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.POSITION_LOCK,
+                            KeyboardLayout.Command.SETTINGS_HOME},
+                        new String[]{"SIZE_DOWN", "SIZE_UP", "NEAR", "FAR",
+                            "TILT_DOWN", "TILT_UP", "OPACITY_DOWN", "OPACITY_UP",
+                            "", ""});
+                    case "CHAT_OPTS" -> KeyboardLayout.toolMenu(panel,
+                        new String[]{"ТЕКСТ МЕНЬШЕ", "ТЕКСТ БОЛЬШЕ",
+                            "ПОЛОЖЕНИЕ", "СБРОС ВСЕГО", "← Назад"},
+                        new KeyboardLayout.Command[]{KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.POSITION_PAGE,
+                            KeyboardLayout.Command.RESET_CONFIRM,
+                            KeyboardLayout.Command.SETTINGS_HOME},
+                        new String[]{"TEXT_DOWN", "TEXT_UP", "", "", ""});
+                    case "SWIPE_OPTS" -> KeyboardLayout.toolMenu(panel,
+                        new String[]{"СВАЙП −", "СВАЙП +",
+                            "УДЕРЖАНИЕ −", "УДЕРЖАНИЕ +",
+                            "ЗАЗОР −", "ЗАЗОР +",
+                            featurePrefs.clickSound() ? "ЗВУК: ВКЛ" : "ЗВУК: ВЫКЛ",
+                            featurePrefs.wordSuggestions() ? "ПОДСКАЗКИ: ВКЛ" : "ПОДСКАЗКИ: ВЫКЛ",
+                            featurePrefs.autoSpace() ? "АВТОПРОБЕЛ: ВКЛ" : "АВТОПРОБЕЛ: ВЫКЛ",
+                            "← Назад"},
+                        new KeyboardLayout.Command[]{KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.SETTINGS_HOME},
+                        new String[]{"SWIPE_DOWN", "SWIPE_UP", "HOLD_DOWN", "HOLD_UP",
+                            "GAP_DOWN", "GAP_UP", "SOUND", "SUGGEST", "SPACE", ""});
+                    case "RESET_CONFIRM" -> KeyboardLayout.toolMenu(panel,
+                        new String[]{"СБРОСИТЬ ВСЁ?", "ДА, СБРОС",
+                            "НЕТ, НАЗАД"},
+                        new KeyboardLayout.Command[]{KeyboardLayout.Command.NONE,
+                            KeyboardLayout.Command.RESET_ALL,
+                            KeyboardLayout.Command.CHAT_PAGE},
+                        new String[]{"", "", ""});
                     case "QUICK" -> KeyboardLayout.quickBindingsMenu(panel,
                         quickBinds.pageLabels(Math.min(quickPage, quickBinds.pages() - 1)),
                         Math.min(quickPage, quickBinds.pages() - 1),
@@ -211,7 +315,8 @@ public final class VirtualKeyboardOverlay {
                     case "COMPOSE" -> KeyboardLayout.composeMenu(panel,
                         quickDraft.message(), quickDraft.note(),
                         quickDraft.editingNote(), russian, shift,
-                        editingQuickSlot >= 0);
+                        editingQuickSlot >= 0,
+                        editingQuickSlot >= 0 && quickBinds.autoSend(editingQuickSlot));
                     case "CLIPBOARD" -> KeyboardLayout.toolMenu(panel,
                         new String[]{"КОПИРОВАТЬ", "ВСТАВИТЬ",
                             "ВЫДЕЛИТЬ ВСЁ", "← Назад"},
@@ -221,26 +326,24 @@ public final class VirtualKeyboardOverlay {
                             KeyboardLayout.Command.BACK_TO_KEYS},
                         new String[]{"", "", "", ""});
                     case "MOVE" -> KeyboardLayout.toolMenu(panel,
-                        new String[]{"ЗАЖМИ И ПЕРЕТАЩИ", "← Левее",
-                            "Правее →", "↑ Выше", "↓ Ниже",
-                            "БЛИЖЕ", "ДАЛЬШЕ", "СБРОС", "← Назад"},
+                        new String[]{"УДЕРЖИ: КЛАВ", "← Левее", "Правее →",
+                            "↑ Выше", "↓ Ниже", "БЛИЖЕ", "ДАЛЬШЕ",
+                            "СБРОС", "← Назад"},
                         new KeyboardLayout.Command[]{KeyboardLayout.Command.MOVE_GRAB,
                             KeyboardLayout.Command.MOVE_STEP, KeyboardLayout.Command.MOVE_STEP,
                             KeyboardLayout.Command.MOVE_STEP, KeyboardLayout.Command.MOVE_STEP,
                             KeyboardLayout.Command.MOVE_STEP, KeyboardLayout.Command.MOVE_STEP,
-                            KeyboardLayout.Command.MOVE_RESET,
+                            KeyboardLayout.Command.RESET_CONFIRM,
                             KeyboardLayout.Command.SETTINGS_HOME},
-                        new String[]{"", "LEFT", "RIGHT", "UP", "DOWN",
+                        new String[]{"KEYBOARD", "LEFT", "RIGHT", "UP", "DOWN",
                             "NEAR", "FAR", "", ""});
                     case "CONTROLLERS" -> KeyboardLayout.toolMenu(panel,
                         new String[]{featurePrefs.haptics() ? "ВИБРАЦИЯ: ВКЛ" : "ВИБРАЦИЯ: ВЫКЛ",
-                            "СИЛА: " + featurePrefs.hapticStrength(),
                             featurePrefs.leftHand() ? "ЛЕВАЯ: ВКЛ" : "ЛЕВАЯ: ВЫКЛ",
                             featurePrefs.rightHand() ? "ПРАВАЯ: ВКЛ" : "ПРАВАЯ: ВЫКЛ",
                             "ЛУЧ КОРОЧЕ", "ЛУЧ ДЛИННЕЕ",
                             "ТОЧКА МЕНЬШЕ", "ТОЧКА БОЛЬШЕ", "← Назад"},
                         new KeyboardLayout.Command[]{KeyboardLayout.Command.HAPTIC_TOGGLE,
-                            KeyboardLayout.Command.HAPTIC_STRENGTH,
                             KeyboardLayout.Command.CONTROLLER_LEFT_TOGGLE,
                             KeyboardLayout.Command.CONTROLLER_RIGHT_TOGGLE,
                             KeyboardLayout.Command.BEAM_SHORTER,
@@ -248,7 +351,7 @@ public final class VirtualKeyboardOverlay {
                             KeyboardLayout.Command.DOT_SMALLER,
                             KeyboardLayout.Command.DOT_LARGER,
                             KeyboardLayout.Command.SETTINGS_HOME},
-                        new String[]{"", "", "", "", "", "", "", "", ""});
+                        new String[]{"", "", "", "", "", "", "", ""});
                     default -> panel;
                 };
             }
@@ -276,10 +379,10 @@ public final class VirtualKeyboardOverlay {
             layoutMenuPage = menuPage;
         }
         if (panel == null) return;
-        int panelBg = theme.panel();
-        int keyBg = theme.key();
-        int keyHover = theme.hover();
-        int keyPressed = theme.pressed();
+        int panelBg = opacity(theme.panel());
+        int keyBg = opacity(theme.key());
+        int keyHover = opacity(theme.hover());
+        int keyPressed = opacity(theme.pressed());
         int accent = theme.accent();
         int textColor = theme.text();
         int legendColor = theme.legend();
@@ -559,11 +662,18 @@ public final class VirtualKeyboardOverlay {
         if (!detached) QuestCraftKeyboardSuppressor.closeWhenScreenFallbackVisible();
     }
 
+    private int opacity(int color) {
+        int alpha = Math.max(0, Math.min(255,
+            ((color >>> 24) & 255) * featurePrefs.opacity() / 100));
+        return (alpha << 24) | (color & 0x00FFFFFF);
+    }
+
     /** Pixel-drawn VR pictograms, avoiding missing emoji glyphs on Quest. */
     private static boolean drawControlIcon(DrawContext c, KeyboardLayout.Key key,
                                            int ink, int accent) {
         KeyboardLayout.Command cmd = key.command();
-        if (cmd != KeyboardLayout.Command.MICROPHONE &&
+        if (cmd != KeyboardLayout.Command.SETTINGS &&
+            cmd != KeyboardLayout.Command.MICROPHONE &&
             cmd != KeyboardLayout.Command.QUICK_MESSAGES &&
             cmd != KeyboardLayout.Command.CLIPBOARD &&
             cmd != KeyboardLayout.Command.ESCAPE &&
@@ -571,13 +681,27 @@ public final class VirtualKeyboardOverlay {
             cmd != KeyboardLayout.Command.QUICK_DELETE) return false;
         int cx = key.x() + key.width() / 2;
         int cy = key.y() + key.height() / 2;
-        if (cmd == KeyboardLayout.Command.MICROPHONE) {
-            // Capsule, cradle and stand.
-            rounded(c, cx - 3, cy - 6, 6, 9, 3, ink);
-            c.fill(cx - 6, cy - 1, cx - 4, cy + 3, ink);
-            c.fill(cx + 4, cy - 1, cx + 6, cy + 3, ink);
-            c.fill(cx - 5, cy + 3, cx + 5, cy + 5, ink);
+        if (cmd == KeyboardLayout.Command.SETTINGS) {
+            // Clear eight-spoke metal gear with a hollow centre.
+            rounded(c, cx - 5, cy - 5, 10, 10, 3, ink);
+            c.fill(cx - 2, cy - 7, cx + 2, cy - 5, ink);
+            c.fill(cx - 2, cy + 5, cx + 2, cy + 7, ink);
+            c.fill(cx - 7, cy - 2, cx - 5, cy + 2, ink);
+            c.fill(cx + 5, cy - 2, cx + 7, cy + 2, ink);
+            c.fill(cx - 6, cy - 6, cx - 4, cy - 4, ink);
+            c.fill(cx + 4, cy - 6, cx + 6, cy - 4, ink);
+            c.fill(cx - 6, cy + 4, cx - 4, cy + 6, ink);
+            c.fill(cx + 4, cy + 4, cx + 6, cy + 6, ink);
+            rounded(c, cx - 2, cy - 2, 4, 4, 2, accent);
+        } else if (cmd == KeyboardLayout.Command.MICROPHONE) {
+            // Single, clean upright microphone: capsule, open cradle, stand.
+            rounded(c, cx - 3, cy - 8, 6, 11, 3, ink);
+            c.fill(cx - 1, cy - 5, cx + 1, cy - 1, accent);
+            c.fill(cx - 6, cy - 1, cx - 5, cy + 4, ink);
+            c.fill(cx + 5, cy - 1, cx + 6, cy + 4, ink);
+            c.fill(cx - 5, cy + 4, cx + 6, cy + 5, ink);
             c.fill(cx - 1, cy + 5, cx + 1, cy + 8, ink);
+            c.fill(cx - 4, cy + 8, cx + 4, cy + 9, ink);
         } else if (cmd == KeyboardLayout.Command.QUICK_MESSAGES) {
             // Message card + three short lines: quick-bind pictogram.
             rounded(c, cx - 8, cy - 6, 16, 12, 2, ink);
@@ -922,10 +1046,11 @@ public final class VirtualKeyboardOverlay {
         if (field == null) return false;
         boolean accepted = handPointer(hand).press(panel, x, y,
             System.nanoTime() / 1_000_000L, field);
-        if (accepted && "MOVE".equals(menuPage)) {
+        if (accepted && ("MOVE".equals(menuPage) || "POSITION".equals(menuPage))) {
             KeyboardLayout.Key key = panel.at(x, y);
             if (key != null && key.command() == KeyboardLayout.Command.MOVE_GRAB)
-                FoxCraftVrPlane.beginGrab(hand);
+                if (hand == 0)
+                    FoxCraftVrPlane.beginGrab(hand, key.value());
         }
         return accepted;
     }
@@ -1022,6 +1147,14 @@ public final class VirtualKeyboardOverlay {
         KeyHoldController.Activation result = release.activation();
         TextFieldWidget field = focusedField(screen);
         if (result == null || field == null) return;
+        if (featurePrefs.clickSound()) {
+            try {
+                MinecraftClient.getInstance().getSoundManager().play(
+                    PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0f));
+            } catch (RuntimeException | LinkageError ignored) {
+                // Unsupported audio hosts do not interrupt controller typing.
+            }
+        }
         if ("COMPOSE".equals(menuPage) &&
             result.key().command() == KeyboardLayout.Command.TYPE &&
             !release.suggestions().isEmpty()) {
@@ -1052,8 +1185,9 @@ public final class VirtualKeyboardOverlay {
             // This also handles ordinary typed text followed by a swipe.
             String separator = KeyboardLayout.leadingSwipeSpace(field.getText(), before);
             boolean leadingSpace = !separator.isEmpty();
-            String suffix = "";
-            String inserted = separator + chosen;
+            String suffix = featurePrefs.autoSpace() &&
+                before == field.getText().length() ? " " : "";
+            String inserted = separator + chosen + suffix;
             field.write(inserted);
             int after = field.getCursor();
             String actual = field.getText();
@@ -1079,9 +1213,10 @@ public final class VirtualKeyboardOverlay {
             field.getCursor() != suggestionCursor ||
             !field.getSelectedText().isEmpty() || lastInsertedWord.isEmpty())
             return false;
-        int start = suggestionCursor - lastInsertedWord.length();
+        int start = suggestionCursor - lastInsertedWord.length() -
+            lastInsertedSuffix.length();
         return start >= 0 && field.getText().substring(start,
-            suggestionCursor).equals(lastInsertedWord);
+            suggestionCursor).equals(lastInsertedWord + lastInsertedSuffix);
     }
 
     private void clearSuggestions() {
@@ -1122,6 +1257,7 @@ public final class VirtualKeyboardOverlay {
         boolean deleteSwipeWord = result.key().command() ==
             KeyboardLayout.Command.BACKSPACE && validLastSwipe(field);
         int swipeLength = deleteSwipeWord ? lastInsertedWord.length() +
+            lastInsertedSuffix.length() +
             (lastSwipeLeadingSpace ? 1 : 0) : 0;
         clearSuggestions();
         if (deleteSwipeWord) {
@@ -1144,7 +1280,8 @@ public final class VirtualKeyboardOverlay {
                     field.write("." + KeyboardLayout.trailingWordSpace(
                         field.getText(), field.getCursor()));
                 } else {
-                    field.write(result.text());
+                    field.write(KeyboardLayout.firstRussianLetter(result.text(),
+                        russian, field.getText(), field.getCursor()));
                 }
             }
             case SPACE -> field.write(" ");
@@ -1223,15 +1360,66 @@ public final class VirtualKeyboardOverlay {
                 openPage("COMPOSE");
             }
             case CLIPBOARD -> openPage("CLIPBOARD");
-            case MOVE_MENU -> openPage("MOVE");
+            case MOVE_MENU, POSITION_PAGE -> openPage("POSITION");
+            case KEYBOARD_PAGE -> openPage("KEYBOARD_OPTS");
+            case CHAT_PAGE -> openPage("CHAT_OPTS");
+            case SWIPE_PAGE -> openPage("SWIPE_OPTS");
+            case POSITION_LOCK -> {
+                featurePrefs.togglePositionLock();
+                panel = null;
+            }
+            case RESET_CONFIRM -> openPage("RESET_CONFIRM");
+            case RESET_ALL -> {
+                featurePrefs.resetAllVisualSettings();
+                panel = null;
+                openPage("SETTINGS");
+                showStatus("Настройки сброшены");
+            }
+            case ADJUST_OPTION -> {
+                switch (result.key().value()) {
+                    case "KB_UP" -> featurePrefs.move(0, -0.03f, 0);
+                    case "KB_DOWN" -> featurePrefs.move(0, 0.03f, 0);
+                    case "FIELD_UP" -> featurePrefs.adjustInputY(-6);
+                    case "FIELD_DOWN" -> featurePrefs.adjustInputY(6);
+                    case "CHAT_UP" -> featurePrefs.adjustHistoryHeight(3);
+                    case "CHAT_DOWN" -> featurePrefs.adjustHistoryHeight(-3);
+                    case "SIZE_UP" -> featurePrefs.adjustKeyboardSize(10);
+                    case "SIZE_DOWN" -> featurePrefs.adjustKeyboardSize(-10);
+                    case "NEAR" -> featurePrefs.move(0, 0, 0.04f);
+                    case "FAR" -> featurePrefs.move(0, 0, -0.04f);
+                    case "TILT_UP" -> featurePrefs.adjustKeyboardTilt(5);
+                    case "TILT_DOWN" -> featurePrefs.adjustKeyboardTilt(-5);
+                    case "OPACITY_UP" -> featurePrefs.adjustOpacity(10);
+                    case "OPACITY_DOWN" -> featurePrefs.adjustOpacity(-10);
+                    case "TEXT_UP" -> featurePrefs.adjustChatTextSize(10);
+                    case "TEXT_DOWN" -> featurePrefs.adjustChatTextSize(-10);
+                    case "SWIPE_UP" -> featurePrefs.adjustSwipeSensitivity(10);
+                    case "SWIPE_DOWN" -> featurePrefs.adjustSwipeSensitivity(-10);
+                    case "HOLD_UP" -> featurePrefs.adjustLongPressMs(50);
+                    case "HOLD_DOWN" -> featurePrefs.adjustLongPressMs(-50);
+                    case "GAP_UP" -> featurePrefs.adjustKeyGap(1);
+                    case "GAP_DOWN" -> featurePrefs.adjustKeyGap(-1);
+                    case "SOUND" -> featurePrefs.toggleClickSound();
+                    case "SUGGEST" -> featurePrefs.toggleWordSuggestions();
+                    case "SPACE" -> featurePrefs.toggleAutoSpace();
+                    default -> { }
+                }
+                featurePrefs.savePosition();
+                panel = null;
+                showStatus("Настройка сохранена");
+            }
             case CONTROLLER_MENU -> openPage("CONTROLLERS");
             case QUICK_MESSAGE -> {
                 int slot = Integer.parseInt(result.key().value());
                 String preset = quickBinds.outgoing(slot);
                 if (preset.isEmpty()) showStatus("Пустой бинд: нажми шестерёнку");
                 else {
+                    boolean safeAutoSend = quickBinds.autoSend(slot) &&
+                        screen instanceof ChatScreen && field.getText().isEmpty();
                     field.write(preset);
                     openPage("KEYBOARD");
+                    if (safeAutoSend && field.getText().equals(preset))
+                        screen.keyPressed(GLFW.GLFW_KEY_ENTER, 0, 0);
                 }
             }
             case MICROPHONE -> startDictation(screen, field);
@@ -1318,6 +1506,13 @@ public final class VirtualKeyboardOverlay {
                                  KeyHoldController.Activation result) {
         switch (result.key().command()) {
             case COMPOSE_MESSAGE -> quickDraft.selectNote(false);
+            case COMPOSE_AUTOSEND -> {
+                if (editingQuickSlot >= 0) {
+                    quickBinds.toggleAutoSend(editingQuickSlot);
+                    showStatus(quickBinds.autoSend(editingQuickSlot)
+                        ? "Бинд: отправлять сразу" : "Бинд: без автоотправки");
+                }
+            }
             case COMPOSE_NOTE -> quickDraft.selectNote(true);
             case COMPOSE_CLEAR -> quickDraft.clearActive();
             case COMPOSE_SEND -> {
@@ -1337,7 +1532,9 @@ public final class VirtualKeyboardOverlay {
             }
             case TYPE -> {
                 if (".".equals(result.text())) quickDraft.dot();
-                else quickDraft.insert(result.text());
+                else quickDraft.insert(KeyboardLayout.firstRussianLetter(
+                    result.text(), russian, quickDraft.message(),
+                    quickDraft.atStartOfLine() && quickDraft.message().isEmpty() ? 0 : 1));
                 if (shift) shift = false;
             }
             case SPACE -> quickDraft.insert(" ");

@@ -6,6 +6,7 @@
   "client": [
     "FoxcraftFramebufferMixin",
     "VRPassHelperMixin",
+    "FoxCraftChatHudMixin",
     "VREffectsHelperMixin",
     "QuestCraftOpenXrActionSetMixin",
     "VRArmHelperMixin"

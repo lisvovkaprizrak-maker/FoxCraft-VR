@@ -9,6 +9,8 @@ import java.io.IOException;
 public final class KeyboardLogicSmokeTest {
     public static void main(String[] args) {
         testQuickMessageComposer();
+        testPersistentOptions();
+        testRequestedTypingAndSwipe();
         testQuickBinds();
         // Regression: on Quest, the world-selection text field must not
         // display FoxCraft over the menu, while in-world chat stays usable
@@ -163,13 +165,20 @@ public final class KeyboardLogicSmokeTest {
         require(ru.keys().stream().anyMatch(k ->
             k.command() == KeyboardLayout.Command.TYPE && ",".equals(k.value())),
             "Russian main keyboard replaces redundant exit with comma");
-        // Comma and period must be neighbouring keys on the main row in both languages.
+        // All languages: comma immediately LEFT of Space, dot immediately RIGHT.
         for (KeyboardLayout.Panel punctuationPanel : new KeyboardLayout.Panel[]{
                 ru, KeyboardLayout.make(854, 480, true, false, false, false, false)}) {
             KeyboardLayout.Key comma = key(punctuationPanel.keys(), ",");
             KeyboardLayout.Key period = key(punctuationPanel.keys(), ".");
-            require(comma.y() == period.y() && comma.x() + comma.width() + 2 == period.x(),
-                "Comma is immediately next to period on both language layouts");
+            KeyboardLayout.Key space = punctuationPanel.keys().stream()
+                .filter(k -> k.command() == KeyboardLayout.Command.SPACE)
+                .findFirst().orElseThrow();
+            KeyboardLayout.Key exclamation = key(punctuationPanel.keys(), "!");
+            require(comma.y() == space.y() && period.y() == space.y() &&
+                comma.x() < space.x() && space.x() < period.x(),
+                "Comma, Space, period are in the requested order for all languages");
+            require(exclamation.y() == space.y() && exclamation.x() < comma.x(),
+                "! must sit at the bottom left of both language layouts");
         }
         KeyboardLayout.Key letter = key(ru.keys(), "й");
         require("~".equals(letter.alternate()), "Russian Й has ~ legend");
@@ -600,8 +609,8 @@ public final class KeyboardLogicSmokeTest {
             "Delete moved to the top-right controls");
         require(ru.keys().stream().anyMatch(k ->
             k.command() == KeyboardLayout.Command.TYPE && "!".equals(k.value()) &&
-                k.y() < key(ru.keys(), "1").y()),
-            "Exclamation mark is directly available in the top toolbar");
+                k.y() > key(ru.keys(), "1").y()),
+            "Exclamation mark is at the bottom left of the keyboard");
         require(ru.keys().stream().noneMatch(k ->
             k.command() == KeyboardLayout.Command.COLLAPSE ||
                 k.command() == KeyboardLayout.Command.ESCAPE),
@@ -796,6 +805,75 @@ public final class KeyboardLogicSmokeTest {
             require(editor.at(key.x() + key.width() / 2.0,
                 key.y() + key.height() / 2.0) != null,
                 "Composer keys must remain hit-testable by VR controllers");
+    }
+
+    private static void testRequestedTypingAndSwipe() {
+        require("П".equals(KeyboardLayout.firstRussianLetter("п", true, "", 0)),
+            "First manually typed Russian letter must be uppercase");
+        require("п".equals(KeyboardLayout.firstRussianLetter("п", true, "Привет ", 7)),
+            "Other words must remain lowercase");
+        require("п".equals(KeyboardLayout.firstRussianLetter("п", true, "/", 1)),
+            "Slash-command arguments must not be autocapitalised");
+        require("п".equals(KeyboardLayout.firstRussianLetter("п", false, "", 0)),
+            "English mode must not force Russian capitals");
+
+        KeyboardLayout.Panel ru = KeyboardLayout.make(854, 480,
+            true, true, false, false, false);
+        for (String target : new String[]{"куплю", "донки", "купить", "покупка"}) {
+            var stroke = new java.util.ArrayList<GestureWordRecognizer.Point>();
+            for (int i = 0; i < target.length(); i++) {
+                String letter = target.substring(i, i + 1);
+                KeyboardLayout.Key key = ru.keys().stream()
+                    .filter(k -> letter.equals(k.value()) &&
+                        k.command() == KeyboardLayout.Command.TYPE)
+                    .findFirst().orElseThrow();
+                stroke.add(new GestureWordRecognizer.Point(
+                    key.x() + key.width() / 2., key.y() + key.height() / 2.));
+            }
+            require(GestureWordRecognizer.suggest(ru, stroke, 3).contains(target),
+                "Exact Russian swipe must suggest " + target);
+        }
+    }
+
+    private static void testPersistentOptions() {
+        try {
+            Path dir = Files.createTempDirectory("foxcraft-options");
+            Path options = dir.resolve("settings.properties");
+            Path binds = dir.resolve("binds.properties");
+            FoxCraftFeatureSettings prefs = new FoxCraftFeatureSettings(options);
+            require(prefs.inputY() == 0 && prefs.historyHeight() == 0f &&
+                prefs.keyboardSize() == 100, "VR defaults must be reachable");
+            prefs.adjustInputY(-12);
+            prefs.adjustHistoryHeight(8);
+            prefs.adjustKeyboardSize(20);
+            prefs.adjustKeyboardTilt(5);
+            prefs.togglePositionLock();
+            FoxCraftFeatureSettings fresh = new FoxCraftFeatureSettings(options);
+            require(fresh.inputY() == -12 &&
+                Math.abs(fresh.historyHeight() - 0.08f) < 0.001f &&
+                fresh.keyboardSize() == 120 && fresh.keyboardTilt() == -25 &&
+                fresh.positionLocked(),
+                "Independent VR position settings survive restart");
+            fresh.resetAllVisualSettings();
+            require(new FoxCraftFeatureSettings(options).inputY() == 0 &&
+                !new FoxCraftFeatureSettings(options).positionLocked(),
+                "Confirmed reset restores defaults");
+            QuickBindingStore quick = new QuickBindingStore(binds);
+            require(!quick.autoSend(0), "Text bind auto-send defaults OFF");
+            quick.toggleAutoSend(0);
+            require(new QuickBindingStore(binds).autoSend(0),
+                "Auto-send checkbox persists per bind");
+            require(!quick.autoSend(1),
+                "Other binds retain independent auto-send flags");
+            quick.remove(0);
+            require(!new QuickBindingStore(binds).autoSend(0),
+                "Deleted bind auto-send state does not leak to next slot");
+            Files.deleteIfExists(options);
+            Files.deleteIfExists(binds);
+            Files.deleteIfExists(dir);
+        } catch (IOException error) {
+            throw new AssertionError("VR preferences persistence smoke test failed", error);
+        }
     }
 
     private static void require(boolean condition, String message) {

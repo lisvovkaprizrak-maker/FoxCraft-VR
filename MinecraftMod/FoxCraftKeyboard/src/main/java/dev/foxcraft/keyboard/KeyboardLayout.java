@@ -20,7 +20,10 @@ public final class KeyboardLayout {
         CLIPBOARD, COPY, PASTE, SELECT_ALL, MOVE_MENU, MOVE_STEP,
         MOVE_GRAB, MOVE_RESET, CONTROLLER_MENU, HAPTIC_TOGGLE, HAPTIC_STRENGTH,
         CONTROLLER_LEFT_TOGGLE, CONTROLLER_RIGHT_TOGGLE, BEAM_SHORTER,
-        BEAM_LONGER, DOT_SMALLER, DOT_LARGER
+        BEAM_LONGER, DOT_SMALLER, DOT_LARGER,
+        POSITION_PAGE, KEYBOARD_PAGE, CHAT_PAGE, SWIPE_PAGE,
+        ADJUST_OPTION, POSITION_LOCK, RESET_CONFIRM, RESET_ALL,
+        COMPOSE_AUTOSEND
     }
 
     public record Key(String label, Command command, String value, String alternate,
@@ -75,6 +78,11 @@ public final class KeyboardLayout {
         {"@", "#", "$", "%", "&", "-", "+", "(", ")", "/", "\\"},
         {"*", "\"", "'", ":", ";", "!", "?", ".", ","}
     };
+
+    private static volatile int keyGap = 2;
+    public static void setKeyGap(int gap) {
+        keyGap = Math.max(1, Math.min(5, gap));
+    }
 
     private KeyboardLayout() {}
 
@@ -134,7 +142,7 @@ public final class KeyboardLayout {
         // The additional branded top section must fit even on the smallest
         // supported Minecraft GUI (220x140). Never clip the last key row.
         int rowHeight = Math.max(10, Math.min(19, (screenHeight - 38) / 9));
-        int gap = 2;
+        int gap = keyGap;
         int brandHeight = rowHeight + 7;
         int headerHeight = rowHeight + 4;
         boolean hasSuggestions = suggestedWords != null && !suggestedWords.isEmpty();
@@ -178,13 +186,13 @@ public final class KeyboardLayout {
         // control strip. The logo is decorative, not a clickable key.
         rowY += brandHeight + gap;
         addWeighted(keys, insideX, rowY, insideWidth, headerHeight, gap,
-            new String[]{"АБВ Русский", "ABC English", "!", "!?#",
+            new String[]{"АБВ Русский", "ABC English", "/", "!?#",
                 "", "", "", "⚙", "⌫"},
             new Command[]{Command.LANGUAGE_RU, Command.LANGUAGE_EN,
                 Command.TYPE, Command.SYMBOLS, Command.MICROPHONE,
                 Command.QUICK_MESSAGES, Command.CLIPBOARD, Command.SETTINGS,
                 Command.BACKSPACE},
-            new String[]{"", "", "!", "", "", "", "", "", ""},
+            new String[]{"", "", "/", "", "", "", "", "", ""},
             new int[]{4, 4, 2, 2, 2, 2, 2, 2, 2});
         rowY += headerHeight + gap;
 
@@ -222,14 +230,14 @@ public final class KeyboardLayout {
         // command slash. No extra row is added: the physical VR panel stays
         // at the calibrated fixed size and preserves all previous controls.
         addWeighted(keys, insideX, rowY, insideWidth, rowHeight, gap,
-            new String[]{"/", shift ? "SHIFT*" : "SHIFT",
-                "↑", "↓", "←", russian ? "ПРОБЕЛ" : "SPACE",
-                "→", ",", ".", russian ? "ВВОД" : "ENTER"},
+            new String[]{"!", shift ? "SHIFT*" : "SHIFT",
+                "↑", "↓", ",", russian ? "ПРОБЕЛ" : "SPACE",
+                ".", "←", "→", russian ? "ВВОД" : "ENTER"},
             new Command[]{Command.TYPE, Command.SHIFT,
                 Command.HISTORY_PREVIOUS, Command.HISTORY_NEXT,
-                Command.LEFT, Command.SPACE, Command.RIGHT, Command.TYPE,
-                Command.TYPE, Command.ENTER},
-            new String[]{"/", "", "", "", "", " ", "", ",", ".", ""},
+                Command.TYPE, Command.SPACE, Command.TYPE, Command.LEFT,
+                Command.RIGHT, Command.ENTER},
+            new String[]{"!", "", "", "", ",", " ", ".", "", "", ""},
             new int[]{2, 3, 2, 2, 2, 7, 2, 2, 2, 4});
         return new Panel(x, y, width, height, List.copyOf(keys));
     }
@@ -370,6 +378,14 @@ public final class KeyboardLayout {
     public static Panel composeMenu(Panel original, String message, String note,
                                     boolean editingNote, boolean russian,
                                     boolean shift, boolean savingBind) {
+        return composeMenu(original, message, note, editingNote, russian,
+            shift, savingBind, false);
+    }
+
+    public static Panel composeMenu(Panel original, String message, String note,
+                                    boolean editingNote, boolean russian,
+                                    boolean shift, boolean savingBind,
+                                    boolean autoSend) {
         if (original == null) return null;
         Key header = original.keys().stream()
             .filter(k -> k.command() == Command.LANGUAGE_RU).findFirst().orElse(null);
@@ -392,10 +408,12 @@ public final class KeyboardLayout {
                     (messageTail.isBlank() ? "…" : messageTail),
                 (editingNote ? "▸ НАЗВАНИЕ: " : "НАЗВАНИЕ: ") +
                     (noteTail.isBlank() ? "…" : noteTail),
-                savingBind ? "СОХРАНИТЬ" : "ОТПРАВИТЬ"},
+                savingBind ? "СОХРАНИТЬ" : "ОТПРАВИТЬ",
+                savingBind ? (autoSend ? "☑ СРАЗУ" : "☐ СРАЗУ") : " "},
             new Command[]{Command.COMPOSE_MESSAGE, Command.COMPOSE_NOTE,
-                Command.COMPOSE_SEND},
-            new String[]{"", "", ""}, new int[]{8, 7, 5});
+                Command.COMPOSE_SEND,
+                savingBind ? Command.COMPOSE_AUTOSEND : Command.NONE},
+            new String[]{"", "", "", ""}, new int[]{8, 7, 5, 5});
         addWeighted(keys, innerX, footer.y(), innerWidth, footer.height(), gap,
             new String[]{"НАЗАД", russian ? "EN" : "RU", "123", shift ? "SHIFT*" : "SHIFT",
                 "←", russian ? "ПРОБЕЛ" : "SPACE", "→", "/", "⌫", "ОЧИСТ"},
@@ -463,6 +481,19 @@ public final class KeyboardLayout {
             return word == null ? "" : word;
         return word.substring(0, 1).toUpperCase(Locale.ROOT) +
             word.substring(1);
+    }
+
+    /**
+     * Capitalise exactly the first manually typed Cyrillic letter of an empty
+     * message. Slash commands, later words and all non-Russian keys are inert.
+     */
+    public static String firstRussianLetter(String text, boolean russian,
+                                           String existing, int cursor) {
+        if (!russian || text == null || text.length() != 1 || cursor != 0 ||
+            existing == null || !existing.isEmpty()) return text;
+        char ch = text.charAt(0);
+        return (ch >= 'а' && ch <= 'я') || ch == 'ё'
+            ? text.toUpperCase(Locale.ROOT) : text;
     }
 
     /** Put a space BEFORE a swipe word whenever preceding text needs one.

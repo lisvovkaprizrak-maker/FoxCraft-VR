@@ -24,12 +24,14 @@ public final class QuickBindingStore {
     private final Path path;
     private final List<String> messages = new ArrayList<>();
     private final List<String> labels = new ArrayList<>();
+    private final List<Boolean> autoSend = new ArrayList<>();
 
     public QuickBindingStore(Path path) {
         this.path = path;
         for (String text : STARTER) {
             messages.add(text);
             labels.add("");
+            autoSend.add(false);
         }
         load();
     }
@@ -50,6 +52,12 @@ public final class QuickBindingStore {
     /** Separate visible name on the quick-bind button (old API: note). */
     public String note(int slot) { return labels.get(valid(slot)); }
     public String label(int slot) { return note(slot); }
+    public boolean autoSend(int slot) { return autoSend.get(valid(slot)); }
+    public void toggleAutoSend(int slot) {
+        int index = valid(slot);
+        autoSend.set(index, !autoSend.get(index));
+        save();
+    }
 
     public String[] pageLabels(int page) {
         if (page < 0 || page >= pages()) throw new IndexOutOfBoundsException("Page " + page);
@@ -91,6 +99,7 @@ public final class QuickBindingStore {
         int index = messages.size();
         messages.add("");
         labels.add("");
+        autoSend.add(false);
         save();
         return index;
     }
@@ -100,6 +109,7 @@ public final class QuickBindingStore {
         if (slot < 0 || slot >= count()) return false;
         messages.remove(slot);
         labels.remove(slot);
+        autoSend.remove(slot);
         save();
         return true;
     }
@@ -139,17 +149,22 @@ public final class QuickBindingStore {
                 QuickMessageDraft.MAX_CHAT_LENGTH);
             String name = clean(p.getProperty("label." + i,
                 p.getProperty("note." + i, "")), 60);
+            boolean send = Boolean.parseBoolean(
+                p.getProperty("autoSend." + i, "false"));
             if (i < messages.size()) {
                 messages.set(i, command);
                 labels.set(i, name);
+                autoSend.set(i, send);
             } else {
                 messages.add(command);
                 labels.add(name);
+                autoSend.add(send);
             }
         }
         while (messages.size() > count) {
             messages.remove(messages.size() - 1);
             labels.remove(labels.size() - 1);
+            autoSend.remove(autoSend.size() - 1);
         }
     }
 
@@ -160,6 +175,7 @@ public final class QuickBindingStore {
             p.setProperty("text." + i, messages.get(i));
             p.setProperty("label." + i, labels.get(i));
             p.setProperty("note." + i, labels.get(i)); // legacy compatibility
+            p.setProperty("autoSend." + i, Boolean.toString(autoSend.get(i)));
         }
         try {
             if (path.getParent() != null) Files.createDirectories(path.getParent());
