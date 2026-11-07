@@ -114,6 +114,15 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         self.assertIn("GraphicRaycaster", touch)
         self.assertIn("FoxCraftPhoneTouchInput", read("Assets/Scripts/UIHandler.cs"))
 
+    def test_android_activity_failure_does_not_leave_login_waiting_forever(self):
+        storage = read("Assets/Scripts/JNIStorage.cs")
+        login = read("Assets/Scripts/LoginHandler.cs")
+        self.assertIn("if (activity == null)", storage)
+        self.assertIn("UnityPlayerActivity was not created", storage)
+        self.assertIn("InitializationFailed = true", storage)
+        self.assertIn("JNIStorage.instance.InitializationFailed", login)
+        self.assertIn("yield break;", login)
+
     def test_phone_network_detection_accepts_validated_mobile_data(self):
         network = read("Assets/Scripts/FoxCraftNetworkStatus.cs")
         main = read("Assets/Scripts/JNIStorage.cs")
