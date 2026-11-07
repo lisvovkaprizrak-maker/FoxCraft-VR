@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
@@ -27,26 +28,36 @@ public class LoginHandler : MonoBehaviour
     public SkinHandler skinHandler;
     private ConfigHandler.Config config;
 
-    public void Start()
+    private IEnumerator Start()
     {
-	    configPath = Application.persistentDataPath + "/launcher.conf";
-	    if (!File.Exists(configPath))
-	    {
-		    File.Create(configPath).Close();
-	    }
-	    configFile = File.ReadAllText(configPath);
-	    config = JsonConvert.DeserializeObject<ConfigHandler.Config>(configFile);
-	    ParseAccounts();
-	    Login();
+        if (Application.platform != RuntimePlatform.Android)
+            yield break;
+
+        // Unity does not promise Start() ordering across MonoBehaviours. Wait
+        // for JNIStorage to create/load launcher.conf before touching accounts.
+        yield return null;
+        while (JNIStorage.instance == null || JNIStorage.apiClass == null ||
+               JNIStorage.activity == null || JNIStorage.instance.configHandler == null ||
+               !JNIStorage.instance.configHandler.IsLoaded)
+            yield return null;
+
+        configPath = ConfigHandler.configPath;
+        config = JNIStorage.instance.configHandler.config;
+        ParseAccounts();
+        Login();
     }
 	
     public void Login()
     {
 	    if (Application.platform != RuntimePlatform.Android) return;
 		isLoggedIn = false;
-	    selectedAccountUsername = accountDropdown.options[accountDropdown.value].text;
-	    selectedAccountUUID = accountUUIDMap[selectedAccountUsername];
-	    Debug.Log(selectedAccountUUID);
+        if (JNIStorage.apiClass == null || JNIStorage.activity == null ||
+            accountDropdown.options == null || accountDropdown.options.Count == 0)
+            return;
+        int safeIndex = Mathf.Clamp(accountDropdown.value, 0, accountDropdown.options.Count - 1);
+        selectedAccountUsername = accountDropdown.options[safeIndex].text;
+        if (!accountUUIDMap.TryGetValue(selectedAccountUsername, out selectedAccountUUID))
+            return;
 	    loginText.SetActive(true);
 	    JNIStorage.apiClass.CallStatic("login", JNIStorage.activity, selectedAccountUsername == "Add Account" ? null : selectedAccountUUID);
 	    CheckVerification();
@@ -57,14 +68,18 @@ public class LoginHandler : MonoBehaviour
 	    accounts.Clear();
 	    accountUUIDMap.Clear();
 
-	    int i = 0;
-	    foreach (var account in config.accounts.Where(account => account != null))
-	    {
-		    Debug.Log("Account " + i++);
-		    accounts.Add(account);
-		    accountUUIDMap[account.username] = account.uuid;
-		    Debug.Log("Account " + i++ + " added.");
-	    }
+        if (config == null)
+            return;
+        if (config.accounts == null)
+            config.accounts = new List<ConfigHandler.Accounts>();
+
+        foreach (var account in config.accounts.Where(account => account != null &&
+                     !string.IsNullOrWhiteSpace(account.username) &&
+                     !string.IsNullOrWhiteSpace(account.uuid)))
+        {
+            accounts.Add(account);
+            accountUUIDMap[account.username] = account.uuid;
+        }
 
 	    Debug.Log("Accounts parsed.");
 	    ConfigHandler.Accounts addAccount = new ConfigHandler.Accounts { username = "Add Account", uuid = "null" };
@@ -75,16 +90,19 @@ public class LoginHandler : MonoBehaviour
 		    accounts.Add(addAccount);
 		    accountUUIDMap[addAccount.username] = addAccount.uuid;
 		    accountDropdown.ClearOptions();
-		    accountDropdown.AddOptions(accounts.Select(account => account.username).ToList());
-		    Login();
+            accountDropdown.AddOptions(accounts.Select(account => account.username).ToList());
 	    }
 	    else
 	    {
 		    accounts.Add(addAccount);
 		    accountUUIDMap[addAccount.username] = addAccount.uuid;
 		    accountDropdown.ClearOptions();
-		    accountDropdown.AddOptions(accounts.Select(account => account.username).ToList());
-	    }
+            accountDropdown.AddOptions(accounts.Select(account => account.username).ToList());
+        }
+
+        // Never restore a stale slot beyond the current account list.
+        int selected = Mathf.Clamp(config.lastSelectedAccount, 0, accountDropdown.options.Count - 1);
+        accountDropdown.SetValueWithoutNotify(selected);
     }
     
     private async void CheckVerification() {
@@ -105,7 +123,7 @@ public class LoginHandler : MonoBehaviour
 				    Debug.Log("Logged Into " + accName + " | " + accUUID);
 				    loginText.SetActive(false);
 				    isLoggedIn = true;
-				    config = JsonConvert.DeserializeObject<ConfigHandler.Config>(configFile);
+                    config = JNIStorage.instance.configHandler.config;
 				    bool accExists = config.accounts.Any(account => account.username == accName);
 				    if (config.accounts.All(account => account.uuid != accUUID))
 				    {
@@ -113,8 +131,7 @@ public class LoginHandler : MonoBehaviour
 				    }
 
 				    config.lastSelectedAccount = accountDropdown.value;
-				    string JSON = JsonConvert.SerializeObject(config, Formatting.Indented);
-				    File.WriteAllText(configPath, JSON);
+                    JNIStorage.instance.configHandler.SaveConfig();
 				    isDemoMode = JNIStorage.apiClass.GetStatic<bool>("isDemoMode");
 				    if (!accExists)
 				    {
@@ -141,20 +158,18 @@ public class LoginHandler : MonoBehaviour
 	    JNIStorage.accountObj = null;
 	    JNIStorage.apiClass.CallStatic<bool>("removeAccount", JNIStorage.activity, selectedAccountUUID);
 	    
-	    configFile = File.ReadAllText(configPath);
-	    config = JsonConvert.DeserializeObject<ConfigHandler.Config>(configFile);
+        config = JNIStorage.instance.configHandler.config;
+        config.accounts.RemoveAll(account => account.username == selectedAccountUsername);
+        config.lastSelectedAccount = 0;
+        JNIStorage.instance.configHandler.SaveConfig();
 	    
-	    config.accounts.RemoveAll(account => account.username == selectedAccountUsername);
-	    config.lastSelectedAccount = 0;
-	    string JSON = JsonConvert.SerializeObject(config, Formatting.Indented);
-	    File.WriteAllText(configPath, JSON);
-	    
-	    accountDropdown.ClearOptions();
-	    accountDropdown.AddOptions(accounts.Select(account => account.username).ToList());
-	    selectedAccountUsername = accounts.First().username;
-
-	    handler.LogoutWindowUnsetter();
-	    ParseAccounts();
-	    handler.LoadAv(selectedAccountUsername);
+        handler.LogoutWindowUnsetter();
+        ParseAccounts();
+        if (accountDropdown.options != null && accountDropdown.options.Count > 0)
+        {
+            selectedAccountUsername = accountDropdown.options[accountDropdown.value].text;
+            handler.LoadAv(selectedAccountUsername);
+            Login();
+        }
     }
 }
