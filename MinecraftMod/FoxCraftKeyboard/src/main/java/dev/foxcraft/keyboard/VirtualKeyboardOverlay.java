@@ -78,6 +78,19 @@ public final class VirtualKeyboardOverlay {
     private String voiceStatus = "";
     private String localClipboard = "";
     private final QuickMessageDraft quickDraft = new QuickMessageDraft();
+    private final QuickMessageDraft wordDraft = new QuickMessageDraft();
+    private final FoxCraftUserWords userWords = new FoxCraftUserWords(
+        FabricLoader.getInstance().getConfigDir().resolve("foxcraft-keyboard-my-words.txt"));
+
+    public VirtualKeyboardOverlay() {
+        GestureWordRecognizer.setPersonalWords(userWords.entries());
+    }
+
+    private String recentWord(int index) {
+        List<String> words = userWords.recent(4);
+        return index >= 0 && index < words.size() ? words.get(index) : "";
+    }
+
     private final QuickBindingStore quickBinds = new QuickBindingStore(
         FabricLoader.getInstance().getConfigDir().resolve("foxcraft-keyboard-binds.properties"));
     private int quickPage;
@@ -156,6 +169,7 @@ public final class VirtualKeyboardOverlay {
             settingsOpen = false;
             menuPage = "KEYBOARD";
             quickDraft.clear();
+            wordDraft.clear();
             editingQuickSlot = -1;
             panel = null;
         }
@@ -303,7 +317,7 @@ public final class VirtualKeyboardOverlay {
                             featurePrefs.clickSound() ? "ЗВУК: ВКЛ" : "ЗВУК: ВЫКЛ",
                             featurePrefs.wordSuggestions() ? "ПОДСКАЗКИ: ВКЛ" : "ПОДСКАЗКИ: ВЫКЛ",
                             featurePrefs.autoSpace() ? "АВТОПРОБЕЛ: ВКЛ" : "АВТОПРОБЕЛ: ВЫКЛ",
-                            "← Назад"},
+                            "МОИ СЛОВА", "← Назад"},
                         new KeyboardLayout.Command[]{KeyboardLayout.Command.ADJUST_OPTION,
                             KeyboardLayout.Command.ADJUST_OPTION,
                             KeyboardLayout.Command.ADJUST_OPTION,
@@ -313,9 +327,29 @@ public final class VirtualKeyboardOverlay {
                             KeyboardLayout.Command.ADJUST_OPTION,
                             KeyboardLayout.Command.ADJUST_OPTION,
                             KeyboardLayout.Command.ADJUST_OPTION,
+                            KeyboardLayout.Command.WORD_LIST,
                             KeyboardLayout.Command.SETTINGS_HOME},
                         new String[]{"SWIPE_DOWN", "SWIPE_UP", "HOLD_DOWN", "HOLD_UP",
-                            "GAP_DOWN", "GAP_UP", "SOUND", "SUGGEST", "SPACE", ""});
+                            "GAP_DOWN", "GAP_UP", "SOUND", "SUGGEST", "SPACE", "", ""});
+                    case "MY_WORDS" -> KeyboardLayout.toolMenu(panel,
+                        new String[]{"МОИХ СЛОВ: " + userWords.size(), "+ ДОБАВИТЬ",
+                            "ПОСЛЕДНИЕ:", recentWord(0).isEmpty() ? "—" : recentWord(0),
+                            recentWord(1).isEmpty() ? "—" : recentWord(1),
+                            recentWord(2).isEmpty() ? "—" : recentWord(2),
+                            recentWord(3).isEmpty() ? "—" : recentWord(3),
+                            "← К свайпу"},
+                        new KeyboardLayout.Command[]{KeyboardLayout.Command.NONE,
+                            KeyboardLayout.Command.WORD_ADD, KeyboardLayout.Command.NONE,
+                            KeyboardLayout.Command.WORD_PICK,
+                            KeyboardLayout.Command.WORD_PICK,
+                            KeyboardLayout.Command.WORD_PICK,
+                            KeyboardLayout.Command.WORD_PICK,
+                            KeyboardLayout.Command.SWIPE_PAGE},
+                        new String[]{"", "", "",
+                            recentWord(0), recentWord(1), recentWord(2),
+                            recentWord(3), ""});
+                    case "WORD_EDIT" -> KeyboardLayout.wordEditorMenu(panel,
+                        wordDraft.message(), russian, shift);
                     case "RESET_CONFIRM" -> KeyboardLayout.toolMenu(panel,
                         new String[]{"СБРОСИТЬ ВСЁ?", "ДА, СБРОС",
                             "НЕТ, НАЗАД"},
@@ -1220,6 +1254,17 @@ public final class VirtualKeyboardOverlay {
                 // Unsupported audio hosts do not interrupt controller typing.
             }
         }
+        if ("WORD_EDIT".equals(menuPage)) {
+            if (result.key().command() == KeyboardLayout.Command.TYPE &&
+                !release.suggestions().isEmpty()) {
+                wordDraft.insertSwipeWord(result.text());
+                shift = false;
+                panel = null;
+            } else {
+                activateWordEdit(result);
+            }
+            return;
+        }
         if ("COMPOSE".equals(menuPage) &&
             result.key().command() == KeyboardLayout.Command.TYPE &&
             !release.suggestions().isEmpty()) {
@@ -1373,6 +1418,21 @@ public final class VirtualKeyboardOverlay {
             case SETTINGS_HOME -> openPage("SETTINGS");
             case BACK_TO_KEYS -> openPage("KEYBOARD");
             case QUICK_MESSAGES -> openPage("QUICK");
+            case WORD_LIST -> openPage("MY_WORDS");
+            case WORD_ADD -> {
+                wordDraft.clear();
+                symbols = false;
+                openPage("WORD_EDIT");
+            }
+            case WORD_PICK -> {
+                String word = result.key().value();
+                if (userWords.contains(word)) {
+                    wordDraft.load(word, "");
+                    symbols = false;
+                    openPage("WORD_EDIT");
+                }
+            }
+            case SWIPE_PAGE -> openPage("SWIPE_OPTS");
             case QUICK_PAGE_PREVIOUS -> {
                 quickPage = (quickPage + quickBinds.pages() - 1) %
                     quickBinds.pages();
@@ -1572,6 +1632,50 @@ public final class VirtualKeyboardOverlay {
             shift = false;
     }
 
+
+    /** Local personal dictionary editor: never touches live Minecraft chat. */
+    private void activateWordEdit(KeyHoldController.Activation result) {
+        switch (result.key().command()) {
+            case TYPE -> wordDraft.insert(result.text());
+            case SPACE -> wordDraft.insert(" ");
+            case BACKSPACE -> wordDraft.backspace();
+            case LEFT -> wordDraft.moveCursor(-1);
+            case RIGHT -> wordDraft.moveCursor(1);
+            case LANGUAGE -> { russian = !russian; symbols = false; }
+            case SYMBOLS -> symbols = !symbols;
+            case SHIFT -> shift = !shift;
+            case WORD_CLEAR -> wordDraft.clear();
+            case SWIPE_PAGE -> openPage("MY_WORDS");
+            case WORD_SAVE -> {
+                String normalized = FoxCraftUserWords.normalize(wordDraft.message());
+                if (normalized.isEmpty()) {
+                    showStatus("Нужно одно слово из 2–24 букв");
+                } else if (userWords.contains(normalized)) {
+                    showStatus("Слово уже добавлено");
+                } else if (userWords.add(normalized)) {
+                    GestureWordRecognizer.setPersonalWords(userWords.entries());
+                    wordDraft.clear();
+                    openPage("MY_WORDS");
+                    showStatus("Слово добавлено в свайп");
+                } else {
+                    showStatus("Словарь полон");
+                }
+            }
+            case WORD_REMOVE -> {
+                String word = wordDraft.message();
+                if (userWords.remove(word)) {
+                    GestureWordRecognizer.setPersonalWords(userWords.entries());
+                    wordDraft.clear();
+                    openPage("MY_WORDS");
+                    showStatus("Слово удалено");
+                } else showStatus("Такого слова нет в личном словаре");
+            }
+            default -> { }
+        }
+        if (result.key().command() == KeyboardLayout.Command.TYPE && shift)
+            shift = false;
+        panel = null;
+    }
 
     /**
      * While the custom composer is open, the VR key matrix writes only to the
