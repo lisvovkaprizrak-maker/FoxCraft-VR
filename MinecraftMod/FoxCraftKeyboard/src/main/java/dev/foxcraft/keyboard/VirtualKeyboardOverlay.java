@@ -116,6 +116,7 @@ public final class VirtualKeyboardOverlay {
     private static TextFieldWidget freeField;
     private final FreeKeyboardGameInput gameKeys = new FreeKeyboardGameInput();
     private final String[] heldGameKeys = new String[2];
+    private boolean previousLanguageRussian = true, previousSymbols, previousShift;
 
     public boolean isFreeMode() { return freeModeActive; }
 
@@ -123,9 +124,13 @@ public final class VirtualKeyboardOverlay {
         MinecraftClient mc = MinecraftClient.getInstance();
         gameKeys.releaseAll();
         freeField = new TextFieldWidget(mc.textRenderer, 0, 0, 20, 16, Text.empty());
+        previousLanguageRussian = russian;
+        previousSymbols = symbols;
+        previousShift = shift;
         freeModeActive = true;
         russian = false;
         symbols = false;
+        shift = false;
         clearSuggestions();
         openPage("FREE");
         // No GUI screen: gameplay and locomotion remain available.
@@ -137,6 +142,9 @@ public final class VirtualKeyboardOverlay {
         heldGameKeys[0] = heldGameKeys[1] = null;
         freeModeActive = false;
         freeField = null;
+        russian = previousLanguageRussian;
+        symbols = previousSymbols;
+        shift = previousShift;
         openPage("KEYBOARD");
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.world != null) mc.setScreen(new ChatScreen(""));
@@ -157,6 +165,9 @@ public final class VirtualKeyboardOverlay {
             gameKeys.releaseAll();
             freeModeActive = false;
             freeField = null;
+            russian = previousLanguageRussian;
+            symbols = previousSymbols;
+            shift = previousShift;
             openPage("KEYBOARD");
         }
         if (freeModeActive) return screen == null;
