@@ -22,7 +22,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      # GitHub ubuntu-latest already provides Android SDK and sdkmanager.
+      # setup-android@v3 currently fails by requesting removed SDK package 'tools'.
       - name: Install Android SDK for menu preview
         run: |
           yes | sdkmanager "platforms;android-35" "build-tools;35.0.0" >/dev/null || true
