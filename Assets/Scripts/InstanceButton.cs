@@ -358,6 +358,10 @@ public class InstanceButton : MonoBehaviour
             }
         });
         launchWorker.IsBackground = true;
+        // Capture the known false state before launching Java: on fast
+        // headsets gameReady may become true before the next Unity Update.
+        // A leftover true from an earlier game is never accepted.
+        sawGameNotReady = !JNIStorage.apiClass.GetStatic<bool>("gameReady");
         pendingGameLaunch = launchState;
         gameLaunchStartedAt = Time.realtimeSinceStartup;
         waitingForGameReady = true;
@@ -366,7 +370,7 @@ public class InstanceButton : MonoBehaviour
 
         // Only touch UI objects on the Unity main thread; do not do so from
         // Java workers. On a successful handoff gameReady handles the fade.
-        while (!launchState.completed)
+        while (!launchState.completed && launchInProgress)
             yield return null;
         // A watchdog timeout already restored the launcher. Never let a
         // late worker completion modify the next session's UI.
