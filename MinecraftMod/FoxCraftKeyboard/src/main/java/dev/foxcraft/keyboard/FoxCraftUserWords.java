@@ -34,8 +34,26 @@ public final class FoxCraftUserWords {
         return clean;
     }
 
+    public static final int PAGE_SIZE = 4;
+
     public List<String> entries() { return List.copyOf(words); }
     public int size() { return words.size(); }
+
+    /** Newest personal entries first, four words per page (including empty list). */
+    public int pages() {
+        return Math.max(1, (words.size() + PAGE_SIZE - 1) / PAGE_SIZE);
+    }
+
+    public List<String> page(int page) {
+        int safePage = Math.max(0, Math.min(page, pages() - 1));
+        List<String> all = new ArrayList<>(words);
+        List<String> result = new ArrayList<>(PAGE_SIZE);
+        for (int i = all.size() - 1 - safePage * PAGE_SIZE;
+             i >= 0 && result.size() < PAGE_SIZE; i--) {
+            result.add(all.get(i));
+        }
+        return List.copyOf(result);
+    }
     public boolean contains(String raw) {
         String word = normalize(raw);
         return !word.isEmpty() && words.contains(word);

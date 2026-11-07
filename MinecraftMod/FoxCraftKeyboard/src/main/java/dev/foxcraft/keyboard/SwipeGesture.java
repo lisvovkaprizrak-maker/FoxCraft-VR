@@ -74,7 +74,8 @@ public final class SwipeGesture {
     public List<String> suggestions() {
         if (!isSwiping() || panel == null) return List.of();
         if (rankedAt < 0 || points.size()-rankedAt >= 5) {
-            cachedWords = GestureWordRecognizer.suggest(panel, points, 3);
+            cachedWords = GestureWordRecognizer.suggest(
+                panel, points, 3, first.value());
             rankedAt = points.size();
         }
         return cachedWords;
@@ -90,7 +91,8 @@ public final class SwipeGesture {
     /** Final frame is always rescored before insertion; preview may be cached. */
     public List<String> finishCandidates() {
         List<String> words = isSwiping()
-            ? GestureWordRecognizer.suggest(panel, points, 3) : List.of();
+            ? GestureWordRecognizer.suggest(
+                panel, points, 3, first.value()) : List.of();
         cancel();
         return words;
     }

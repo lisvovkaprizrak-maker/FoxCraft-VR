@@ -24,6 +24,7 @@ public final class KeyboardLayout {
         BEAM_LONGER, DOT_SMALLER, DOT_LARGER,
         POSITION_PAGE, KEYBOARD_PAGE, CHAT_PAGE, SWIPE_PAGE,
         WORD_LIST, WORD_ADD, WORD_PICK, WORD_SAVE, WORD_REMOVE, WORD_CLEAR,
+        WORD_PAGE_PREVIOUS, WORD_PAGE_NEXT,
         ADJUST_OPTION, POSITION_LOCK, RESET_CONFIRM, RESET_ALL,
         COMPOSE_AUTOSEND
     }
@@ -544,6 +545,15 @@ public final class KeyboardLayout {
     public static String leadingSwipeSpace(String text, int cursor) {
         return text != null && cursor > 0 && cursor <= text.length() &&
             !Character.isWhitespace(text.charAt(cursor - 1)) ? " " : "";
+    }
+
+    /** A word typed after a swipe gets its separator only when typing begins.
+     * Punctuation, navigation, and explicit Space must never create one. */
+    public static String nextTypedSwipeSeparator(String text, int cursor,
+                                                 String keyText, boolean previousSwipe) {
+        if (!previousSwipe || keyText == null || keyText.length() != 1 ||
+            !Character.isLetter(keyText.charAt(0))) return "";
+        return leadingSwipeSpace(text, cursor);
     }
 
     /** Do not insert two automatic spaces when typing in an existing line. */

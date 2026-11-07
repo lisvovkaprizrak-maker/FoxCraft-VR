@@ -133,6 +133,13 @@ public final class GestureWordRecognizer {
 
     public static List<String> suggest(KeyboardLayout.Panel panel, List<Point> stroke,
                                        int maxResults) {
+        return suggest(panel, stroke, maxResults, null);
+    }
+
+    /** While swiping, the pressed first key is known exactly. Do not allow a
+     * near-neighbour letter to replace it (e.g. Д-А-Й must not become Л-А-Й). */
+    public static List<String> suggest(KeyboardLayout.Panel panel, List<Point> stroke,
+                                       int maxResults, String pressedFirstLetter) {
         if (panel == null || stroke == null || stroke.size() < 2 || maxResults <= 0)
             return List.of();
         Map<String, Point> positions = new HashMap<>();
@@ -148,6 +155,9 @@ public final class GestureWordRecognizer {
         if (russian) positions.put("ё", positions.get("е"));
         Map<Character, List<Entry>> buckets = russian ?
             vocabulary().ru() : vocabulary().en();
+        String anchor = pressedFirstLetter == null ? null :
+            pressedFirstLetter.toLowerCase(Locale.ROOT);
+        if (anchor != null && !positions.containsKey(anchor)) anchor = null;
         List<Point> trace = resample(stroke, 24);
         if (trace.size() < 2) return List.of();
         Point start = stroke.get(0), end = stroke.get(stroke.size() - 1);
@@ -155,6 +165,7 @@ public final class GestureWordRecognizer {
         double sy = Math.max(9.0, panel.height() / 7.0);
         List<Match> matches = new ArrayList<>();
         for (Map.Entry<String, Point> letter : positions.entrySet()) {
+            if (anchor != null && !anchor.equals(letter.getKey())) continue;
             if (squared(start, letter.getValue(), sx, sy) > 2.5) continue;
             List<Entry> candidates = buckets.get(letter.getKey().charAt(0));
             if (candidates == null) continue;

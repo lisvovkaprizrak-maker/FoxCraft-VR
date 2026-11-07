@@ -820,7 +820,8 @@ public final class KeyboardLogicSmokeTest {
 
         KeyboardLayout.Panel ru = KeyboardLayout.make(854, 480,
             true, true, false, false, false);
-        for (String target : new String[]{"куплю", "донки", "купить", "покупка"}) {
+        for (String target : new String[]{"куплю", "донки", "купить",
+                "покупка", "стол", "стул", "стиль", "дай"}) {
             var stroke = new java.util.ArrayList<GestureWordRecognizer.Point>();
             for (int i = 0; i < target.length(); i++) {
                 String letter = target.substring(i, i + 1);
@@ -831,9 +832,29 @@ public final class KeyboardLogicSmokeTest {
                 stroke.add(new GestureWordRecognizer.Point(
                     key.x() + key.width() / 2., key.y() + key.height() / 2.));
             }
-            require(GestureWordRecognizer.suggest(ru, stroke, 3).contains(target),
-                "Exact Russian swipe must suggest " + target);
+            List<String> ranked = GestureWordRecognizer.suggest(
+                ru, stroke, 3, target.substring(0, 1));
+            require(ranked.contains(target),
+                "Exact Russian swipe must suggest " + target + ": " + ranked);
+            if ("дай".equals(target)) {
+                require(ranked.get(0).equals("дай"),
+                    "Holding Д must rank ДАЙ first, not a word beginning with Л");
+                require(ranked.stream().noneMatch(w -> w.startsWith("л")),
+                    "A held start key must not be replaced by an adjacent key");
+            }
         }
+        require(" ".equals(KeyboardLayout.nextTypedSwipeSeparator(
+            "Привет", 6, "м", true)),
+            "Typing a new word after swipe inserts one separator before the letter");
+        require("".equals(KeyboardLayout.nextTypedSwipeSeparator(
+            "Привет", 6, "!", true)),
+            "Punctuation never inserts an unwanted gap after swipe");
+        require("".equals(KeyboardLayout.nextTypedSwipeSeparator(
+            "Привет", 6, "м", false)),
+            "Ordinary typing does not suddenly insert a separator");
+        require("".equals(KeyboardLayout.nextTypedSwipeSeparator(
+            "Привет ", 7, "м", true)),
+            "Existing space is never duplicated");
     }
 
     private static void testLargeOfflineDictionaryAndPersonalWords() {
@@ -870,6 +891,30 @@ public final class KeyboardLogicSmokeTest {
             FoxCraftUserWords reloaded = new FoxCraftUserWords(file);
             require(reloaded.size() == 2 && reloaded.contains("фоксикс"),
                 "Custom words must survive a full keyboard restart");
+            require(reloaded.pages() == 1 && reloaded.page(0).size() == 2,
+                "Short personal dictionaries stay on one page");
+            for (String more : new String[]{"домик", "морковь", "яблочко",
+                    "хижина", "лодочка", "фонарик"}) {
+                require(reloaded.add(more), "Can add word for paging: " + more);
+            }
+            require(reloaded.pages() == 2 && reloaded.size() == 8,
+                "Eight words must be visible across exactly two pages");
+            require(reloaded.page(0).equals(
+                List.of("фонарик", "лодочка", "хижина", "яблочко")),
+                "First page shows newest four words");
+            require(reloaded.page(1).equals(
+                List.of("морковь", "домик", "questik", "фоксикс")),
+                "Second page exposes the other four words");
+            require(reloaded.page(-1).equals(reloaded.page(0)) &&
+                reloaded.page(999).equals(reloaded.page(1)),
+                "Page selection is clamped, not allowed to go out of range");
+            require(reloaded.add("пещера") && reloaded.pages() == 3 &&
+                reloaded.page(2).size() == 1,
+                "Ninth word creates a third page");
+            require(reloaded.remove("пещера") && reloaded.pages() == 2,
+                "Deleting the final page word restores two pages");
+            require(new FoxCraftUserWords(file).size() == 8,
+                "All eight personal words persist between sessions");
 
             GestureWordRecognizer.setPersonalWords(reloaded.entries());
             require(GestureWordRecognizer.russianVocabularySize() >= 87000,
