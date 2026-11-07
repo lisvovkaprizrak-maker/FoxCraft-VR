@@ -88,7 +88,7 @@ public class UIHandler : MonoBehaviour
         bool authenticated = loginHandler != null &&
             loginHandler.HasAuthenticatedAccount;
         bool launcherBusy = ProgressBarManager.started ||
-            InstanceButton.IsInstallingInstance;
+            InstanceButton.IsInstallingInstance || InstanceManager.IsUpdatingProfiles;
         bool playReady = FoxCraftLaunchGate.CanPlay(authenticated,
             ProgressBarManager.DownloadsReady, launcherBusy);
         bool canManage = FoxCraftLaunchGate.CanManageInstances(authenticated,
