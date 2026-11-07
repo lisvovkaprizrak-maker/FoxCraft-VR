@@ -12,6 +12,12 @@ import java.util.Set;
  */
 public final class FreeKeyboardGameInput {
     private final Set<Integer> pressed = new HashSet<>();
+    private static final Set<Integer> syntheticHeld = new HashSet<>();
+
+    /** Lets GLFW-polled Minecraft debug combos and mod keybinds see held keys. */
+    public static boolean isSyntheticPressed(int key) {
+        return syntheticHeld.contains(key);
+    }
     private int stickyModifiers;
 
     public void tapModifier(String name) {
@@ -21,9 +27,11 @@ public final class FreeKeyboardGameInput {
         boolean alreadyOn = (stickyModifiers & bit) != 0;
         if (alreadyOn) {
             stickyModifiers &= ~bit;
+            syntheticHeld.remove(code);
             send(code, GLFW.GLFW_RELEASE);
         } else {
             stickyModifiers |= bit;
+            syntheticHeld.add(code);
             send(code, GLFW.GLFW_PRESS);
         }
     }
@@ -35,12 +43,14 @@ public final class FreeKeyboardGameInput {
     public void press(String name) {
         int key = FreeKeyboardKeys.keyCode(name);
         if (key == -1 || !pressed.add(key)) return;
+        syntheticHeld.add(key);
         send(key, GLFW.GLFW_PRESS);
     }
 
     public void release(String name) {
         int key = FreeKeyboardKeys.keyCode(name);
         if (key == -1 || !pressed.remove(key)) return;
+        syntheticHeld.remove(key);
         send(key, GLFW.GLFW_RELEASE);
     }
 
@@ -48,6 +58,7 @@ public final class FreeKeyboardGameInput {
         // Prevent a stuck F3, movement or function key on panel close.
         for (int key : Set.copyOf(pressed)) {
             pressed.remove(key);
+            syntheticHeld.remove(key);
             send(key, GLFW.GLFW_RELEASE);
         }
         // Modifier-down events must be paired even when leaving FREE mode.
@@ -55,6 +66,7 @@ public final class FreeKeyboardGameInput {
             int bit = FreeKeyboardKeys.modifierBit(name);
             if ((stickyModifiers & bit) != 0) {
                 stickyModifiers &= ~bit;
+                syntheticHeld.remove(FreeKeyboardKeys.keyCode(name));
                 send(FreeKeyboardKeys.keyCode(name), GLFW.GLFW_RELEASE);
             }
         }
