@@ -24,10 +24,12 @@ public sealed class FoxCraftPhoneTouchInput : MonoBehaviour
 
         InputSystemUIInputModule touch = events.GetComponent<InputSystemUIInputModule>();
         if (touch == null)
-        {
             touch = events.gameObject.AddComponent<InputSystemUIInputModule>();
-            touch.AssignDefaultActions();
-        }
+
+        // The existing QuestCraft EventSystem can have actions dedicated to
+        // tracked VR controllers. Rebind to standard mouse/touch actions on a
+        // phone even if the component itself already existed.
+        touch.AssignDefaultActions();
 
         // A single EventSystem module must handle the phone's touchscreen.
         foreach (BaseInputModule module in events.GetComponents<BaseInputModule>())
