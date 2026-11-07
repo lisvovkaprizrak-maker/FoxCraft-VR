@@ -547,6 +547,15 @@ public final class KeyboardLayout {
             !Character.isWhitespace(text.charAt(cursor - 1)) ? " " : "";
     }
 
+    /** A word typed after a swipe gets its separator only when typing begins.
+     * Punctuation, navigation, and explicit Space must never create one. */
+    public static String nextTypedSwipeSeparator(String text, int cursor,
+                                                 String keyText, boolean previousSwipe) {
+        if (!previousSwipe || keyText == null || keyText.length() != 1 ||
+            !Character.isLetter(keyText.charAt(0))) return "";
+        return leadingSwipeSpace(text, cursor);
+    }
+
     /** Do not insert two automatic spaces when typing in an existing line. */
     public static String trailingWordSpace(String text, int cursor) {
         if (text != null && cursor >= 0 && cursor < text.length() &&
