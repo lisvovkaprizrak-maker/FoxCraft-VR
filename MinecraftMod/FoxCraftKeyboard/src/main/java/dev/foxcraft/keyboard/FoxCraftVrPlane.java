@@ -301,6 +301,9 @@ public final class FoxCraftVrPlane {
         if (keyboard == null || disabled) return;
         MinecraftClient client = MinecraftClient.getInstance();
         if (!keyboard.shouldDisplayForScreen(client.currentScreen)) {
+            // A game-key shortcut may open a mod menu before the controller
+            // releases its trigger. Never leave that key synthetically held.
+            keyboard.suspendFreeKeys();
             finishGrab(grabHand);
             wasPressed[0] = wasPressed[1] = false;
             ready = false;
