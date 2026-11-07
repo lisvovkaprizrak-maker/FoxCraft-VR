@@ -38,6 +38,9 @@ public static class SmokeProgram
         {
             Application.persistentDataPath = folder;
             Application.platform = RuntimePlatform.Android;
+            // Real Activity has been initialized by Unity before normal
+            // launcher configuration is loaded on an ordinary Android phone.
+            JNIStorage.activity = new AndroidJavaObject();
             ConfigHandler initial = NewSettings();
             initial.LoadConfig();
             Check(File.Exists(ConfigHandler.configPath), "first-run settings created");
@@ -450,6 +453,73 @@ public static class SmokeProgram
             Check(!FoxCraftNetworkStatus.HasValidatedInternet(),
                 "network query skips Java on desktop Unity");
             Application.platform = RuntimePlatform.Android;
+
+            // Delayed Android classification must never commit a guessed
+            // device mode. Confirm unknown headsets default conservatively to
+            // VR, but switch to phone after the actual Android features load.
+            var detectorCache = typeof(FoxCraftDevice).GetField(
+                "detectedHeadset", BindingFlags.Static | BindingFlags.NonPublic);
+            var updateConfig = typeof(ConfigHandler).GetMethod("Update",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Check(detectorCache != null && updateConfig != null,
+                "deferred Android mode selection is testable");
+
+            detectorCache.SetValue(null, null);
+            SystemInfo.deviceModel = "unknown-android-device";
+            JNIStorage.activity = null;
+            Check(FoxCraftDevice.IsDetectionPending && !FoxCraftDevice.IsAndroidPhone,
+                "phone detection stays pending until Activity exists");
+
+            string delayedFolder = Path.Combine(folder, "delayed-device");
+            Directory.CreateDirectory(delayedFolder);
+            Application.persistentDataPath = delayedFolder;
+            ConfigHandler pendingMode = NewSettings();
+            pendingMode.LoadConfig();
+            Check(pendingMode.config.launchMode == ConfigHandler.VrMode &&
+                pendingMode.config.autoLaunchMode,
+                "undetected Android does not default to phone prematurely");
+
+            JNIStorage.activity = new AndroidJavaObject();
+            AndroidJavaObject.VrTrackingFeature = false;
+            AndroidJavaObject.OculusVrFeature = false;
+            Check(FoxCraftDevice.IsAndroidPhone && !FoxCraftDevice.IsDetectionPending,
+                "generic Android switches to phone once PackageManager responds");
+            updateConfig.Invoke(pendingMode, null);
+            Check(pendingMode.config.launchMode == ConfigHandler.PhoneMode &&
+                !pendingMode.config.autoLaunchMode,
+                "initial auto-selected launch mode resolves to phone");
+
+            ConfigHandler afterDetection = NewSettings();
+            afterDetection.LoadConfig();
+            Check(afterDetection.config.launchMode == ConfigHandler.PhoneMode &&
+                !afterDetection.config.autoLaunchMode,
+                "resolved phone mode persists across a full restart");
+
+            string manualFolder = Path.Combine(folder, "manual-device");
+            Directory.CreateDirectory(manualFolder);
+            Application.persistentDataPath = manualFolder;
+            detectorCache.SetValue(null, null);
+            JNIStorage.activity = null;
+            ConfigHandler manual = NewSettings();
+            manual.LoadConfig();
+            manual.SetLaunchMode(ConfigHandler.VrMode);
+            JNIStorage.activity = new AndroidJavaObject();
+            updateConfig.Invoke(manual, null);
+            Check(manual.config.launchMode == ConfigHandler.VrMode &&
+                !manual.config.autoLaunchMode,
+                "user-selected VR mode is never overwritten by late phone detection");
+
+            // The same conservative fallback is used by both the camera and
+            // touchscreen when Android never publishes its hardware features.
+            detectorCache.SetValue(null, null);
+            JNIStorage.activity = null;
+            Check(FoxCraftDevice.IsDetectionPending,
+                "missing Activity keeps device classification unresolved");
+            FoxCraftDevice.CompleteDetectionWithPhoneFallback();
+            Check(FoxCraftDevice.IsAndroidPhone && !FoxCraftDevice.IsDetectionPending,
+                "timeout fallback enables the flat camera and phone input together");
+            detectorCache.SetValue(null, null);
+            Application.persistentDataPath = folder;
 
             Console.WriteLine("FoxCraft configuration/login smoke: " +
                 checks + " checks passed.");
