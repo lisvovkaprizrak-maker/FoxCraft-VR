@@ -17,16 +17,44 @@ public class InstanceButton : MonoBehaviour
     bool gameReady = false;
     private bool launchInProgress;
     private const float PrelaunchTimeoutSeconds = 150f;
+    private const float GameReadyTimeoutSeconds = 180f;
+    private bool javaLaunchDispatched;
+    private bool sawGameNotReady;
+    private bool waitingForGameReady;
+    private float gameLaunchStartedAt;
+    private PrelaunchState pendingGameLaunch;
     // A timed-out Java worker cannot be safely killed. Keep blocking duplicate
     // prelaunch calls until that worker actually terminates.
     private PrelaunchState pendingPrelaunch;
 
     public void Update()
     {
+        // The shipped Pojlib Java API may swallow launch errors internally.
+        // Recover the launcher if the gameReady handshake never arrives, but
+        // do not kill a Java worker that might still be manipulating files.
+        if (waitingForGameReady && launchInProgress && !gameReady &&
+            Time.realtimeSinceStartup - gameLaunchStartedAt >= GameReadyTimeoutSeconds)
+        {
+            waitingForGameReady = false;
+            launchInProgress = false;
+            javaLaunchDispatched = false;
+            ProgressBarManager.started = false;
+            if (uiHandler != null)
+            {
+                uiHandler.KillSetter();
+                uiHandler.SetAndShowError(
+                    "Minecraft не сообщил о запуске за 180 секунд. " +
+                    "Проверьте журнал FoxCraft. Если Java ещё работает, " +
+                    "перезапустите приложение перед повтором.");
+            }
+            return;
+        }
+
         // The QuestCraft gameReady flag and OpenXR transition belong only to
         // VR Minecraft. A future phone 2D engine has its own lifecycle.
         if (Application.platform != RuntimePlatform.Android ||
             !launchInProgress ||
+            !javaLaunchDispatched ||
             FoxCraftDevice.IsAndroidPhone ||
             (configHandler != null && configHandler.IsPhoneModeSelected) ||
             JNIStorage.instance == null || JNIStorage.apiClass == null ||
@@ -40,8 +68,14 @@ public class InstanceButton : MonoBehaviour
 
         currInstName = dropdown.options[dropdown.value].text;
 
-        if (JNIStorage.apiClass.GetStatic<bool>("gameReady") && !gameReady)
+        bool reportedReady = JNIStorage.apiClass.GetStatic<bool>("gameReady");
+        if (!reportedReady)
+            sawGameNotReady = true;
+        // A stale true value from a previous Minecraft session must not
+        // trigger OpenXR before observing false for the current launch.
+        if (reportedReady && sawGameNotReady && !gameReady)
         {
+            waitingForGameReady = false;
             gameReady = true;
             Debug.Log("[FoxCraft] Pojlib reports Minecraft gameReady.");
 
@@ -114,6 +148,18 @@ public class InstanceButton : MonoBehaviour
     {
         if (Application.platform != RuntimePlatform.Android || launchInProgress)
             return;
+        if (pendingGameLaunch != null)
+        {
+            if (!pendingGameLaunch.completed)
+            {
+                if (uiHandler != null)
+                    uiHandler.SetAndShowError(
+                        "Предыдущий запуск Java ещё работает. " +
+                        "Перезапустите FoxCraft перед повтором.");
+                return;
+            }
+            pendingGameLaunch = null;
+        }
         if (pendingPrelaunch != null)
         {
             if (!pendingPrelaunch.completed)
@@ -185,6 +231,12 @@ public class InstanceButton : MonoBehaviour
             return;
         }
 
+        // A new launch must independently observe gameReady changing from
+        // false to true. The Pojlib singleton may retain a stale true flag.
+        gameReady = false;
+        sawGameNotReady = false;
+        javaLaunchDispatched = false;
+        waitingForGameReady = false;
         launchInProgress = true;
         StartCoroutine(PrepareAndLaunch(selected));
     }
@@ -306,15 +358,25 @@ public class InstanceButton : MonoBehaviour
             }
         });
         launchWorker.IsBackground = true;
+        pendingGameLaunch = launchState;
+        gameLaunchStartedAt = Time.realtimeSinceStartup;
+        waitingForGameReady = true;
+        javaLaunchDispatched = true;
         launchWorker.Start();
 
         // Only touch UI objects on the Unity main thread; do not do so from
         // Java workers. On a successful handoff gameReady handles the fade.
         while (!launchState.completed)
             yield return null;
+        // A watchdog timeout already restored the launcher. Never let a
+        // late worker completion modify the next session's UI.
+        if (!launchInProgress)
+            yield break;
         if (launchState.error != null)
         {
             launchInProgress = false;
+            waitingForGameReady = false;
+            javaLaunchDispatched = false;
             ProgressBarManager.started = false;
             if (uiHandler != null)
             {
