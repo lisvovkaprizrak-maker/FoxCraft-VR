@@ -39,6 +39,18 @@ public static class InstanceLaunchSmoke
             JNIStorage.accountObj = null;
             JNIStorage.ActiveInstance = null;
 
+            // When Unity's Android Activity is not ready, classification must
+            // stay pending instead of immediately modifying the VR rig.
+            JNIStorage.activity = null;
+            Assert(FoxCraftDevice.IsDetectionPending &&
+                !FoxCraftDevice.IsAndroidPhone,
+                "Android classification waits for UnityPlayerActivity");
+
+            JNIStorage.activity = new AndroidJavaObject();
+            Assert(!FoxCraftDevice.IsDetectionPending &&
+                FoxCraftDevice.IsAndroidPhone,
+                "normal phone is recognized after Android PackageManager loads");
+
             var button = new InstanceButton {
                 configHandler = prefs,
                 uiHandler = ui,
