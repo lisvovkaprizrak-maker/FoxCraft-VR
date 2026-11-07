@@ -373,6 +373,14 @@ public final class KeyboardLayout {
     public static Panel composeMenu(Panel original, String message, String note,
                                     boolean editingNote, boolean russian,
                                     boolean shift, boolean savingBind) {
+        return composeMenu(original, message, note, editingNote, russian,
+            shift, savingBind, false);
+    }
+
+    public static Panel composeMenu(Panel original, String message, String note,
+                                    boolean editingNote, boolean russian,
+                                    boolean shift, boolean savingBind,
+                                    boolean autoSend) {
         if (original == null) return null;
         Key header = original.keys().stream()
             .filter(k -> k.command() == Command.LANGUAGE_RU).findFirst().orElse(null);
@@ -395,10 +403,12 @@ public final class KeyboardLayout {
                     (messageTail.isBlank() ? "…" : messageTail),
                 (editingNote ? "▸ НАЗВАНИЕ: " : "НАЗВАНИЕ: ") +
                     (noteTail.isBlank() ? "…" : noteTail),
-                savingBind ? "СОХРАНИТЬ" : "ОТПРАВИТЬ"},
+                savingBind ? "СОХРАНИТЬ" : "ОТПРАВИТЬ",
+                savingBind ? (autoSend ? "☑ СРАЗУ" : "☐ СРАЗУ") : " "},
             new Command[]{Command.COMPOSE_MESSAGE, Command.COMPOSE_NOTE,
-                Command.COMPOSE_SEND},
-            new String[]{"", "", ""}, new int[]{8, 7, 5});
+                Command.COMPOSE_SEND,
+                savingBind ? Command.COMPOSE_AUTOSEND : Command.NONE},
+            new String[]{"", "", "", ""}, new int[]{8, 7, 5, 5});
         addWeighted(keys, innerX, footer.y(), innerWidth, footer.height(), gap,
             new String[]{"НАЗАД", russian ? "EN" : "RU", "123", shift ? "SHIFT*" : "SHIFT",
                 "←", russian ? "ПРОБЕЛ" : "SPACE", "→", "/", "⌫", "ОЧИСТ"},
