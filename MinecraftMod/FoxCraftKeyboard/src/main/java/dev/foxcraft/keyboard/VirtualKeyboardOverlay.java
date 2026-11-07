@@ -75,6 +75,7 @@ public final class VirtualKeyboardOverlay {
     private boolean layoutSettingsOpen;
     private String menuPage = "KEYBOARD";
     private String layoutMenuPage = "";
+    private int wordPage;
     private String voiceStatus = "";
     private String localClipboard = "";
     private final QuickMessageDraft quickDraft = new QuickMessageDraft();
@@ -86,8 +87,8 @@ public final class VirtualKeyboardOverlay {
         GestureWordRecognizer.setPersonalWords(userWords.entries());
     }
 
-    private String recentWord(int index) {
-        List<String> words = userWords.recent(4);
+    private String pageWord(int index) {
+        List<String> words = userWords.page(wordPage);
         return index >= 0 && index < words.size() ? words.get(index) : "";
     }
 
@@ -333,21 +334,25 @@ public final class VirtualKeyboardOverlay {
                             "GAP_DOWN", "GAP_UP", "SOUND", "SUGGEST", "SPACE", "", ""});
                     case "MY_WORDS" -> KeyboardLayout.toolMenu(panel,
                         new String[]{"МОИХ СЛОВ: " + userWords.size(), "+ ДОБАВИТЬ",
-                            "ПОСЛЕДНИЕ:", recentWord(0).isEmpty() ? "—" : recentWord(0),
-                            recentWord(1).isEmpty() ? "—" : recentWord(1),
-                            recentWord(2).isEmpty() ? "—" : recentWord(2),
-                            recentWord(3).isEmpty() ? "—" : recentWord(3),
-                            "← К свайпу"},
+                            pageWord(0).isEmpty() ? "—" : pageWord(0),
+                            pageWord(1).isEmpty() ? "—" : pageWord(1),
+                            pageWord(2).isEmpty() ? "—" : pageWord(2),
+                            pageWord(3).isEmpty() ? "—" : pageWord(3),
+                            "◀ НАЗАД", (wordPage + 1) + " / " + userWords.pages(),
+                            "ВПЕРЁД ▶", "← К свайпу"},
                         new KeyboardLayout.Command[]{KeyboardLayout.Command.NONE,
-                            KeyboardLayout.Command.WORD_ADD, KeyboardLayout.Command.NONE,
+                            KeyboardLayout.Command.WORD_ADD,
                             KeyboardLayout.Command.WORD_PICK,
                             KeyboardLayout.Command.WORD_PICK,
                             KeyboardLayout.Command.WORD_PICK,
                             KeyboardLayout.Command.WORD_PICK,
+                            KeyboardLayout.Command.WORD_PAGE_PREVIOUS,
+                            KeyboardLayout.Command.NONE,
+                            KeyboardLayout.Command.WORD_PAGE_NEXT,
                             KeyboardLayout.Command.SWIPE_PAGE},
-                        new String[]{"", "", "",
-                            recentWord(0), recentWord(1), recentWord(2),
-                            recentWord(3), ""});
+                        new String[]{"", "",
+                            pageWord(0), pageWord(1), pageWord(2),
+                            pageWord(3), "", "", "", ""});
                     case "WORD_EDIT" -> KeyboardLayout.wordEditorMenu(panel,
                         wordDraft.message(), russian, shift);
                     case "RESET_CONFIRM" -> KeyboardLayout.toolMenu(panel,
@@ -1295,8 +1300,8 @@ public final class VirtualKeyboardOverlay {
             // This also handles ordinary typed text followed by a swipe.
             String separator = KeyboardLayout.leadingSwipeSpace(field.getText(), before);
             boolean leadingSpace = !separator.isEmpty();
-            String suffix = featurePrefs.autoSpace() &&
-                before == field.getText().length() ? " " : "";
+            // No trailing space: the separator belongs to the NEXT word.
+            String suffix = "";
             String inserted = separator + chosen + suffix;
             field.write(inserted);
             int after = field.getCursor();
@@ -1369,6 +1374,10 @@ public final class VirtualKeyboardOverlay {
         int swipeLength = deleteSwipeWord ? lastInsertedWord.length() +
             lastInsertedSuffix.length() +
             (lastSwipeLeadingSpace ? 1 : 0) : 0;
+        String nextWordSeparator = result.key().command() ==
+            KeyboardLayout.Command.TYPE && featurePrefs.autoSpace()
+            ? KeyboardLayout.nextTypedSwipeSeparator(field.getText(),
+                field.getCursor(), result.text(), validLastSwipe(field)) : "";
         clearSuggestions();
         if (deleteSwipeWord) {
             field.eraseCharacters(-swipeLength);
@@ -1381,17 +1390,17 @@ public final class VirtualKeyboardOverlay {
         switch (result.key().command()) {
             case TYPE -> {
                 if (".".equals(result.text())) {
-                    // A swipe appends a space. A following period belongs
-                    // immediately after that word, followed by exactly one
-                    // new space: "Привет. ", not "Привет .  ".
+                    // Punctuation attaches to the preceding word without
+                    // creating an extra separator before the period.
                     if (KeyboardLayout.trimSpaceBeforeDot(field.getText(),
                         field.getCursor()))
                         field.eraseCharacters(-1);
                     field.write("." + KeyboardLayout.trailingWordSpace(
                         field.getText(), field.getCursor()));
                 } else {
-                    field.write(KeyboardLayout.firstRussianLetter(result.text(),
-                        russian, field.getText(), field.getCursor()));
+                    field.write(nextWordSeparator +
+                        KeyboardLayout.firstRussianLetter(result.text(),
+                            russian, field.getText(), field.getCursor()));
                 }
             }
             case SPACE -> field.write(" ");
@@ -1418,7 +1427,18 @@ public final class VirtualKeyboardOverlay {
             case SETTINGS_HOME -> openPage("SETTINGS");
             case BACK_TO_KEYS -> openPage("KEYBOARD");
             case QUICK_MESSAGES -> openPage("QUICK");
-            case WORD_LIST -> openPage("MY_WORDS");
+            case WORD_LIST -> {
+                wordPage = 0;
+                openPage("MY_WORDS");
+            }
+            case WORD_PAGE_PREVIOUS -> {
+                wordPage = Math.max(0, wordPage - 1);
+                openPage("MY_WORDS");
+            }
+            case WORD_PAGE_NEXT -> {
+                wordPage = Math.min(userWords.pages() - 1, wordPage + 1);
+                openPage("MY_WORDS");
+            }
             case WORD_ADD -> {
                 wordDraft.clear();
                 symbols = false;
@@ -1655,6 +1675,7 @@ public final class VirtualKeyboardOverlay {
                 } else if (userWords.add(normalized)) {
                     GestureWordRecognizer.setPersonalWords(userWords.entries());
                     wordDraft.clear();
+                    wordPage = 0;
                     openPage("MY_WORDS");
                     showStatus("Слово добавлено в свайп");
                 } else {
@@ -1666,6 +1687,7 @@ public final class VirtualKeyboardOverlay {
                 if (userWords.remove(word)) {
                     GestureWordRecognizer.setPersonalWords(userWords.entries());
                     wordDraft.clear();
+                    wordPage = Math.min(wordPage, userWords.pages() - 1);
                     openPage("MY_WORDS");
                     showStatus("Слово удалено");
                 } else showStatus("Такого слова нет в личном словаре");
