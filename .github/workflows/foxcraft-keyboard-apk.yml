@@ -17,6 +17,9 @@ on:
       - 'tools/verify_foxcraft_test_apk.py'
       - 'tests/test_verify_foxcraft_test_apk.py'
       - 'tests/test_foxcraft_launcher_modes.py'
+      - 'tests/test_foxcraft_unity_scene.py'
+      - 'Assets/Scenes/Main.unity'
+      - 'Assets/Scripts/DesktopCam.cs.meta'
       - 'Assets/Scripts/ConfigHandler.cs'
       - 'Assets/Scripts/DevHandler.cs'
       - 'ProjectSettings/ProjectSettings.asset'
@@ -74,6 +77,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_foxcraft_quest_smoke.py' -v
           python3 -m unittest discover -s tests -p 'test_verify_foxcraft_test_apk.py' -v
           python3 -m unittest discover -s tests -p 'test_foxcraft_launcher_modes.py' -v
+          python3 -m unittest discover -s tests -p 'test_foxcraft_unity_scene.py' -v
       - name: Require configured Unity license for manual Android build
         if: github.event_name == 'workflow_dispatch'
         env:
