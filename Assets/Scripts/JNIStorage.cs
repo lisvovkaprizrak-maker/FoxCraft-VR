@@ -102,44 +102,72 @@ public class JNIStorage : MonoBehaviour
 
     private void FillSupportedVersions(string[] supportedVersionsArray)
     {
+        if (supportedVersions == null)
+            supportedVersions = new List<string>();
         supportedVersions.Clear();
-        supportedVersions.AddRange(supportedVersionsArray);
-        AndroidJavaObject[] instances = instancesObj.Call<AndroidJavaObject[]>("toArray");
-        foreach (var instanceObj in instances)
+        if (supportedVersionsArray != null)
         {
-            string name = instanceObj.Get<string>("instanceName");
-            string image = instanceObj.Get<string>("instanceImageURL");
-            
-            if (!supportedVersions.Contains(name))
-            {
+            foreach (string version in supportedVersionsArray)
+                if (!string.IsNullOrWhiteSpace(version) && !supportedVersions.Contains(version))
+                    supportedVersions.Add(version);
+        }
+
+        if (instancesObj == null)
+            return;
+
+        AndroidJavaObject[] installed = instancesObj.Call<AndroidJavaObject[]>("toArray");
+        if (installed == null)
+            return;
+        foreach (AndroidJavaObject installedInstance in installed)
+        {
+            if (installedInstance == null)
+                continue;
+            string name = installedInstance.Get<string>("instanceName");
+            if (!string.IsNullOrWhiteSpace(name) && !supportedVersions.Contains(name))
                 supportedVersions.Add(name);
-            }
         }
     }
 
     public static PojlibInstance GetInstance(string name)
     {
-        AndroidJavaObject[] instances = instancesObj.Call<AndroidJavaObject[]>("toArray");
-        foreach (var instanceObj in instances)
-        {
-            PojlibInstance pojlibInstance = PojlibInstance.Parse(instanceObj);
-            if (pojlibInstance.instanceName.Equals(name))
-            {
-                return pojlibInstance;
-            }
-        }
+        if (instancesObj == null || string.IsNullOrWhiteSpace(name))
+            return null;
 
+        AndroidJavaObject[] instances = instancesObj.Call<AndroidJavaObject[]>("toArray");
+        if (instances == null)
+            return null;
+        foreach (AndroidJavaObject entry in instances)
+        {
+            if (entry == null)
+                continue;
+            PojlibInstance profile = PojlibInstance.Parse(entry);
+            if (profile != null && string.Equals(profile.instanceName, name,
+                StringComparison.Ordinal))
+                return profile;
+        }
         return null;
     }
 
     public void UpdateInstances()
     {
-        if (Application.platform != RuntimePlatform.Android) return;
-        AndroidJavaClass jc = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
-        activity = jc.GetStatic<AndroidJavaObject>("currentActivity");
+        if (Application.platform != RuntimePlatform.Android ||
+            apiClass == null || instancesObj == null || uiHandler == null)
+            return;
+
+        using (AndroidJavaClass unityPlayer =
+            new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+        {
+            activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+        }
+        if (activity == null)
+        {
+            uiHandler.SetAndShowError("Android Activity недоступна. Перезапустите FoxCraft.");
+            return;
+        }
+
+        string[] available = apiClass.CallStatic<string[]>("getQCSupportedVersions", activity);
+        FillSupportedVersions(available);
         uiHandler.ClearDropdowns();
-        string[] supportedVersionsArray = apiClass.CallStatic<string[]>("getQCSupportedVersions", activity);
-        FillSupportedVersions(supportedVersionsArray);
         uiHandler.UpdateDropdowns(true, supportedVersions);
         // TMP must receive its options before restoring the saved profile index.
         if (configHandler != null)
@@ -148,7 +176,18 @@ public class JNIStorage : MonoBehaviour
     
     public void CheckConnection()
     {
-        connected = apiClass.CallStatic<bool>("hasConnection", activity);
+        if (apiClass == null || activity == null)
+            return;
+        try
+        {
+            connected = apiClass.CallStatic<bool>("hasConnection", activity);
+        }
+        catch (Exception exception)
+        {
+            connected = false;
+            Debug.LogWarning("[FoxCraft] Pojlib connectivity probe unavailable: " +
+                exception.GetType().Name);
+        }
         if (!connected)
         {
             // The bundled QuestCraft Pojlib connectivity check recognizes Wi-Fi
