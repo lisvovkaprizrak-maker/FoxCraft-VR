@@ -304,6 +304,65 @@ public static class SmokeProgram
             keyboardUpdate.Invoke(keyboard, null);
             Check(!keyGrid.activeSelf, "QuestCraft floating key grid hidden on Android phone");
 
+            // Use real FoxCraftLaunchGate rules to stop Pojlib progress
+            // from overriding Microsoft account verification.
+            Check(!FoxCraftLaunchGate.CanPlay(false, true, false),
+                "Play stays locked without authenticated account");
+            Check(!FoxCraftLaunchGate.CanPlay(true, false, false),
+                "Play stays locked while Pojlib downloads Minecraft assets");
+            Check(!FoxCraftLaunchGate.CanPlay(true, true, true),
+                "Play stays locked while VR launch is already underway");
+            Check(FoxCraftLaunchGate.CanPlay(true, true, false),
+                "Play becomes available after login and completed downloads");
+            Check(!FoxCraftLaunchGate.CanManageInstances(true, true, true, false),
+                "demo Minecraft account cannot edit VR instances/mods");
+            Check(FoxCraftLaunchGate.CanManageInstances(true, false, true, false),
+                "verified full Minecraft account can edit downloaded instances");
+
+            // Real ProgressBarManager must never re-enable Play itself. The
+            // old QuestCraft manager used to turn it on on every Update
+            // even before LoginHandler confirmed the Microsoft account.
+            var downloads = new ProgressBarManager {
+                progressBar = new UnityEngine.UI.Slider(),
+                downloadText = new TextMeshProUGUI(),
+                playButton = new UnityEngine.UI.Button(),
+                accountDropdown = new TMP_Dropdown()
+            };
+            var updateDownloads = typeof(ProgressBarManager).GetMethod("Update",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Check(updateDownloads != null, "download progress update is testable");
+            ProgressBarManager.started = false;
+            JNIStorage.apiClass = null;
+            downloads.playButton.interactable = true;
+            updateDownloads.Invoke(downloads, null);
+            Check(!ProgressBarManager.DownloadsReady &&
+                !downloads.playButton.interactable,
+                "missing Pojlib disables Play without throwing");
+
+            JNIStorage.apiClass = new AndroidJavaClass();
+            AndroidJavaClass.DownloadsCompleted = false;
+            AndroidJavaClass.DownloadPercentage = 0.42f;
+            updateDownloads.Invoke(downloads, null);
+            Check(!ProgressBarManager.DownloadsReady &&
+                downloads.progressBar.gameObject.activeSelf &&
+                downloads.progressBar.value > 0.4f,
+                "active download shows progress and keeps Play locked");
+
+            AndroidJavaClass.DownloadsCompleted = true;
+            updateDownloads.Invoke(downloads, null);
+            Check(ProgressBarManager.DownloadsReady &&
+                !downloads.playButton.interactable &&
+                !downloads.progressBar.gameObject.activeSelf,
+                "complete download hides progress but never independently enables Play");
+
+            AndroidJavaClass.FailDownloadProbe = true;
+            updateDownloads.Invoke(downloads, null);
+            Check(!ProgressBarManager.DownloadsReady &&
+                !downloads.playButton.interactable &&
+                downloads.downloadText.gameObject.activeSelf,
+                "Pojlib download error leaves Play disabled and shows warning");
+            AndroidJavaClass.FailDownloadProbe = false;
+
             // Corruption must be backed up, not silently overwrite the old file.
             File.WriteAllText(ConfigHandler.configPath, "not valid json");
             ConfigHandler recovered = NewSettings();
