@@ -22,12 +22,17 @@ public final class FoxCraftKeyboardClient implements ClientModInitializer {
         LOGGER.info("[FoxCraft][QXR-hand-v1 2026-11-07] Minecraft 1.21.5 VR text overlay: physical OpenXR hand sampler enabled.");
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
             ScreenEvents.afterRender(screen).register((s, context, mouseX, mouseY, tickDelta) ->
-                keyboard.render(s, context, mouseX, mouseY));
+                {
+                    keyboard.render(s, context, mouseX, mouseY);
+                    FoxCraftChatGrab.render(s, context);
+                });
 
             ScreenMouseEvents.allowMouseClick(screen).register((s, mouseX, mouseY, button) ->
+                !FoxCraftChatGrab.mousePressed(s, mouseX, mouseY, button) &&
                 !keyboard.mousePressed(s, mouseX, mouseY, button));
 
             ScreenMouseEvents.allowMouseRelease(screen).register((s, mouseX, mouseY, button) ->
+                !FoxCraftChatGrab.mouseReleased(s, mouseX, mouseY, button) &&
                 !keyboard.mouseReleased(s, mouseX, mouseY, button));
         });
     }
