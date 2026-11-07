@@ -381,6 +381,21 @@ public static class SmokeProgram
                 "Pojlib download error leaves Play disabled and shows warning");
             AndroidJavaClass.FailDownloadProbe = false;
 
+            // A Pojlib restartLauncher can restart the Unity scene inside
+            // the same Android process: static completion/launch state from
+            // the previous player must never unlock the new Play button.
+            AndroidJavaClass.DownloadsCompleted = true;
+            updateDownloads.Invoke(downloads, null);
+            Check(ProgressBarManager.DownloadsReady,
+                "previous Unity session can complete downloads");
+            ProgressBarManager.started = true;
+            var awakeDownloads = typeof(ProgressBarManager).GetMethod("Awake",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Check(awakeDownloads != null, "download state boot reset is testable");
+            awakeDownloads.Invoke(downloads, null);
+            Check(!ProgressBarManager.started && !ProgressBarManager.DownloadsReady,
+                "new Unity launcher resets stale Play/download flags");
+
             // Corruption must be backed up, not silently overwrite the old file.
             File.WriteAllText(ConfigHandler.configPath, "not valid json");
             ConfigHandler recovered = NewSettings();
