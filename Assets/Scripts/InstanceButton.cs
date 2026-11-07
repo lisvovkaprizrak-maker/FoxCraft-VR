@@ -75,6 +75,13 @@ public class InstanceButton : MonoBehaviour
         if (Application.platform != RuntimePlatform.Android || launchInProgress)
             return;
 
+        if (JNIStorage.accountObj == null)
+        {
+            if (uiHandler != null)
+                uiHandler.SetAndShowError("Сначала войдите в аккаунт Minecraft.");
+            return;
+        }
+
         // Phone and VR each have their own renderer. Never pass a phone
         // profile to the bundled Vivecraft/OpenXR Pojlib game launcher.
         if (configHandler != null && configHandler.IsPhoneModeSelected)
