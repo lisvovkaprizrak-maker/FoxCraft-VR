@@ -14,11 +14,16 @@ namespace UnityEngine
         public static string streamingAssetsPath { get; set; }
     }
     public class Texture2D { }
+    public static class SystemInfo { public static string deviceModel { get; set; } }
+    public sealed class Camera { }
+    public sealed class Canvas { public Camera worldCamera { get; set; } }
     public class GameObject
     {
         public GameObject() { }
         public GameObject(string name) { }
         public T AddComponent<T>() where T : new() { return new T(); }
+        public T GetComponent<T>() where T : new() { return new T(); }
+        public void SetActive(bool active) { }
     }
     public static class Time { public static float realtimeSinceStartup { get; set; } }
     public class Coroutine { }
