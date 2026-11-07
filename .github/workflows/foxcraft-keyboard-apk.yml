@@ -18,6 +18,8 @@ on:
       - 'tests/test_verify_foxcraft_test_apk.py'
       - 'tests/test_foxcraft_launcher_modes.py'
       - 'Assets/Scripts/ConfigHandler.cs'
+      - 'Assets/Scripts/DevHandler.cs'
+      - 'ProjectSettings/ProjectSettings.asset'
       - 'Assets/Scripts/LoginHandler.cs'
       - 'tests/unity-login-compile/**'
       - 'Assets/Scripts/FoxCraftLaunchModeMenu.cs'
