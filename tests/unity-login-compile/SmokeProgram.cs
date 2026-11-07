@@ -215,6 +215,54 @@ public static class SmokeProgram
             cachedHeadset.SetValue(null, null);
             SystemInfo.deviceModel = null;
 
+            // Real QuestCraft VR keyboard handler must survive an empty
+            // Backspace and missing optional audio fields. On phones its old
+            // floating keyboard must not cover the system Android IME.
+            var keyboard = new KeyboardHandler();
+            var search = new TMP_InputField { text = "", enabled = true };
+            var ram = new TMP_InputField { text = "4096", enabled = false };
+            var instanceName = new TMP_InputField { text = "Fabric", enabled = false };
+            var keyGrid = new GameObject();
+            keyGrid.SetActive(true);
+            foreach (var assignment in new (string, object)[] {
+                ("searchBox", search), ("ramSetter", ram),
+                ("instanceEditor", instanceName), ("keyboard", keyGrid)
+            })
+            {
+                typeof(KeyboardHandler).GetField(assignment.Item1,
+                    BindingFlags.NonPublic | BindingFlags.Instance)
+                    .SetValue(keyboard, assignment.Item2);
+            }
+            keyboard.BackspacePress();
+            Check(search.text == "", "empty Backspace never deletes beyond zero");
+            keyboard.KeyPress("AB");
+            Check(search.text == "ab", "keys enter lower-case text");
+            keyboard.ShiftPress();
+            keyboard.KeyPress("c");
+            Check(search.text == "abC", "Shift enters upper-case text");
+            keyboard.BackspacePress();
+            Check(search.text == "ab", "Backspace removes last character");
+            keyboard.SpacePress();
+            Check(search.text == "ab ", "Space enters a space");
+            search.enabled = false;
+            ram.enabled = true;
+            keyboard.KeyPress("7");
+            Check(ram.text == "40967", "RAM field receives keys after switching tabs");
+            ram.enabled = false;
+            instanceName.enabled = true;
+            keyboard.KeyPress("x");
+            Check(instanceName.text == "FabricX",
+                "profile-name field remains editable with shift active");
+            instanceName.enabled = false;
+            keyboard.BackspacePress();
+            keyboard.KeyPress("z");
+            keyboard.SpacePress();
+            Check(instanceName.text == "FabricX", "hidden fields ignore stray VR key presses");
+            var keyboardUpdate = typeof(KeyboardHandler).GetMethod("Update",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            keyboardUpdate.Invoke(keyboard, null);
+            Check(!keyGrid.activeSelf, "QuestCraft floating key grid hidden on Android phone");
+
             // Corruption must be backed up, not silently overwrite the old file.
             File.WriteAllText(ConfigHandler.configPath, "not valid json");
             ConfigHandler recovered = NewSettings();
