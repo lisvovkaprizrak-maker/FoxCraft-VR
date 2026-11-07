@@ -230,6 +230,48 @@ public static class InstanceLaunchSmoke
                 "repeated gameReady polls never queue duplicate VR transitions");
             AndroidJavaClass.GameReady = false;
 
+            // A scene missing the optional fade CanvasGroup should still
+            // complete the VR handoff, without throwing NullReferenceException
+            // or attempting to animate a destroyed Unity GameObject.
+            AndroidJavaClass.GameReady = true;
+            int beforeCoroutines = MonoBehaviour.CoroutineStarts;
+            var missingFade = new InstanceButton {
+                configHandler = prefs,
+                uiHandler = new UIHandler(),
+                ScreenFade = null
+            };
+            typeof(InstanceButton).GetField("launchInProgress",
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic)
+                .SetValue(missingFade, true);
+            update.Invoke(missingFade, null);
+            Assert(MonoBehaviour.CoroutineStarts == beforeCoroutines + 1,
+                "missing fade schedules fallback VR handoff on Unity thread");
+            update.Invoke(missingFade, null);
+            Assert(MonoBehaviour.CoroutineStarts == beforeCoroutines + 1,
+                "missing fade never schedules duplicate handoffs");
+
+            // The XR loader must be deinitialized via a Unity yield
+            // instruction, not Task.Delay on a JNI/background thread.
+            var manager = new UnityEngine.XR.Management.XRManagerSettings();
+            UnityEngine.XR.Management.XRGeneralSettings.Instance =
+                new UnityEngine.XR.Management.XRGeneralSettings {
+                    Manager = manager
+                };
+            var finish = typeof(InstanceButton).GetMethod("FinishVrHandoff",
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic);
+            Assert(finish != null, "VR handoff uses a dedicated Unity coroutine");
+            var handoff = (IEnumerator)finish.Invoke(missingFade, null);
+            Assert(handoff.MoveNext() &&
+                handoff.Current is WaitForSecondsRealtime,
+                "VR completion first yields a Unity realtime delay");
+            Assert(manager.DeinitializeCalls == 0,
+                "OpenXR loader is not deinitialized ahead of Unity fade");
+            Assert(!handoff.MoveNext() && manager.DeinitializeCalls == 1,
+                "OpenXR loader is deinitialized once on the Unity coroutine");
+            AndroidJavaClass.GameReady = false;
+
             Console.WriteLine("FoxCraft VR launch smoke: " + checks + " checks passed.");
             return 0;
         }
