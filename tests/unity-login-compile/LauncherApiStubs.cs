@@ -39,7 +39,14 @@ namespace UnityEngine
     }
 }
 namespace UnityEngine.Networking { }
-namespace UnityEngine.Serialization { }
+namespace UnityEngine.Serialization
+{
+    [AttributeUsage(AttributeTargets.Field)]
+    public sealed class FormerlySerializedAsAttribute : Attribute
+    {
+        public FormerlySerializedAsAttribute(string name) { }
+    }
+}
 namespace TMPro
 {
     public class TMP_Dropdown
@@ -54,11 +61,21 @@ namespace TMPro
         }
         public void SetValueWithoutNotify(int selected) => value = selected;
     }
-    public class TMP_InputField { public string text; }
+    public class TMP_InputField { public string text; public UnityEngine.GameObject gameObject = new UnityEngine.GameObject(); }
 }
 namespace UnityEngine.UI
 {
-    public class Toggle { public bool isOn; }
+    public sealed class BoolEvent
+    {
+        public void AddListener(Action<bool> callback) { }
+        public void RemoveListener(Action<bool> callback) { }
+    }
+    public class Toggle
+    {
+        public bool isOn;
+        public BoolEvent onValueChanged = new BoolEvent();
+    }
+    public class Button { }
 }
 namespace Newtonsoft.Json
 {
@@ -81,12 +98,6 @@ public class UIHandler
     public static int selectedInstance;
     public void UpdateDropdowns(bool initial, List<string> entries) { }
 }
-public class DevHandler
-{
-    public UnityEngine.UI.Toggle _devToggle = new UnityEngine.UI.Toggle();
-    public UnityEngine.UI.Toggle _ramSetterToggle = new UnityEngine.UI.Toggle();
-    public TMPro.TMP_InputField _ramSetterField = new TMPro.TMP_InputField();
-}
 public class SkinHandler { }
 public class JNIStorage
 {
@@ -96,5 +107,6 @@ public class JNIStorage
     public static UnityEngine.AndroidJavaObject accountObj;
     public ConfigHandler configHandler;
     public UIHandler uiHandler;
+    public void UpdateInstances() { }
     public TMPro.TMP_Dropdown instancesDropdown;
 }
