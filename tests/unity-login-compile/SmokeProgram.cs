@@ -131,6 +131,31 @@ public static class SmokeProgram
                 migrated.config.phoneVersion == "1.21.5",
                 "missing FoxCraft phone settings initialized on migration");
 
+            // Some Meta/Quest and Pico hardware uses internal model codenames.
+            // Hardware capability detection must work when the model string
+            // does not contain a familiar consumer brand.
+            var cachedHeadset = typeof(FoxCraftDevice).GetField(
+                "detectedHeadset", BindingFlags.Static | BindingFlags.NonPublic);
+            Check(cachedHeadset != null, "headset detection cache is testable");
+            cachedHeadset.SetValue(null, null);
+            SystemInfo.deviceModel = "unrecognized-vr-model";
+            JNIStorage.activity = new AndroidJavaObject();
+            AndroidJavaObject.VrTrackingFeature = true;
+            AndroidJavaObject.OculusVrFeature = false;
+            Check(FoxCraftDevice.IsVrHeadset, "Android headtracking feature recognizes VR");
+            Check(!FoxCraftDevice.IsAndroidPhone, "VR headset must not use phone controls");
+
+            cachedHeadset.SetValue(null, null);
+            AndroidJavaObject.VrTrackingFeature = false;
+            AndroidJavaObject.OculusVrFeature = false;
+            Check(!FoxCraftDevice.IsVrHeadset && FoxCraftDevice.IsAndroidPhone,
+                "standard Android remains a phone");
+            cachedHeadset.SetValue(null, null);
+            SystemInfo.deviceModel = "Meta Quest 3";
+            Check(FoxCraftDevice.IsVrHeadset, "Quest model recognized without system feature");
+            cachedHeadset.SetValue(null, null);
+            SystemInfo.deviceModel = null;
+
             // Corruption must be backed up, not silently overwrite the old file.
             File.WriteAllText(ConfigHandler.configPath, "not valid json");
             ConfigHandler recovered = NewSettings();
