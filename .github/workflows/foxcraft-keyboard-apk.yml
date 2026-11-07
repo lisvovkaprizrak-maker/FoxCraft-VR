@@ -1,4 +1,4 @@
-name: FoxCraft 1.21.5 keyboard test APK (manual)
+name: FoxCraft Unity launcher APK (Quest / Android)
 
 on:
   pull_request:
@@ -169,7 +169,7 @@ jobs:
           unzip -p Assets/Plugins/Android/Pojlib-release.aar classes.jar > /tmp/foxcraft-pojlib-classes.jar
           javap -classpath /tmp/foxcraft-pojlib-classes.jar pojlib.API | grep -q 'public static boolean prelaunch('
           javap -classpath /tmp/foxcraft-pojlib-classes.jar pojlib.util.Constants | grep -q 'public static java.lang.String USER_HOME'
-      - name: Build separate FoxCraft test APK using Unity
+      - name: Build full FoxCraft Unity launcher APK
         uses: game-ci/unity-builder@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
@@ -181,9 +181,9 @@ jobs:
           targetPlatform: Android
           versioning: None
           buildMethod: FoxCraftKeyboardAndroidBuild.BuildTestApk
-      - name: Verify signed APK, ARM64, launch activity and embedded Fabric keyboard
+      - name: Verify signed FoxCraft launcher APK, ARM64, Pojlib and bundled game keyboard
         run: python3 tools/verify_foxcraft_test_apk.py Builds/FoxCraft-1.21.5-UNTESTED.apk
-      - name: Upload untested Meta Quest APK
+      - name: Publish full FoxCraft launcher APK for Quest hardware testing
         uses: actions/upload-artifact@v4
         with:
           name: FoxCraft-Quest-1.21.5-UNTESTED-APK
