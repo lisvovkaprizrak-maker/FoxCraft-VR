@@ -63,6 +63,9 @@ namespace UnityEngine
     {
         public static int PrelaunchDelayMs;
         public static int PrelaunchCallCount;
+        public static bool PrelaunchResult;
+        public static bool FailLaunchInstance;
+        public static int LaunchInstanceCallCount;
         public AndroidJavaClass(string name) { }
         public T GetStatic<T>(string field) { return default(T); }
         public T CallStatic<T>(string method, params object[] args)
@@ -72,10 +75,19 @@ namespace UnityEngine
                 System.Threading.Interlocked.Increment(ref PrelaunchCallCount);
                 if (PrelaunchDelayMs > 0)
                     System.Threading.Thread.Sleep(PrelaunchDelayMs);
+                return (T)(object)PrelaunchResult;
             }
             return default(T);
         }
-        public void CallStatic(string method, params object[] args) { }
+        public void CallStatic(string method, params object[] args)
+        {
+            if (method == "launchInstance")
+            {
+                System.Threading.Interlocked.Increment(ref LaunchInstanceCallCount);
+                if (FailLaunchInstance)
+                    throw new InvalidOperationException("Simulated Pojlib launch failure");
+            }
+        }
     }
     public sealed class AndroidJavaRunnable
     {
