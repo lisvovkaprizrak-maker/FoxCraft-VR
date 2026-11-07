@@ -201,9 +201,10 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
             return;
 
         int index = phoneVersions.IndexOf(config.SelectedPhoneVersion);
+        int count = phoneVersions.Count;
         int destination = index < 0
-            ? (step < 0 ? phoneVersions.Count - 1 : 0)
-            : (index + step + phoneVersions.Count) % phoneVersions.Count;
+            ? (step < 0 ? count - 1 : 0)
+            : ((index + step) % count + count) % count;
         config.SetPhoneVersion(phoneVersions[destination]);
         displayedPhone = null;
     }
