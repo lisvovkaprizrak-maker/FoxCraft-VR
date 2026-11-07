@@ -317,12 +317,9 @@ public final class FoxCraftVrPlane {
 
             float guiScale = guiClass.getField("GUI_SCALE").getFloat(null);
             if (!(guiScale > 0)) return;
-            FoxCraftChatGrab.updateRoomPose(client.currentScreen,
-                chatPos instanceof Vector3f v ? v : null,
-                chatRotation instanceof Matrix4f m ? m : null,
-                guiScale);
-            // Pin the keyboard to its own room pose for this screen. Subsequent
-            // chat window movement must not drag the keyboard along with it.
+            // Capture the *untouched* GUI pose before applying any chat
+            // movement. Otherwise opening the chat after a saved relocation
+            // makes the keyboard inherit that relocation and "stick" to chat.
             if ((!free && placementScreen != client.currentScreen) ||
                 placementAnchor == null || placementRotation == null) {
                 if (!(chatPos instanceof Vector3f guiPos) ||
@@ -331,6 +328,12 @@ public final class FoxCraftVrPlane {
                 placementAnchor = new Vector3f(guiPos);
                 placementRotation = new Matrix4f(guiRot);
             }
+            // Only the chat's GUI room-space quad receives chat offsets.
+            // FoxCraft's keyboard uses the independent pose saved above.
+            FoxCraftChatGrab.updateRoomPose(client.currentScreen,
+                chatPos instanceof Vector3f v ? v : null,
+                chatRotation instanceof Matrix4f m ? m : null,
+                guiScale);
             Matrix4f baseRotation = placementRotation;
             followGrab(baseRotation, guiScale);
             FoxCraftFeatureSettings settings = keyboard.features();
