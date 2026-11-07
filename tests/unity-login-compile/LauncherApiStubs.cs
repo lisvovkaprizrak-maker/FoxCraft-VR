@@ -61,7 +61,7 @@ namespace UnityEngine
     {
         public static T Load<T>(string name) where T : class => default(T);
     }
-    public class Canvas { }
+    public class Canvas { public Transform transform = new Transform(); }
 
     public static class Debug
     {
