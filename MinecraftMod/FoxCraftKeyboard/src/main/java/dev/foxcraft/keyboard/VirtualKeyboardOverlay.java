@@ -559,7 +559,7 @@ public final class VirtualKeyboardOverlay {
             // Only the settings page has plain text controls; the main keyboard
             // retains its already familiar icon-based microphone and tools.
             if (!"SETTINGS".equals(menuPage) &&
-                drawControlIcon(context, key, textColor, accent)) continue;
+                drawControlIcon(context, key, theme)) continue;
             String caption = longHeld ? key.alternate() : key.label();
             if (caption.isEmpty()) caption = key.label();
             if (key.command() == KeyboardLayout.Command.SUGGESTION) {
@@ -668,9 +668,14 @@ public final class VirtualKeyboardOverlay {
         return (alpha << 24) | (color & 0x00FFFFFF);
     }
 
-    /** Pixel-drawn VR pictograms, avoiding missing emoji glyphs on Quest. */
+    /**
+     * Theme-specific monochrome/cool-tone pictograms. FoxCraft CLASSIC uses
+     * only white and slate grey on these four toolbar buttons, never orange
+     * or yellow. Each other theme has its own detailing and corner motif.
+     * No hit-boxes or controller bindings are changed.
+     */
     private static boolean drawControlIcon(DrawContext c, KeyboardLayout.Key key,
-                                           int ink, int accent) {
+                                           KeyboardTheme theme) {
         KeyboardLayout.Command cmd = key.command();
         if (cmd != KeyboardLayout.Command.SETTINGS &&
             cmd != KeyboardLayout.Command.MICROPHONE &&
@@ -679,63 +684,106 @@ public final class VirtualKeyboardOverlay {
             cmd != KeyboardLayout.Command.ESCAPE &&
             cmd != KeyboardLayout.Command.QUICK_EDIT &&
             cmd != KeyboardLayout.Command.QUICK_DELETE) return false;
+
+        final int white = switch (theme) {
+            case CLASSIC -> 0xFFF2F3F6;
+            case MIDNIGHT -> 0xFFE5EAFF;
+            case OCEAN -> 0xFFE1FAFF;
+            case SAKURA -> 0xFFFFEFF5;
+            case AURORA -> 0xFFE2FFF3;
+            case NEW_YEAR -> 0xFFF1FAFF;
+        };
+        final int grey = switch (theme) {
+            case CLASSIC -> 0xFFAEB4BF;
+            case MIDNIGHT -> 0xFF9DAED7;
+            case OCEAN -> 0xFF8CBFCF;
+            case SAKURA -> 0xFFCAA9BE;
+            case AURORA -> 0xFF84C6B2;
+            case NEW_YEAR -> 0xFFA5CDD8;
+        };
         int cx = key.x() + key.width() / 2;
         int cy = key.y() + key.height() / 2;
-        if (cmd == KeyboardLayout.Command.SETTINGS) {
-            // Clear eight-spoke metal gear with a hollow centre.
-            rounded(c, cx - 5, cy - 5, 10, 10, 3, ink);
-            c.fill(cx - 2, cy - 7, cx + 2, cy - 5, ink);
-            c.fill(cx - 2, cy + 5, cx + 2, cy + 7, ink);
-            c.fill(cx - 7, cy - 2, cx - 5, cy + 2, ink);
-            c.fill(cx + 5, cy - 2, cx + 7, cy + 2, ink);
-            c.fill(cx - 6, cy - 6, cx - 4, cy - 4, ink);
-            c.fill(cx + 4, cy - 6, cx + 6, cy - 4, ink);
-            c.fill(cx - 6, cy + 4, cx - 4, cy + 6, ink);
-            c.fill(cx + 4, cy + 4, cx + 6, cy + 6, ink);
-            rounded(c, cx - 2, cy - 2, 4, 4, 2, accent);
+        if (cmd == KeyboardLayout.Command.SETTINGS ||
+            cmd == KeyboardLayout.Command.QUICK_EDIT) {
+            // Circle with four rectangular teeth, explicitly NOT a star.
+            // Draw the ring itself first; a dark centre makes the hole legible.
+            for (int yy = -5; yy <= 5; yy++) {
+                for (int xx = -5; xx <= 5; xx++) {
+                    int rr = xx * xx + yy * yy;
+                    if (rr <= 27 && rr >= 9)
+                        c.fill(cx + xx, cy + yy, cx + xx + 1, cy + yy + 1,
+                            white);
+                }
+            }
+            c.fill(cx - 2, cy - 7, cx + 2, cy - 5, grey);
+            c.fill(cx - 2, cy + 6, cx + 2, cy + 8, grey);
+            c.fill(cx - 7, cy - 2, cx - 5, cy + 2, grey);
+            c.fill(cx + 6, cy - 2, cx + 8, cy + 2, grey);
+            rounded(c, cx - 2, cy - 2, 4, 4, 2, grey);
         } else if (cmd == KeyboardLayout.Command.MICROPHONE) {
-            // Single, clean upright microphone: capsule, open cradle, stand.
-            rounded(c, cx - 3, cy - 8, 6, 11, 3, ink);
-            c.fill(cx - 1, cy - 5, cx + 1, cy - 1, accent);
-            c.fill(cx - 6, cy - 1, cx - 5, cy + 4, ink);
-            c.fill(cx + 5, cy - 1, cx + 6, cy + 4, ink);
-            c.fill(cx - 5, cy + 4, cx + 6, cy + 5, ink);
-            c.fill(cx - 1, cy + 5, cx + 1, cy + 8, ink);
-            c.fill(cx - 4, cy + 8, cx + 4, cy + 9, ink);
+            // Capsule and open recording cradle, unmistakably a microphone.
+            rounded(c, cx - 3, cy - 8, 6, 11, 3, white);
+            c.fill(cx - 6, cy - 1, cx - 5, cy + 4, grey);
+            c.fill(cx + 5, cy - 1, cx + 6, cy + 4, grey);
+            c.fill(cx - 5, cy + 4, cx + 6, cy + 5, grey);
+            c.fill(cx - 1, cy + 5, cx + 1, cy + 8, white);
+            c.fill(cx - 4, cy + 8, cx + 4, cy + 9, grey);
         } else if (cmd == KeyboardLayout.Command.QUICK_MESSAGES) {
-            // Message card + three short lines: quick-bind pictogram.
-            rounded(c, cx - 8, cy - 6, 16, 12, 2, ink);
-            c.fill(cx - 5, cy - 3, cx + 5, cy - 2, accent);
-            c.fill(cx - 5, cy, cx + 3, cy + 1, accent);
-            c.fill(cx - 5, cy + 3, cx + 1, cy + 4, accent);
+            // Saved text-binds list; three grey lines inside a white page.
+            rounded(c, cx - 7, cy - 8, 14, 16, 2, white);
+            c.fill(cx - 4, cy - 4, cx + 5, cy - 3, grey);
+            c.fill(cx - 4, cy - 1, cx + 4, cy, grey);
+            c.fill(cx - 4, cy + 2, cx + 5, cy + 3, grey);
+            c.fill(cx - 4, cy + 5, cx + 1, cy + 6, grey);
         } else if (cmd == KeyboardLayout.Command.CLIPBOARD) {
-            rounded(c, cx - 6, cy - 6, 12, 14, 2, ink);
-            rounded(c, cx - 3, cy - 8, 6, 4, 1, accent);
-            c.fill(cx - 3, cy - 1, cx + 3, cy, accent);
-            c.fill(cx - 3, cy + 3, cx + 3, cy + 4, accent);
+            // Grey clip on a white sheet, not a yellow file/folder.
+            rounded(c, cx - 7, cy - 6, 14, 15, 2, white);
+            rounded(c, cx - 4, cy - 9, 8, 5, 2, grey);
+            c.fill(cx - 4, cy - 1, cx + 4, cy, grey);
+            c.fill(cx - 4, cy + 3, cx + 3, cy + 4, grey);
         } else if (cmd == KeyboardLayout.Command.QUICK_DELETE) {
-            // Small corner deletion mark, deliberately separate from gear.
-            c.fill(cx - 4, cy - 4, cx - 2, cy - 2, ink);
-            c.fill(cx - 2, cy - 2, cx + 2, cy + 2, ink);
-            c.fill(cx + 2, cy + 2, cx + 4, cy + 4, ink);
-            c.fill(cx + 2, cy - 4, cx + 4, cy - 2, accent);
-            c.fill(cx - 2, cy - 2, cx + 2, cy + 2, accent);
-            c.fill(cx - 4, cy + 2, cx - 2, cy + 4, accent);
-        } else if (cmd == KeyboardLayout.Command.ESCAPE) {
-            // Door and outward arrow (bottom-left exit).
-            c.fill(cx - 6, cy - 7, cx - 4, cy + 7, ink);
-            c.fill(cx - 6, cy - 7, cx + 2, cy - 5, ink);
-            c.fill(cx - 6, cy + 5, cx + 2, cy + 7, ink);
-            c.fill(cx - 1, cy - 1, cx + 7, cy + 1, ink);
-            c.fill(cx + 4, cy - 4, cx + 6, cy + 4, ink);
+            c.fill(cx - 5, cy - 4, cx + 5, cy - 2, white);
+            c.fill(cx - 3, cy - 1, cx + 3, cy + 6, grey);
+            c.fill(cx - 1, cy + 1, cx + 1, cy + 4, white);
         } else {
-            // Inset settings gear: distinct from tapping the message itself.
-            rounded(c, cx - 5, cy - 5, 10, 10, 3, ink);
-            c.fill(cx - 2, cy - 2, cx + 2, cy + 2, accent);
-            c.fill(cx - 1, cy - 7, cx + 1, cy - 5, ink);
-            c.fill(cx - 1, cy + 5, cx + 1, cy + 7, ink);
-            c.fill(cx - 7, cy - 1, cx - 5, cy + 1, ink);
-            c.fill(cx + 5, cy - 1, cx + 7, cy + 1, ink);
+            // VR exit icon retained in the existing monochrome style.
+            c.fill(cx - 6, cy - 7, cx - 4, cy + 7, white);
+            c.fill(cx - 6, cy - 7, cx + 2, cy - 5, grey);
+            c.fill(cx - 6, cy + 5, cx + 2, cy + 7, grey);
+            c.fill(cx - 1, cy - 1, cx + 7, cy + 1, white);
+        }
+        // A tiny, genuinely different accent shape per theme, placed away
+        // from the centre glyph to preserve legibility on small VR keys.
+        // No yellow/gold icon pixels in any theme.
+        int sx = key.x() + key.width() - 3;
+        int sy = key.y() + 3;
+        if (key.width() >= 14 && key.height() >= 14) {
+            switch (theme) {
+                case CLASSIC -> c.fill(sx - 3, sy + 1, sx, sy + 2, grey);
+                case MIDNIGHT -> {
+                    c.fill(sx - 2, sy - 1, sx - 1, sy + 4, white);
+                    c.fill(sx - 4, sy + 1, sx + 1, sy + 2, grey);
+                }
+                case OCEAN -> {
+                    c.fill(sx - 5, sy + 1, sx - 3, sy + 2, grey);
+                    c.fill(sx - 2, sy + 2, sx, sy + 3, white);
+                }
+                case SAKURA -> {
+                    c.fill(sx - 3, sy, sx - 1, sy + 2, grey);
+                    c.fill(sx - 5, sy + 2, sx - 3, sy + 4, white);
+                }
+                case AURORA -> {
+                    c.fill(sx - 5, sy, sx - 4, sy + 3, grey);
+                    c.fill(sx - 3, sy + 1, sx - 2, sy + 4, white);
+                    c.fill(sx - 1, sy, sx, sy + 3, grey);
+                }
+                case NEW_YEAR -> {
+                    c.fill(sx - 2, sy - 1, sx - 1, sy + 4, white);
+                    c.fill(sx - 4, sy + 1, sx + 1, sy + 2, white);
+                    c.fill(sx - 4, sy - 1, sx - 3, sy, grey);
+                    c.fill(sx - 1, sy + 3, sx, sy + 4, grey);
+                }
+            }
         }
         return true;
     }
