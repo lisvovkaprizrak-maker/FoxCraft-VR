@@ -213,6 +213,21 @@ public static class SmokeProgram
             typeof(LoginHandler).GetMethod("OnDestroy",
                 BindingFlags.Instance | BindingFlags.NonPublic).Invoke(login, null);
 
+            // A corrupted Java/Pojlib startup should show the original JNI
+            // error, never leave LoginHandler polling the destroyed Activity.
+            JNIStorage.instance = new JNIStorage {
+                configHandler = restored, InitializationFailed = true
+            };
+            JNIStorage.apiClass = null;
+            JNIStorage.activity = null;
+            LoginHandler failedLogin = new LoginHandler {
+                loginText = new GameObject(), handler = new WindowHandler()
+            };
+            accountField.SetValue(failedLogin, new TMP_Dropdown());
+            IEnumerator failedStart = (IEnumerator)start.Invoke(failedLogin, null);
+            Check(failedStart.MoveNext(), "login waits first Unity startup frame");
+            Check(!failedStart.MoveNext(), "login exits after fatal Pojlib init error");
+
             // Migrate a genuine older QuestCraft config without deleting accounts,
             // restoring compatibility with pre-FoxCraft launcher.conf files.
             File.WriteAllText(ConfigHandler.configPath,
