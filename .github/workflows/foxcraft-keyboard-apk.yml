@@ -43,6 +43,14 @@ on:
       - 'Assets/Resources/FoxCraftIcon.png'
       - 'Assets/Resources/FoxCraftIcon.png.meta'
   workflow_dispatch:
+  # A one-off push on our development branch can attempt a proper Unity APK
+  # when the repository already has a license. Regular code pushes continue
+  # using source-only PR preflight; no paid build is started without secrets.
+  push:
+    branches:
+      - fix/foxcraft-launcher-updates-20261107
+    paths:
+      - '.github/workflows/foxcraft-keyboard-apk.yml'
 
 permissions:
   contents: read
@@ -85,8 +93,15 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_verify_foxcraft_test_apk.py' -v
           python3 -m unittest discover -s tests -p 'test_foxcraft_launcher_modes.py' -v
           python3 -m unittest discover -s tests -p 'test_foxcraft_unity_scene.py' -v
-      - name: Require configured Unity license for manual Android build
-        if: github.event_name == 'workflow_dispatch'
+  unity-license-readiness:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        name: Check whether Unity license is configured (never print credentials)
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
@@ -94,15 +109,18 @@ jobs:
           UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
         shell: bash
         run: |
-          if [[ -z "$UNITY_LICENSE" && ( -z "$UNITY_EMAIL" || -z "$UNITY_PASSWORD" || -z "$UNITY_SERIAL" ) ]]; then
-            echo "::error::Set UNITY_LICENSE or UNITY_EMAIL, UNITY_PASSWORD and UNITY_SERIAL as GitHub Actions secrets."
-            exit 1
+          if [[ -n "$UNITY_LICENSE" || ( -n "$UNITY_EMAIL" && -n "$UNITY_PASSWORD" && -n "$UNITY_SERIAL" ) ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "Unity license configuration detected; full FoxCraft APK build can start."
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No Unity license secrets configured. Source checks run, but the Quest APK cannot be built yet. Configure UNITY_LICENSE or UNITY_EMAIL, UNITY_PASSWORD, UNITY_SERIAL privately in GitHub Actions."
           fi
 
   build-apk:
     # Never spend Unity build minutes or expose license data on a PR.
-    if: github.event_name == 'workflow_dispatch'
-    needs: preflight
+    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && needs.unity-license-readiness.outputs.ready == 'true'
+    needs: [preflight, unity-license-readiness]
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
