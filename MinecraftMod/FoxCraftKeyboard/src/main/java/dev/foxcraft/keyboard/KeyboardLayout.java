@@ -15,6 +15,7 @@ public final class KeyboardLayout {
         SETTINGS, THEME, BACK_TO_KEYS, HISTORY_PREVIOUS, HISTORY_NEXT,
         THEMES_PAGE, SETTINGS_HOME, MICROPHONE, QUICK_MESSAGES, QUICK_MESSAGE,
         QUICK_COMPOSE, QUICK_EDIT, QUICK_ADD, QUICK_DELETE,
+        QUICK_MOVE_UP, QUICK_MOVE_DOWN,
         QUICK_PAGE_PREVIOUS, QUICK_PAGE_NEXT,
         COMPOSE_MESSAGE, COMPOSE_NOTE, COMPOSE_SEND, COMPOSE_CLEAR,
         CLIPBOARD, COPY, PASTE, SELECT_ALL, MOVE_MENU, MOVE_STEP,
@@ -43,7 +44,10 @@ public final class KeyboardLayout {
         public Key at(double px, double py) {
             for (Key key : keys)
                 if ((key.command() == Command.QUICK_EDIT ||
-                     key.command() == Command.QUICK_DELETE) && key.contains(px, py))
+                     key.command() == Command.QUICK_DELETE ||
+                     key.command() == Command.QUICK_MOVE_UP ||
+                     key.command() == Command.QUICK_MOVE_DOWN) &&
+                     key.contains(px, py))
                     return key;
             for (Key key : keys)
                 if (key.contains(px, py)) return key;
@@ -354,6 +358,16 @@ public final class KeyboardLayout {
             keys.add(new Key("", Command.QUICK_EDIT,
                 Integer.toString(page * 6 + i), "",
                 cellX + cellWidth - 23, cellY + 2, 21, buttonHeight));
+            // Move arrows are below the title and separate from edit/delete,
+            // without sending any command when clicked with a VR trigger.
+            int reorderHeight = Math.min(15, Math.max(10, rowHeight - 20));
+            int reorderY = cellY + rowHeight - reorderHeight - 2;
+            keys.add(new Key("↑", Command.QUICK_MOVE_UP,
+                Integer.toString(page * 6 + i), "",
+                cellX + cellWidth / 2 - 24, reorderY, 22, reorderHeight));
+            keys.add(new Key("↓", Command.QUICK_MOVE_DOWN,
+                Integer.toString(page * 6 + i), "",
+                cellX + cellWidth / 2 + 2, reorderY, 22, reorderHeight));
         }
         addWeighted(keys, x, y + 3 * (rowHeight + gap), width, rowHeight, 3,
             new String[]{"◀", (page + 1) + " / " + totalPages, "▶",

@@ -657,6 +657,20 @@ public final class KeyboardLogicSmokeTest {
                 "Right label is never appended to the slash command");
             require("Домой".equals(store.pageLabels(0)[0]),
                 "Visible bind button displays its right-hand name");
+            store.toggleAutoSend(0);
+            require(store.move(0, -1) == -1 &&
+                store.move(5, 1) == -1,
+                "First and last bind cannot move outside the list");
+            require(store.move(0, 1) == 1 &&
+                "/home".equals(store.outgoing(1)) &&
+                "Домой".equals(store.label(1)) &&
+                store.autoSend(1) && !store.autoSend(0),
+                "Moving a bind swaps its name, command and auto-send flag");
+            require(store.move(1, -1) == 0 &&
+                "/home".equals(store.outgoing(0)) &&
+                store.autoSend(0),
+                "Moving up restores the same complete bind");
+            store.toggleAutoSend(0);
 
             // Dynamic addition must create pages only as needed, not limit
             // users to the original static 30 slots.
@@ -668,6 +682,25 @@ public final class KeyboardLogicSmokeTest {
                 "User can edit a bind well beyond former 30-slot limit");
             require("Спавн".equals(store.pageLabels(6)[0]),
                 "Last dynamic page displays title rather than command");
+            require(store.put(6, "/warp", "Варп"),
+                "A bind on the second page can be named");
+            store.toggleAutoSend(6);
+            require(store.move(6, -1) == 5 &&
+                "Варп".equals(store.pageLabels(0)[5]) &&
+                "/warp".equals(store.outgoing(5)) && store.autoSend(5),
+                "Moving up across a page boundary keeps the complete bind");
+            require(new QuickBindingStore(config).autoSend(5) &&
+                "/warp".equals(new QuickBindingStore(config).outgoing(5)),
+                "Reordered binder survives a restart across pages");
+            require(store.move(5, 1) == 6 &&
+                "Варп".equals(store.pageLabels(1)[0]) &&
+                store.autoSend(6),
+                "Moving down across a page boundary returns to the next page");
+            store.toggleAutoSend(6);
+            require(store.move(-1, 1) == -1 &&
+                store.move(6, 0) == -1 &&
+                store.move(store.count(), -1) == -1,
+                "Invalid reorder slots or directions never mutate state");
 
             require(store.remove(0), "Any existing bind can be deleted");
             require(store.count() == 36 && store.pages() == 6,
@@ -695,17 +728,24 @@ public final class KeyboardLogicSmokeTest {
                     binds.keys().stream().filter(k ->
                     k.command() == KeyboardLayout.Command.QUICK_EDIT).count() == 6 &&
                     binds.keys().stream().filter(k ->
-                    k.command() == KeyboardLayout.Command.QUICK_DELETE).count() == 6,
-                    "Every card has independent name edit and remove controls");
+                    k.command() == KeyboardLayout.Command.QUICK_DELETE).count() == 6 &&
+                    binds.keys().stream().filter(k ->
+                    k.command() == KeyboardLayout.Command.QUICK_MOVE_UP).count() == 6 &&
+                    binds.keys().stream().filter(k ->
+                    k.command() == KeyboardLayout.Command.QUICK_MOVE_DOWN).count() == 6,
+                    "Every card has separate edit, delete, move-up and move-down controls");
                 require(binds.keys().stream().anyMatch(k ->
                     k.command() == KeyboardLayout.Command.QUICK_ADD),
                     "Every page has an add bind button");
                 for (KeyboardLayout.Key key : binds.keys()) {
                     if (key.command() != KeyboardLayout.Command.QUICK_EDIT &&
-                        key.command() != KeyboardLayout.Command.QUICK_DELETE) continue;
+                        key.command() != KeyboardLayout.Command.QUICK_DELETE &&
+                        key.command() != KeyboardLayout.Command.QUICK_MOVE_UP &&
+                        key.command() != KeyboardLayout.Command.QUICK_MOVE_DOWN)
+                        continue;
                     require(binds.at(key.x() + key.width() / 2.0,
                         key.y() + key.height() / 2.0) == key,
-                        "Overlay edit/delete buttons must win over full card");
+                        "Edit/delete/move buttons must win over full-card click");
                 }
             }
 
