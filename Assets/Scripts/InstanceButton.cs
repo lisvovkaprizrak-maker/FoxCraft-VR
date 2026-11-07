@@ -26,6 +26,9 @@ public class InstanceButton : MonoBehaviour
     // A timed-out Java worker cannot be safely killed. Keep blocking duplicate
     // prelaunch calls until that worker actually terminates.
     private PrelaunchState pendingPrelaunch;
+    private PrelaunchState pendingInstall;
+    private const float InstallTimeoutSeconds = 600f;
+    public static bool IsInstallingInstance { get; private set; }
 
     public void Update()
     {
@@ -124,17 +127,96 @@ public class InstanceButton : MonoBehaviour
             configHandler.SetLastSelectedInstance(index);
     }
 
-    private static void CreateDefaultInstance(string name)
+    private IEnumerator InstallDefaultInstance(string name)
     {
         if (string.IsNullOrWhiteSpace(name) || JNIStorage.apiClass == null ||
             JNIStorage.activity == null || JNIStorage.instancesObj == null)
-            return;
+        {
+            if (uiHandler != null)
+                uiHandler.SetAndShowError("Невозможно установить сборку: Pojlib не готов.");
+            yield break;
+        }
 
-        JNIStorage.apiClass.CallStatic<AndroidJavaObject>("createNewInstance",
-            JNIStorage.activity, JNIStorage.instancesObj, name, true, name,
-            "Fabric", null);
-        JNIStorage.instance.uiHandler.SetAndShowError(name + " is now installing.");
-        JNIStorage.instance.UpdateInstances();
+        PrelaunchState state = new PrelaunchState();
+        pendingInstall = state;
+        IsInstallingInstance = true;
+
+        // Pojlib.createNewInstance can download libraries, Fabric and assets.
+        // Never call it on Unity's main thread: the Quest launcher would
+        // appear frozen and clicks could queue multiple installations.
+        Thread worker = new Thread(() =>
+        {
+            bool attached = false;
+            try
+            {
+                attached = AndroidJNI.AttachCurrentThread() >= 0;
+                if (!attached)
+                    throw new InvalidOperationException("Cannot attach installer thread to JVM");
+                AndroidJavaObject installed = JNIStorage.apiClass.CallStatic<AndroidJavaObject>(
+                    "createNewInstance", JNIStorage.activity,
+                    JNIStorage.instancesObj, name, true, name, "Fabric", null);
+                if (installed == null)
+                    throw new InvalidOperationException("Pojlib did not create an instance");
+            }
+            catch (Exception exception)
+            {
+                state.error = "Не удалось установить Minecraft: " +
+                    exception.GetType().Name;
+            }
+            finally
+            {
+                if (attached)
+                    AndroidJNI.DetachCurrentThread();
+                state.completed = true;
+            }
+        });
+        worker.IsBackground = true;
+        worker.Start();
+
+        float deadline = Time.realtimeSinceStartup + InstallTimeoutSeconds;
+        while (!state.completed && Time.realtimeSinceStartup < deadline)
+            yield return null;
+
+        IsInstallingInstance = false;
+        if (!state.completed)
+        {
+            // Leave pendingInstall in place: starting the second download
+            // while the old Java worker still writes files risks corruption.
+            if (uiHandler != null)
+                uiHandler.SetAndShowError("Установка Minecraft длится дольше 10 минут. " +
+                    "Не запускайте её повторно. Проверьте соединение и журнал FoxCraft.");
+            yield break;
+        }
+
+        pendingInstall = null;
+        if (state.error != null)
+        {
+            if (uiHandler != null)
+                uiHandler.SetAndShowError(state.error);
+            yield break;
+        }
+
+        try
+        {
+            // Mark the new profile by name BEFORE refreshing; Pojlib may add
+            // new instances in a different order.
+            if (configHandler != null && configHandler.IsLoaded)
+            {
+                configHandler.config.lastSelectedInstanceName = name;
+                configHandler.SaveConfig();
+            }
+            if (JNIStorage.instance != null)
+                JNIStorage.instance.UpdateInstances();
+            if (uiHandler != null)
+                uiHandler.SetAndShowError("Сборка " + name +
+                    " установлена. Теперь нажмите «Играть».");
+        }
+        catch (Exception exception)
+        {
+            if (uiHandler != null)
+                uiHandler.SetAndShowError("Сборка установлена, но список не обновился: " +
+                    exception.GetType().Name);
+        }
     }
 
     private sealed class PrelaunchState
@@ -148,6 +230,18 @@ public class InstanceButton : MonoBehaviour
     {
         if (Application.platform != RuntimePlatform.Android || launchInProgress)
             return;
+        if (pendingInstall != null)
+        {
+            if (!pendingInstall.completed)
+            {
+                if (uiHandler != null)
+                    uiHandler.SetAndShowError("Установка Minecraft уже выполняется. " +
+                        "Дождитесь окончания перед повторным запуском.");
+                return;
+            }
+            pendingInstall = null;
+        }
+
         if (pendingGameLaunch != null)
         {
             if (!pendingGameLaunch.completed)
@@ -227,7 +321,7 @@ public class InstanceButton : MonoBehaviour
         if (selected == null)
         {
             Debug.Log("Instance is null!");
-            CreateDefaultInstance(currInstName);
+            StartCoroutine(InstallDefaultInstance(currInstName));
             return;
         }
 
