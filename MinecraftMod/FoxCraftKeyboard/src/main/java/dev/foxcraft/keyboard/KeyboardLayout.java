@@ -27,7 +27,7 @@ public final class KeyboardLayout {
         WORD_LIST, WORD_ADD, WORD_PICK, WORD_SAVE, WORD_REMOVE, WORD_CLEAR,
         WORD_PAGE_PREVIOUS, WORD_PAGE_NEXT,
         ADJUST_OPTION, POSITION_LOCK, RESET_CONFIRM, RESET_ALL,
-        COMPOSE_AUTOSEND, FREE_OPEN, FREE_RETURN, FREE_KEY, FREE_MODIFIER
+        COMPOSE_AUTOSEND, FREE_OPEN, FREE_RETURN, FREE_KEY, FREE_MODIFIER, FREE_OPTIONS
     }
 
     public record Key(String label, Command command, String value, String alternate,

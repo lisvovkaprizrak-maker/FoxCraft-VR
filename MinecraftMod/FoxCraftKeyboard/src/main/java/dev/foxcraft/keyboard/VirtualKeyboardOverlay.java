@@ -300,19 +300,9 @@ public final class VirtualKeyboardOverlay {
                 preferredWidth, featurePrefs.wordSuggestions()
                     ? suggestions : List.of(), chatInputBottomY, detached);
             if (freeModeActive && panel != null) {
-                if ("FREE_SETTINGS".equals(menuPage)) {
-                    panel = KeyboardLayout.toolMenu(panel,
-                        new String[]{"РАЗМЕР: " + featurePrefs.freeKeyboardSize() + "%",
-                            "− УМЕНЬШИТЬ", "+ УВЕЛИЧИТЬ",
-                            "100% ПО УМОЛЧАНИЮ", "← К КЛАВИАТУРЕ"},
-                        new KeyboardLayout.Command[]{KeyboardLayout.Command.NONE,
-                            KeyboardLayout.Command.ADJUST_OPTION,
-                            KeyboardLayout.Command.ADJUST_OPTION,
-                            KeyboardLayout.Command.ADJUST_OPTION,
-                            KeyboardLayout.Command.BACK_TO_KEYS},
-                        new String[]{"", "FREE_SIZE_DOWN", "FREE_SIZE_UP",
-                            "FREE_SIZE_RESET", ""});
-                } else panel = KeyboardLayout.freeKeyboard(panel);
+                panel = "FREE".equals(menuPage)
+                    ? KeyboardLayout.freeKeyboard(panel)
+                    : FreeKeyboardSettingsMenu.make(panel, menuPage, featurePrefs, theme);
             } else if (settingsOpen && panel != null) {
                 panel = switch (menuPage) {
                     case "THEMES" -> KeyboardLayout.themeMenu(panel, theme.name());
@@ -807,8 +797,10 @@ public final class VirtualKeyboardOverlay {
     }
 
     private int opacity(int color) {
+        int percent = freeModeActive ? featurePrefs.freeKeyboardOpacity()
+            : featurePrefs.opacity();
         int alpha = Math.max(0, Math.min(255,
-            ((color >>> 24) & 255) * featurePrefs.opacity() / 100));
+            ((color >>> 24) & 255) * percent / 100));
         return (alpha << 24) | (color & 0x00FFFFFF);
     }
 
@@ -1362,12 +1354,51 @@ public final class VirtualKeyboardOverlay {
                 case FREE_RETURN -> leaveFreeMode();
                 case FREE_MODIFIER -> { gameKeys.tapModifier(result.key().value()); panel = null; }
                 case SETTINGS -> openPage("FREE_SETTINGS");
-                case BACK_TO_KEYS, SETTINGS_HOME -> openPage("FREE");
+                case BACK_TO_KEYS -> openPage("FREE_THEMES".equals(menuPage)
+                    ? "FREE_SETTINGS" : "FREE");
+                case SETTINGS_HOME -> openPage("FREE_SETTINGS");
+                case FREE_OPTIONS -> openPage(result.key().value());
+                case THEME -> {
+                    theme = KeyboardTheme.fromName(result.key().value());
+                    themePrefs.save(theme);
+                    panel = null;
+                }
                 case ADJUST_OPTION -> {
                     switch (result.key().value()) {
                         case "FREE_SIZE_DOWN" -> featurePrefs.adjustFreeKeyboardSize(-5);
                         case "FREE_SIZE_UP" -> featurePrefs.adjustFreeKeyboardSize(5);
                         case "FREE_SIZE_RESET" -> featurePrefs.resetFreeKeyboardSize();
+                        case "FREE_TILT_DOWN" -> featurePrefs.adjustFreeKeyboardTilt(-5);
+                        case "FREE_TILT_UP" -> featurePrefs.adjustFreeKeyboardTilt(5);
+                        case "FREE_TILT_RESET" -> featurePrefs.resetFreeKeyboardTilt();
+                        case "FREE_OPACITY_DOWN" -> featurePrefs.adjustFreeKeyboardOpacity(-10);
+                        case "FREE_OPACITY_UP" -> featurePrefs.adjustFreeKeyboardOpacity(10);
+                        case "FREE_LEFT" -> featurePrefs.moveFree(-0.035f, 0, 0);
+                        case "FREE_RIGHT" -> featurePrefs.moveFree(0.035f, 0, 0);
+                        case "FREE_UP" -> featurePrefs.moveFree(0, -0.035f, 0);
+                        case "FREE_DOWN" -> featurePrefs.moveFree(0, 0.035f, 0);
+                        case "FREE_NEAR" -> featurePrefs.moveFree(0, 0, 0.035f);
+                        case "FREE_FAR" -> featurePrefs.moveFree(0, 0, -0.035f);
+                        case "FREE_POSITION_RESET" ->
+                            featurePrefs.resetFreeKeyboardPosition();
+                        case "FREE_LOCK" -> featurePrefs.toggleFreePositionLock();
+                        case "FREE_RESET_ALL" -> {
+                            // Preserve the captured VR room anchor. In FREE mode
+                            // Minecraft has no GUI pose to reacquire if reset.
+                            featurePrefs.resetFreeKeyboardOptions();
+                            openPage("FREE_SETTINGS");
+                        }
+                        case "FREE_GAP_DOWN" -> featurePrefs.adjustKeyGap(-1);
+                        case "FREE_GAP_UP" -> featurePrefs.adjustKeyGap(1);
+                        case "FREE_SOUND" -> featurePrefs.toggleClickSound();
+                        case "FREE_HAPTICS" -> featurePrefs.toggleHaptics();
+                        case "FREE_HAPTIC_STRENGTH" -> featurePrefs.adjustHapticStrength();
+                        case "FREE_LEFT_HAND" -> featurePrefs.toggleLeft();
+                        case "FREE_RIGHT_HAND" -> featurePrefs.toggleRight();
+                        case "FREE_BEAM_DOWN" -> featurePrefs.adjustBeam(-5);
+                        case "FREE_BEAM_UP" -> featurePrefs.adjustBeam(5);
+                        case "FREE_DOT_DOWN" -> featurePrefs.adjustDot(-1);
+                        case "FREE_DOT_UP" -> featurePrefs.adjustDot(1);
                         default -> { }
                     }
                     panel = null;

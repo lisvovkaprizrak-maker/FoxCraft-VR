@@ -44,6 +44,8 @@ jobs:
             src/main/java/dev/foxcraft/keyboard/KeyboardLayout.java \
             src/main/java/dev/foxcraft/keyboard/FreeKeyboardKeys.java \
             src/main/java/dev/foxcraft/keyboard/FreeKeyboardHitGuard.java \
+            src/main/java/dev/foxcraft/keyboard/FreeKeyboardSettingsMenu.java \
+            src/main/java/dev/foxcraft/keyboard/KeyboardTheme.java \
             src/main/java/dev/foxcraft/keyboard/QuickMessageDraft.java \
             src/main/java/dev/foxcraft/keyboard/QuickBindingStore.java \
             src/main/java/dev/foxcraft/keyboard/FoxCraftFeatureSettings.java \

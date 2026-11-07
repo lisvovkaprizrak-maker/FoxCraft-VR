@@ -14,6 +14,7 @@ public final class KeyboardLogicSmokeTest {
         testLargeOfflineDictionaryAndPersonalWords();
         testQuickBinds();
         testFreeKeyboard();
+        testFreeKeyboardSettingsMenu();
         testFreeKeyboardGameplayGuard();
         testPrimaryVrDragHandles();
         // Regression: on Quest, the world-selection text field must not
@@ -743,6 +744,48 @@ public final class KeyboardLogicSmokeTest {
             "Reject unsupported game-key sequences");
     }
 
+    private static void testFreeKeyboardSettingsMenu() {
+        try {
+            Path path = Files.createTempFile("foxcraft-free-menu-", ".properties");
+            Files.deleteIfExists(path);
+            FoxCraftFeatureSettings prefs = new FoxCraftFeatureSettings(path);
+            KeyboardLayout.Panel shell = KeyboardLayout.make(854, 480,
+                false, false, false, false, false);
+            for (String page : new String[]{"FREE_SETTINGS", "FREE_TILT",
+                    "FREE_POSITION", "FREE_APPEARANCE", "FREE_CONTROLLERS",
+                    "FREE_THEMES", "FREE_RESET"}) {
+                KeyboardLayout.Panel p = FreeKeyboardSettingsMenu.make(
+                    shell, page, prefs, KeyboardTheme.CLASSIC);
+                require(p != null && p.width() == shell.width() &&
+                    p.height() == shell.height(),
+                    "Free settings panel geometry: " + page);
+                require(p.keys().stream().allMatch(k ->
+                    k.x() >= p.x() && k.x() + k.width() <= p.x() + p.width() &&
+                    k.y() >= p.y() && k.y() + k.height() <= p.y() + p.height()),
+                    "Free settings controls must stay inside panel: " + page);
+            }
+            KeyboardLayout.Panel root = FreeKeyboardSettingsMenu.make(shell,
+                "FREE_SETTINGS", prefs, KeyboardTheme.CLASSIC);
+            require(root.keys().stream().anyMatch(k ->
+                k.command() == KeyboardLayout.Command.FREE_OPTIONS &&
+                "FREE_THEMES".equals(k.value())),
+                "Free menu must link to shared palette");
+            require(root.keys().stream().anyMatch(k ->
+                k.command() == KeyboardLayout.Command.ADJUST_OPTION &&
+                "FREE_RESET_ALL".equals(k.value()) &&
+                k.label().contains("СБРОС ДО СТАНДАРТА")),
+                "FREE gear settings must offer a direct default-reset button");
+            KeyboardLayout.Panel themes = FreeKeyboardSettingsMenu.make(shell,
+                "FREE_THEMES", prefs, KeyboardTheme.CLASSIC);
+            require(themes.keys().stream().filter(k ->
+                k.command() == KeyboardLayout.Command.THEME).count() == 6,
+                "Free mode must show all six original themes");
+            Files.deleteIfExists(path);
+        } catch (IOException error) {
+            throw new AssertionError("Free menu test failed", error);
+        }
+    }
+
     private static void testFreeKeyboardGameplayGuard() {
         FreeKeyboardHitGuard guard = new FreeKeyboardHitGuard();
         require(!guard.blocks(false), "Off-keyboard controls must work normally");
@@ -1117,21 +1160,26 @@ public final class KeyboardLogicSmokeTest {
             prefs.adjustHistoryHeight(8);
             prefs.adjustKeyboardSize(20);
             prefs.adjustFreeKeyboardSize(-95);
-            require(prefs.freeKeyboardSize() == 5,
-                "Free keyboard can shrink to 5% independently");
+            require(prefs.freeKeyboardSize() == 50,
+                "Free keyboard can shrink to 50% independently");
             prefs.adjustFreeKeyboardSize(-20);
-            require(prefs.freeKeyboardSize() == 5,
-                "Free size must not underflow");
+            require(prefs.freeKeyboardSize() == 50,
+                "Free size cannot shrink below 50%");
             prefs.adjustFreeKeyboardSize(135);
-            require(prefs.freeKeyboardSize() == 140,
-                "Free size can increase up to 140%");
+            require(prefs.freeKeyboardSize() == 100,
+                "Free size cannot exceed 100%");
+            prefs.adjustFreeKeyboardSize(-25);
+            prefs.adjustFreeKeyboardTilt(15);
+            prefs.adjustFreeKeyboardOpacity(-30);
+            prefs.toggleFreePositionLock();
             prefs.adjustKeyboardTilt(5);
             prefs.togglePositionLock();
             FoxCraftFeatureSettings fresh = new FoxCraftFeatureSettings(options);
             require(fresh.inputY() == -12 &&
                 Math.abs(fresh.historyHeight() - 0.08f) < 0.001f &&
-                fresh.keyboardSize() == 120 && fresh.freeKeyboardSize() == 140 &&
-                fresh.keyboardTilt() == -25 &&
+                fresh.keyboardSize() == 120 && fresh.freeKeyboardSize() == 75 &&
+                fresh.freeKeyboardTilt() == -15 && fresh.freeKeyboardOpacity() == 70 &&
+                fresh.freePositionLocked() && fresh.keyboardTilt() == -25 &&
                 fresh.positionLocked(),
                 "Independent VR position settings survive restart");
             // Reset the keyboard without affecting chat history or the input.
@@ -1156,6 +1204,18 @@ public final class KeyboardLogicSmokeTest {
                 fresh.chatRight() == 0f && fresh.chatDown() == 0f &&
                 fresh.chatForward() == 0f,
                 "Chat reset must not move the independently positioned keyboard");
+            // Test exiting and re-entering FREE without touching the regular layout.
+            fresh.resetFreeKeyboardOptions();
+            FoxCraftFeatureSettings afterFreeReset = new FoxCraftFeatureSettings(options);
+            require(afterFreeReset.freeKeyboardSize() == 100 &&
+                afterFreeReset.freeKeyboardTilt() == -30 &&
+                afterFreeReset.freeKeyboardOpacity() == 100 &&
+                !afterFreeReset.freePositionLocked() &&
+                afterFreeReset.keyboardSize() == 120,
+                "FREE reset preserves main chat size");
+            Files.writeString(options, "freeKeyboardSize=5\n");
+            require(new FoxCraftFeatureSettings(options).freeKeyboardSize() == 50,
+                "Migrated old FREE 5% preference clamps to 50%");
             fresh.resetAllVisualSettings();
             require(new FoxCraftFeatureSettings(options).inputY() == 0 &&
                 new FoxCraftFeatureSettings(options).freeKeyboardSize() == 100 &&

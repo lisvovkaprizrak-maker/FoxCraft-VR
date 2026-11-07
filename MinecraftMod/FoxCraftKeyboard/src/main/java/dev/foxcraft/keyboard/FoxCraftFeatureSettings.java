@@ -30,6 +30,9 @@ public final class FoxCraftFeatureSettings {
     private int keyboardSize = 100;
     // Separate miniature-game-mode scale; ordinary chat size is unaffected.
     private int freeKeyboardSize = 100;
+    private int freeKeyboardTilt = -30;
+    private int freeKeyboardOpacity = 100;
+    private boolean freePositionLocked;
     private int keyboardTilt = -30;
     private int opacity = 100;
     private int chatTextSize = 100;
@@ -66,6 +69,9 @@ public final class FoxCraftFeatureSettings {
     public int inputY() { return inputY; }
     public int keyboardSize() { return keyboardSize; }
     public int freeKeyboardSize() { return freeKeyboardSize; }
+    public int freeKeyboardTilt() { return freeKeyboardTilt; }
+    public int freeKeyboardOpacity() { return freeKeyboardOpacity; }
+    public boolean freePositionLocked() { return freePositionLocked; }
     public int keyboardTilt() { return keyboardTilt; }
     public int opacity() { return opacity; }
     public int chatTextSize() { return chatTextSize; }
@@ -101,13 +107,38 @@ public final class FoxCraftFeatureSettings {
         keyboardSize = clamp(keyboardSize + percent, 70, 140);
         save();
     }
-    /** 5% is the smallest practical world-space quad; never change chat scaling. */
+    /** FREE size persists separately from the normal keyboard, between 50–100%. */
     public void adjustFreeKeyboardSize(int percent) {
-        freeKeyboardSize = clamp(freeKeyboardSize + percent, 5, 140);
+        freeKeyboardSize = clamp(freeKeyboardSize + percent, 50, 100);
         save();
     }
     public void resetFreeKeyboardSize() {
         freeKeyboardSize = 100;
+        save();
+    }
+    public void adjustFreeKeyboardTilt(int degrees) {
+        freeKeyboardTilt = clamp(freeKeyboardTilt + degrees, -65, 20);
+        save();
+    }
+    public void resetFreeKeyboardTilt() {
+        freeKeyboardTilt = -30;
+        save();
+    }
+    public void adjustFreeKeyboardOpacity(int percent) {
+        freeKeyboardOpacity = clamp(freeKeyboardOpacity + percent, 30, 100);
+        save();
+    }
+    public void toggleFreePositionLock() {
+        freePositionLocked = !freePositionLocked;
+        save();
+    }
+    /** Reset FREE controls without changing chat dimensions or the shared theme. */
+    public void resetFreeKeyboardOptions() {
+        freeKeyboardSize = 100;
+        freeKeyboardTilt = -30;
+        freeKeyboardOpacity = 100;
+        freePositionLocked = false;
+        setFreePosition(0.28f, -0.25f, 0);
         save();
     }
     public void adjustKeyboardTilt(int degrees) {
@@ -141,6 +172,10 @@ public final class FoxCraftFeatureSettings {
         inputY = 0;
         keyboardSize = 100;
         freeKeyboardSize = 100;
+        freeKeyboardTilt = -30;
+        freeKeyboardOpacity = 100;
+        freePositionLocked = false;
+        setFreePosition(0.28f, -0.25f, 0);
         keyboardTilt = -30;
         opacity = 100;
         chatTextSize = 100;
@@ -186,6 +221,10 @@ public final class FoxCraftFeatureSettings {
         offsetRight = clamp(right, -0.65f, 0.65f);
         offsetDown = clamp(down, -0.55f, 0.55f);
         offsetForward = clamp(forward, -0.45f, 0.45f);
+    }
+    public void resetFreeKeyboardPosition() {
+        setFreePosition(0.28f, -0.25f, 0);
+        save();
     }
     public void moveFree(float right, float down, float forward) {
         setFreePosition(freeRight + right, freeDown + down, freeForward + forward);
@@ -241,7 +280,10 @@ public final class FoxCraftFeatureSettings {
             historyHeight = clamp(asFloat(p, "historyHeight", 0), -0.35f, 0.35f);
             inputY = clamp(asInt(p, "inputY", 0), -90, 90);
             keyboardSize = clamp(asInt(p, "keyboardSize", 100), 70, 140);
-            freeKeyboardSize = clamp(asInt(p, "freeKeyboardSize", 100), 5, 140);
+            freeKeyboardSize = clamp(asInt(p, "freeKeyboardSize", 100), 50, 100);
+            freeKeyboardTilt = clamp(asInt(p, "freeKeyboardTilt", -30), -65, 20);
+            freeKeyboardOpacity = clamp(asInt(p, "freeKeyboardOpacity", 100), 30, 100);
+            freePositionLocked = Boolean.parseBoolean(p.getProperty("freePositionLocked", "false"));
             keyboardTilt = clamp(asInt(p, "keyboardTilt", -30), -65, 20);
             opacity = clamp(asInt(p, "opacity", 100), 30, 100);
             chatTextSize = clamp(asInt(p, "chatTextSize", 100), 70, 150);
@@ -279,6 +321,9 @@ public final class FoxCraftFeatureSettings {
         p.setProperty("inputY", Integer.toString(inputY));
         p.setProperty("keyboardSize", Integer.toString(keyboardSize));
         p.setProperty("freeKeyboardSize", Integer.toString(freeKeyboardSize));
+        p.setProperty("freeKeyboardTilt", Integer.toString(freeKeyboardTilt));
+        p.setProperty("freeKeyboardOpacity", Integer.toString(freeKeyboardOpacity));
+        p.setProperty("freePositionLocked", Boolean.toString(freePositionLocked));
         p.setProperty("keyboardTilt", Integer.toString(keyboardTilt));
         p.setProperty("opacity", Integer.toString(opacity));
         p.setProperty("chatTextSize", Integer.toString(chatTextSize));
