@@ -52,7 +52,6 @@ jobs:
             src/main/java/dev/foxcraft/keyboard/KeyboardPointerInput.java \
             src/main/java/dev/foxcraft/keyboard/FoxCraftGuiClickInput.java \
             src/main/java/dev/foxcraft/keyboard/VivecraftLeftPointer.java \
-            src/main/java/dev/foxcraft/keyboard/FoxCraftGuiClickInput.java \
             src/main/java/dev/foxcraft/keyboard/FoxCraftQuestOpenXrInput.java \
             src/test/java/dev/foxcraft/keyboard/KeyboardLogicSmokeTest.java
           java -cp build/smoke dev.foxcraft.keyboard.KeyboardLogicSmokeTest
@@ -62,7 +61,6 @@ jobs:
           javac -encoding UTF-8 -d build/vr-bridge \
             src/main/java/dev/foxcraft/keyboard/FoxCraftGuiClickInput.java \
             src/main/java/dev/foxcraft/keyboard/VivecraftLeftPointer.java \
-            src/main/java/dev/foxcraft/keyboard/FoxCraftGuiClickInput.java \
             src/main/java/dev/foxcraft/keyboard/FoxCraftQuestOpenXrInput.java \
             src/test/vrbridge/org/vivecraft/client_vr/ClientDataHolderVR.java \
             src/test/vrbridge/org/vivecraft/client_vr/provider/ControllerType.java \
