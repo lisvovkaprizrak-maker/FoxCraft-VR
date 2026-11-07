@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
-using System.Threading.Tasks;
 using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.XR;
@@ -12,7 +11,6 @@ using UnityEngine.XR.Management;
 public class InstanceButton : MonoBehaviour
 {
     public static string currInstName;
-    private bool hasDefaulted;
     public ConfigHandler configHandler;
     public UIHandler uiHandler;
     public CanvasGroup ScreenFade;
