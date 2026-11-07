@@ -83,6 +83,33 @@ public static class SmokeProgram
             restored.RestoreLastSelectedInstance();
             Check(dropdown.value == 2, "stale selected instance clamped");
 
+            // Restoring by index can silently select a different Minecraft
+            // version after QuestCraft updates/reorders its available profiles.
+            // The last selected *name* must win over its old list position.
+            restored.SetLastSelectedInstance(1);
+            Check(restored.config.lastSelectedInstanceName == "1.21.1",
+                "saved Minecraft instance stores its stable name");
+            dropdown.ClearOptions();
+            dropdown.AddOptions(new List<string> { "1.21.5", "1.20.1", "1.21.1" });
+            restored.RestoreLastSelectedInstance();
+            Check(dropdown.value == 2 &&
+                restored.config.lastSelectedInstanceName == "1.21.1",
+                "same Minecraft profile restored after version list reorder");
+
+            ConfigHandler reorderedReload = NewSettings();
+            reorderedReload.LoadConfig();
+            Check(reorderedReload.config.lastSelectedInstanceName == "1.21.1",
+                "profile name persists across full launcher restart");
+            reorderedReload.RestoreLastSelectedInstance();
+            Check(dropdown.value == 2, "restored profile matches persisted name");
+
+            dropdown.ClearOptions();
+            dropdown.AddOptions(new List<string> { "1.21.5", "1.20.1" });
+            reorderedReload.RestoreLastSelectedInstance();
+            Check(dropdown.value == 0, "removed profile selects safe first entry");
+            Check(reorderedReload.config.lastSelectedInstanceName == "1.21.5",
+                "missing profile fallback is saved to launcher config");
+
             // Simulate a startup where LoginHandler starts BEFORE JNIStorage.
             JNIStorage.instance = null;
             JNIStorage.apiClass = null;
