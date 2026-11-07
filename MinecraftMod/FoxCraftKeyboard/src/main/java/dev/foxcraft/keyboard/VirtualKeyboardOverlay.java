@@ -1379,13 +1379,12 @@ public final class VirtualKeyboardOverlay {
                         case "FREE_DOWN" -> featurePrefs.moveFree(0, 0.035f, 0);
                         case "FREE_NEAR" -> featurePrefs.moveFree(0, 0, 0.035f);
                         case "FREE_FAR" -> featurePrefs.moveFree(0, 0, -0.035f);
-                        case "FREE_POSITION_RESET" -> {
-                            FoxCraftVrPlane.resetKeyboardPlacement();
+                        case "FREE_POSITION_RESET" ->
                             featurePrefs.resetFreeKeyboardPosition();
-                        }
                         case "FREE_LOCK" -> featurePrefs.toggleFreePositionLock();
                         case "FREE_RESET_ALL" -> {
-                            FoxCraftVrPlane.resetKeyboardPlacement();
+                            // Preserve the captured VR room anchor. In FREE mode
+                            // Minecraft has no GUI pose to reacquire if reset.
                             featurePrefs.resetFreeKeyboardOptions();
                             openPage("FREE_SETTINGS");
                         }
