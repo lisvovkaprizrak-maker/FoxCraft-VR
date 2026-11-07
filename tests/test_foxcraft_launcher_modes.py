@@ -49,6 +49,21 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         self.assertIn("closeButton.onClick.AddListener", menu)
         self.assertNotIn('root.anchoredPosition = new Vector2(0f, 160f)', menu)
 
+    def test_play_button_requires_downloads_and_verified_account(self):
+        ui = read("Assets/Scripts/UIHandler.cs")
+        progress = read("Assets/Scripts/ProgressBarManager.cs")
+        gate = read("Assets/Scripts/FoxCraftLaunchGate.cs")
+        self.assertIn("FoxCraftLaunchGate.CanPlay", ui)
+        self.assertIn("FoxCraftLaunchGate.CanManageInstances", ui)
+        self.assertIn("ProgressBarManager.DownloadsReady", ui)
+        self.assertIn("ProgressBarManager.started", ui)
+        self.assertIn("public static bool DownloadsReady", progress)
+        self.assertIn("if (JNIStorage.apiClass == null)", progress)
+        self.assertIn("if (!completed && playButton != null)", progress)
+        self.assertNotIn("playButton.interactable = true;", progress)
+        self.assertIn("authenticated && downloadsReady && !launchInProgress", gate)
+        self.assertIn("!demoAccount", gate)
+
     def test_phone_launch_never_uses_vr_renderer(self):
         button = read("Assets/Scripts/InstanceButton.cs")
         runtime = read("Assets/Scripts/FoxCraftPhoneRuntime.cs")
