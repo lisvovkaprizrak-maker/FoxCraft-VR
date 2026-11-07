@@ -21,7 +21,11 @@ public class InstanceButton : MonoBehaviour
 
     public void Update()
     {
+        // The QuestCraft gameReady flag and OpenXR transition belong only to
+        // VR Minecraft. A future phone 2D engine has its own lifecycle.
         if (Application.platform != RuntimePlatform.Android ||
+            FoxCraftDevice.IsAndroidPhone ||
+            (configHandler != null && configHandler.IsPhoneModeSelected) ||
             JNIStorage.instance == null || JNIStorage.apiClass == null ||
             JNIStorage.instance.instancesDropdown == null)
             return;
@@ -39,7 +43,10 @@ public class InstanceButton : MonoBehaviour
             async Task FinishAnim()
             {
                 await Task.Delay(200);
-                XRGeneralSettings.Instance.Manager.DeinitializeLoader();
+                var manager = XRGeneralSettings.Instance != null
+                    ? XRGeneralSettings.Instance.Manager : null;
+                if (manager != null)
+                    manager.DeinitializeLoader();
             }
 
             LeanTween.value(ScreenFade.gameObject,0, 1, 1).setOnUpdate(alpha => ScreenFade.alpha = alpha).setOnComplete(() => FinishAnim());
