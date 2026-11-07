@@ -295,7 +295,7 @@ public final class VirtualKeyboardOverlay {
                             KeyboardLayout.Command.CHAT_PAGE,
                             KeyboardLayout.Command.RESET_CONFIRM,
                             KeyboardLayout.Command.SETTINGS_HOME},
-                        new String[]{"TEXT_DOWN", "TEXT_UP", "", "", ""});
+                        new String[]{"TEXT_DOWN", "TEXT_UP", "POSITION", "", ""});
                     case "SWIPE_OPTS" -> KeyboardLayout.toolMenu(panel,
                         new String[]{"СВАЙП −", "СВАЙП +",
                             "УДЕРЖАНИЕ −", "УДЕРЖАНИЕ +",
