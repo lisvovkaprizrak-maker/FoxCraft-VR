@@ -74,6 +74,9 @@ public class JNIStorage : MonoBehaviour
 
             configHandler.LoadConfig();
             UpdateInstances();
+            if (activity == null)
+                throw new InvalidOperationException(
+                    "UnityPlayerActivity was not created for FoxCraft");
         }
         catch (Exception exception)
         {
