@@ -50,6 +50,14 @@ public final class FoxCraftGuiClickInput {
     public static boolean pressed(Object provider, Object hand, Object keyboardClick,
                                   Object guiLeftClick, Object guiRightClick, Object leftUse) {
         if (provider == null || hand == null) return false;
+        // QuestCraft's MCOpenXR cannot reliably infer a physical hand from
+        // getLastOrigin()/getOriginControllerType() on ordinary button actions.
+        // Explicit /user/hand/{left,right} xrGetActionStateBoolean reads are
+        // authoritative. Never fall through to the ambiguous origin logic.
+        if (FoxCraftQuestOpenXrInput.handles(provider)) {
+            return FoxCraftQuestOpenXrInput.pressed(provider, hand,
+                keyboardClick, guiLeftClick, guiRightClick, leftUse);
+        }
         // All paths use the SAME origin validation. Do not call isDown()
         // directly even for the special Vivecraft handed keyboard action.
         return pressedFromOrigin(provider, hand, guiLeftClick) ||
