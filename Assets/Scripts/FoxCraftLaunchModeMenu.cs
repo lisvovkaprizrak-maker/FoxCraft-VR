@@ -163,8 +163,11 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
         phoneVersionRow.GetComponent<Image>().raycastTarget = false;
         phoneVersionLabel = CreateText("1.21.5", phoneVersionRow.transform,
             new Vector2(260f, 48f), Vector2.zero, 23, White);
-        CreateVersionArrow("◀", -208f, -1);
-        CreateVersionArrow("▶", 208f, 1);
+        // Quick steps make old Java releases accessible without hundreds of taps.
+        CreateVersionArrow("«", -228f, -10);
+        CreateVersionArrow("◀", -172f, -1);
+        CreateVersionArrow("▶", 172f, 1);
+        CreateVersionArrow("»", 228f, 10);
         phoneVersionRow.SetActive(false);
     }
 
@@ -184,11 +187,11 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
     private void CreateVersionArrow(string glyph, float x, int step)
     {
         GameObject arrow = CreateElement("Change phone version", phoneVersionRow.transform,
-            new Vector2(72f, 48f), new Vector2(x, 0f));
+            new Vector2(50f, 48f), new Vector2(x, 0f));
         arrow.GetComponent<Image>().color = Orange;
         Button button = arrow.AddComponent<Button>();
         button.onClick.AddListener(() => StepPhoneVersion(step));
-        CreateText(glyph, arrow.transform, new Vector2(68f, 46f),
+        CreateText(glyph, arrow.transform, new Vector2(46f, 46f),
             Vector2.zero, 22, White);
     }
 
@@ -231,7 +234,7 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
                     List<string> latest = new List<string>();
                     foreach (MinecraftRelease entry in list.versions)
                     {
-                        if (latest.Count >= 160)
+                        if (latest.Count >= ConfigHandler.MaxCachedPhoneVersions)
                             break;
                         if (entry != null && entry.type == "release" &&
                             !string.IsNullOrWhiteSpace(entry.id) && !latest.Contains(entry.id))
