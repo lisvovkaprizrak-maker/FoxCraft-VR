@@ -272,6 +272,22 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         self.assertIn("VerifyAsset", builder)
         self.assertTrue((ROOT / "Assets/Resources/FoxCraftIcon.png").stat().st_size > 1024)
 
+    def test_instance_mod_menu_handles_empty_profiles_and_offline_modrinth(self):
+        manager = read("Assets/Scripts/InstanceManager.cs")
+        parser = read("Assets/Scripts/APIParser.cs")
+        self.assertIn("if (instance == null)", manager)
+        self.assertIn("if (modList.Length == 0)", manager)
+        self.assertIn("if (slugs.Count == 0)", manager)
+        self.assertIn("UnityWebRequest.EscapeURL(JsonConvert.SerializeObject(slugs))", manager)
+        self.assertIn("www.timeout = 15;", manager)
+        self.assertIn("if (response != null)", manager)
+        self.assertIn("catch (JsonException exception)", manager)
+        self.assertIn("if (requestId != instanceInfoRequestId)", manager)
+        self.assertIn('icon_url = "OFFLINE"', manager)
+        self.assertNotIn('request = request.Remove(request.Length - 1, 1)', manager)
+        self.assertIn("if (installedMods == null)", parser)
+        self.assertIn("if (mod != null)", parser)
+
     def test_releases_come_from_foxcraft_not_questcraft(self):
         feed = read("Assets/Scripts/LoadReleases.cs")
         self.assertIn("lisvovkaprizrak-maker/FoxCraft-VR/releases", feed)
