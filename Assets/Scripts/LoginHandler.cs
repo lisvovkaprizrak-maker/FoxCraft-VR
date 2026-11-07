@@ -118,15 +118,14 @@ public class LoginHandler : MonoBehaviour
 			    JNIStorage.accountObj = JNIStorage.apiClass.GetStatic<AndroidJavaObject>("currentAcc");
 			    if (JNIStorage.accountObj != null)
 			    {
-				    string configFile = File.ReadAllText(configPath);
 				    string accName = JNIStorage.apiClass.GetStatic<string>("profileName");
 				    string accUUID = JNIStorage.apiClass.GetStatic<string>("profileUUID");
-				    Debug.Log("Logged Into " + accName + " | " + accUUID);
+                    Debug.Log("[FoxCraft] Microsoft account verification completed.");
 				    loginText.SetActive(false);
 				    isLoggedIn = true;
                     config = JNIStorage.instance.configHandler.config;
-				    bool accExists = config.accounts.Any(account => account.username == accName);
-				    if (config.accounts.All(account => account.uuid != accUUID))
+                    bool accExists = config.accounts.Any(account => account.uuid == accUUID);
+                    if (!accExists)
 				    {
 					    config.accounts.Add(new ConfigHandler.Accounts { username = accName, uuid = accUUID });
 				    }
