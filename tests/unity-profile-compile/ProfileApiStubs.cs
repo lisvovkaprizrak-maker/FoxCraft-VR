@@ -42,6 +42,7 @@ namespace UnityEngine
     public class GameObject
     {
         public string name;
+        public GameObject gameObject => this;
         public Transform transform = new Transform();
         public bool activeSelf;
         public void SetActive(bool value) { activeSelf = value; }
@@ -145,6 +146,10 @@ namespace TMPro
         public class OptionData { public string text; }
         public List<OptionData> options = new List<OptionData>();
         public int value;
+        public void AddOptions(List<string> values)
+        {
+            foreach (string value in values) options.Add(new OptionData { text = value });
+        }
     }
     public class TextMeshProUGUI { public string text; }
 }
