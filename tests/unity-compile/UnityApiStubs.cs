@@ -184,6 +184,7 @@ public sealed class UIHandler
 public sealed class ConfigHandler
 {
     public bool IsPhoneModeSelected { get; set; }
+    public string SelectedPhoneVersion { get; set; } = "1.21.5";
     public void SetLastSelectedInstance(int index) { }
 }
 public sealed class PojlibInstance
