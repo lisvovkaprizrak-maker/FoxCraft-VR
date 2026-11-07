@@ -11,5 +11,6 @@
     <Compile Include="LauncherApiStubs.cs" />
     <Compile Include="../../Assets/Scripts/ConfigHandler.cs" Link="ConfigHandler.cs" />
     <Compile Include="../../Assets/Scripts/LoginHandler.cs" Link="LoginHandler.cs" />
+    <Compile Include="../../Assets/Scripts/DevHandler.cs" Link="DevHandler.cs" />
   </ItemGroup>
 </Project>
