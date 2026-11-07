@@ -552,7 +552,12 @@ public final class VirtualKeyboardOverlay {
         if (!collapsed) {
             int brandY = panel.y() + 4;
             int brandX = panel.x() + (panel.width() - 92) / 2;
-            if (theme == KeyboardTheme.CLASSIC) {
+            if (freeModeActive) {
+                String freeLabel = "СВОБОДНАЯ КЛАВИАТУРА";
+                context.drawText(font, freeLabel,
+                    panel.x() + (panel.width() - font.getWidth(freeLabel)) / 2,
+                    brandY + 4, textColor, true);
+            } else if (theme == KeyboardTheme.CLASSIC) {
                 drawFoxBadge(context, brandX, brandY);
                 context.drawText(font, ("Fox"), brandX + 20, brandY + 4,
                     accent, true);
