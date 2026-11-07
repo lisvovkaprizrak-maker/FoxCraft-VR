@@ -64,6 +64,11 @@ public class InstanceManager : MonoBehaviour
     
     public void UpdateMenu()
     {
+        if (loaderDropdown == null || defaultModsToggle == null ||
+            loaderDropdown.options == null || loaderDropdown.value < 0 ||
+            loaderDropdown.value >= loaderDropdown.options.Count)
+            return;
+
         string selectedModloader = loaderDropdown.options[loaderDropdown.value].text;
         defaultModsToggle.interactable = selectedModloader is "Fabric" or "Quilt";
         defaultModsToggle.isOn = selectedModloader is "Fabric" or "Quilt";
@@ -281,42 +286,76 @@ public class InstanceManager : MonoBehaviour
 
     public void CreateInstanceArray()
     {
+        if (instanceArray == null || instancePrefab == null)
+        {
+            ShowProfileMessage("Окно Minecraft-сборок не настроено.");
+            return;
+        }
         ResetArray();
 
-        foreach (var instanceObj in JNIStorage.instancesObj.Call<AndroidJavaObject[]>("toArray"))
+        AndroidJavaObject[] installed = null;
+        try
         {
-            async Task SetInstanceData()
-            {
-                PojlibInstance instance = PojlibInstance.Parse(instanceObj);
-                GameObject instanceGameObject = Instantiate(instancePrefab, new Vector3(-10, -10, -10), Quaternion.identity);
-                instanceGameObject.transform.GetChild(1).GetComponent<TextMeshProUGUI>().text = instance.instanceName; instanceGameObject.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = instance.versionName + " - Fabric";
-                instanceGameObject.transform.SetParent(instanceArray.transform, false);
-                instanceGameObject.name = instance.instanceName;
-
-                instanceGameObject.GetComponent<Button>().onClick.AddListener(delegate
-                {
-                    EventSystem.current.SetSelectedGameObject(instanceGameObject);
-                    GameObject instanceObject = GameObject.Find(EventSystem.current.currentSelectedGameObject.transform.name);
-                    CreateInstanceInfoPage(instanceObject.name);
-                });
-
-                if (instance.instanceImageURL != null)
-                {
-                    apiHandler.DownloadImage(instance.instanceImageURL, instanceGameObject.GetComponentInChildren<RawImage>());
-                }
-            }
-            SetInstanceData();
+            if (JNIStorage.instancesObj != null)
+                installed = JNIStorage.instancesObj.Call<AndroidJavaObject[]>("toArray");
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning("[FoxCraft] Failed to list profiles: " + exception.GetType().Name);
+            ShowProfileMessage("Не удалось получить установленные сборки Minecraft.");
         }
 
-        if (instanceArray.transform.childCount == 0)
+        int visibleProfiles = 0;
+        if (installed != null)
         {
-            GameObject instanceGameObject = Instantiate(instancePrefab, new Vector3(-10, -10, -10), Quaternion.identity);
-            instanceGameObject.GetComponentInChildren<RawImage>().texture = errorTexture;
-            instanceGameObject.GetComponentInChildren<RawImage>().color = Color.yellow;
-            instanceGameObject.transform.GetChild(1).GetComponent<TextMeshProUGUI>().text = "No instances could be found!";
-            instanceGameObject.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = "Make sure you have an instance downloaded.";
-            instanceGameObject.transform.SetParent(instanceArray.transform, false);
-            instanceGameObject.name = "ERROR";
+            foreach (AndroidJavaObject item in installed)
+            {
+                if (item == null)
+                    continue;
+                PojlibInstance profile;
+                try { profile = PojlibInstance.Parse(item); }
+                catch (Exception exception)
+                {
+                    Debug.LogWarning("[FoxCraft] Invalid profile: " + exception.GetType().Name);
+                    continue;
+                }
+                if (profile == null || string.IsNullOrWhiteSpace(profile.instanceName))
+                    continue;
+
+                string profileName = profile.instanceName;
+                GameObject card = Instantiate(instancePrefab,
+                    new Vector3(-10, -10, -10), Quaternion.identity);
+                card.transform.GetChild(1).GetComponent<TextMeshProUGUI>().text = profileName;
+                card.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text =
+                    profile.versionName + " - " +
+                    (string.IsNullOrWhiteSpace(profile.versionType)
+                        ? "Minecraft" : profile.versionType);
+                card.transform.SetParent(instanceArray.transform, false);
+                card.name = profileName;
+                card.GetComponent<Button>().onClick.AddListener(
+                    () => CreateInstanceInfoPage(profileName));
+
+                if (!string.IsNullOrWhiteSpace(profile.instanceImageURL) && apiHandler != null)
+                    apiHandler.DownloadImage(profile.instanceImageURL,
+                        card.GetComponentInChildren<RawImage>());
+                visibleProfiles++;
+            }
+        }
+
+        if (visibleProfiles == 0)
+        {
+            GameObject empty = Instantiate(instancePrefab,
+                new Vector3(-10, -10, -10), Quaternion.identity);
+            empty.GetComponentInChildren<RawImage>().texture = errorTexture;
+            empty.GetComponentInChildren<RawImage>().color = Color.yellow;
+            empty.transform.GetChild(1).GetComponent<TextMeshProUGUI>().text =
+                "Сборки Minecraft не найдены";
+            empty.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text =
+                "Создайте или скачайте сборку в FoxCraft.";
+            empty.transform.SetParent(instanceArray.transform, false);
+            empty.name = "EMPTY";
+            // Empty placeholder is a message, never a removable game profile.
+            empty.GetComponent<Button>().interactable = false;
         }
     }
 
@@ -350,11 +389,11 @@ public class InstanceManager : MonoBehaviour
         {
             Color counterColor;
             if (count < 50)
-                counterColor = Color.Lerp(new Color(3, 152, 252), new Color(255, 108, 10), (float)count / 50);
+                counterColor = Color.Lerp(new Color(3f / 255f, 152f / 255f, 252f / 255f), new Color(1f, 108f / 255f, 10f / 255f), (float)count / 50);
             else if (count == 69)
                 counterColor = Color.green;
             else
-                counterColor = Color.Lerp(new Color(255, 108, 10), new Color(255, 0, 0), (count - 50) / 50.0f);
+                counterColor = Color.Lerp(new Color(1f, 108f / 255f, 10f / 255f), new Color(1f, 0f, 0f), (count - 50) / 50.0f);
             modCounter.text = $"Currently Installed mods: <color={ColorToHex(counterColor)}>{count}";
         }
 
@@ -471,9 +510,9 @@ public class InstanceManager : MonoBehaviour
 
     string ColorToHex(Color color)
     {
-        int r = (int)color.r;
-        int g = (int)color.g;
-        int b = (int)color.b;
+        int r = Mathf.RoundToInt(Mathf.Clamp01(color.r) * 255f);
+        int g = Mathf.RoundToInt(Mathf.Clamp01(color.g) * 255f);
+        int b = Mathf.RoundToInt(Mathf.Clamp01(color.b) * 255f);
         return "#" + r.ToString("X2") + g.ToString("X2") + b.ToString("X2");
     }
 
