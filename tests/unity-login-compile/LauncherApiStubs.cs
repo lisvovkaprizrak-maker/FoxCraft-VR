@@ -73,6 +73,8 @@ namespace UnityEngine
     {
         public static int Clamp(int value, int low, int high) =>
             Math.Max(low, Math.Min(value, high));
+        public static float Clamp01(float value) =>
+            Math.Max(0f, Math.Min(1f, value));
     }
     public static class SystemInfo { public static string deviceModel { get; set; } }
     [AttributeUsage(AttributeTargets.Field)]
@@ -109,6 +111,9 @@ namespace UnityEngine
     public class AndroidJavaClass : IDisposable
     {
         public static int LoginCallCount;
+        public static bool DownloadsCompleted;
+        public static bool FailDownloadProbe;
+        public static float DownloadPercentage;
         public AndroidJavaClass() { }
         public AndroidJavaClass(string className) { }
         public void Dispose() { }
@@ -117,7 +122,18 @@ namespace UnityEngine
         {
             if (name == "login") LoginCallCount++;
         }
-        public T CallStatic<T>(string name, params object[] parameters) => default(T);
+        public T CallStatic<T>(string name, params object[] parameters)
+        {
+            if (name == "isDownloadsCompleted")
+            {
+                if (FailDownloadProbe)
+                    throw new InvalidOperationException("Simulated Pojlib download probe failure");
+                return (T)(object)DownloadsCompleted;
+            }
+            if (name == "getDownloadPercentage")
+                return (T)(object)DownloadPercentage;
+            return default(T);
+        }
         public T GetStatic<T>(string name)
         {
             if (name == "currentActivity")
@@ -156,6 +172,7 @@ namespace TMPro
         public class OptionData { public string text; }
         public List<OptionData> options = new List<OptionData>();
         public int value;
+        public bool interactable;
         public void ClearOptions() => options.Clear();
         public void AddOptions(List<string> values)
         {
@@ -172,6 +189,7 @@ namespace TMPro
         public UnityEngine.Color color;
         public bool raycastTarget;
         public TextAlignmentOptions alignment;
+        public UnityEngine.GameObject gameObject = new UnityEngine.GameObject();
     }
 }
 namespace UnityEngine.UI
@@ -193,8 +211,14 @@ namespace UnityEngine.UI
     public class Button
     {
         public UnityEngine.GameObject gameObject = new UnityEngine.GameObject();
+        public bool interactable;
         public ClickEvent onClick = new ClickEvent();
         public T GetComponentInParent<T>() where T : new() => new T();
+    }
+    public class Slider
+    {
+        public UnityEngine.GameObject gameObject = new UnityEngine.GameObject();
+        public float value;
     }
     public class Image
     {
