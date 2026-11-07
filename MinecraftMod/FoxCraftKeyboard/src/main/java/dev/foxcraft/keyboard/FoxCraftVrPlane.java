@@ -114,7 +114,9 @@ public final class FoxCraftVrPlane {
             }
             return;
         }
-        if (keyboard.features().positionLocked() || grabHand >= 0) return;
+        if (grabHand >= 0 || ("FREE".equals(target)
+            ? keyboard.features().freePositionLocked()
+            : keyboard.features().positionLocked())) return;
         if (!"KEYBOARD".equals(target) && !"INPUT".equals(target) &&
             !"HISTORY".equals(target) && !"FREE".equals(target)) return;
         Vector3f controller = controllerRoomPosition(hand);
@@ -417,7 +419,8 @@ public final class FoxCraftVrPlane {
             float down = inChat ? BELOW_CHAT : BELOW_MENU;
             float forward = inChat ? FORWARD_FROM_CHAT : MENU_FORWARD;
             rotation = new Matrix4f(baseRotation)
-                .rotateX((float) Math.toRadians(settings.keyboardTilt()));
+                .rotateX((float) Math.toRadians(free
+                    ? settings.freeKeyboardTilt() : settings.keyboardTilt()));
             float xCorrection = (inChat ? CHAT_RIGHT_SHIFT : MENU_RIGHT_SHIFT)
                 + (free ? settings.freeRight() : settings.offsetRight());
             float yCorrection = (inChat ? CHAT_DOWN_SHIFT : MENU_DOWN_SHIFT)
@@ -435,12 +438,9 @@ public final class FoxCraftVrPlane {
                         (forward + (free ? settings.freeForward() : settings.offsetForward())) * guiScale))
                 .add(rotation.transformDirection(new Vector3f(0, 0, 1),
                     new Vector3f()).mul(TOWARDS_PLAYER * guiScale));
-            // FREE has a separately saved 5–140% scale. Keep its settings
-            // page usable even if the player shrinks the keys to 5%.
+            // Use the exact saved FREE size (50–100%) on all settings pages.
             float sizePercent = free ? settings.freeKeyboardSize()
                 : settings.keyboardSize();
-            if (free && keyboard.isFreeSettingsOpen())
-                sizePercent = Math.max(50f, sizePercent);
             scale = Math.max(0.02f, guiScale *
                 (inChat ? SCALE_MULTIPLIER : MENU_SCALE_MULTIPLIER) *
                 sizePercent / 100f);
