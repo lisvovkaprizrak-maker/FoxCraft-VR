@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
@@ -12,6 +13,32 @@ public class ConfigHandler : MonoBehaviour
     public Config config;
     public static string configPath;
 
+    public const string VrMode = "vr";
+    public const string PhoneMode = "phone";
+
+    public bool IsPhoneModeSelected => config != null && config.launchMode == PhoneMode;
+
+    // The existing launcher.conf is shared by both modes. Missing launchMode values
+    // are migrated without resetting accounts, Minecraft instances or RAM settings.
+    public void SetLaunchMode(string mode)
+    {
+        if (mode != VrMode && mode != PhoneMode)
+            return;
+
+        if (config == null)
+            return;
+
+        config.launchMode = mode;
+        File.WriteAllText(configPath, JsonConvert.SerializeObject(config, Formatting.Indented));
+    }
+
+    private static string InitialModeForDevice()
+    {
+        string model = (SystemInfo.deviceModel ?? "").ToLowerInvariant();
+        return model.Contains("quest") || model.Contains("pico") || model.Contains("yvr")
+            ? VrMode : PhoneMode;
+    }
+
     public void LoadConfig()
     {
         configPath = Application.persistentDataPath + "/launcher.conf";
@@ -20,6 +47,15 @@ public class ConfigHandler : MonoBehaviour
         { 
             string configFile = File.ReadAllText(configPath);
             config = JsonConvert.DeserializeObject<Config>(configFile);
+            if (config == null)
+                throw new InvalidDataException("launcher.conf is not valid FoxCraft configuration JSON");
+            if (config.accounts == null)
+                config.accounts = new List<Accounts>();
+            if (config.launchMode != VrMode && config.launchMode != PhoneMode)
+            {
+                config.launchMode = InitialModeForDevice();
+                File.WriteAllText(configPath, JsonConvert.SerializeObject(config, Formatting.Indented));
+            }
             
             if (!config.acceptedLegal) { windowHandler.LegalSetter(); }
             if (config.setDevMods) { devHandler._devToggle.isOn = true; }
@@ -42,6 +78,7 @@ public class ConfigHandler : MonoBehaviour
                 customRAMValue = "2048",
                 lastSelectedInstance = 0,
                 lastSelectedAccount = 0,
+                launchMode = InitialModeForDevice(),
                 accounts = new List<Accounts>()
             };
 
@@ -103,6 +140,7 @@ public class ConfigHandler : MonoBehaviour
         public string customRAMValue;
         public int lastSelectedInstance;
         public int lastSelectedAccount;
+        public string launchMode;
         public List<Accounts> accounts;
     }
     
