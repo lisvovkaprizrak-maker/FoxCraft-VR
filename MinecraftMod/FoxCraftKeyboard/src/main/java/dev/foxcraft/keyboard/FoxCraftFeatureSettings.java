@@ -28,6 +28,8 @@ public final class FoxCraftFeatureSettings {
     private float historyHeight;
     private int inputY;
     private int keyboardSize = 100;
+    // Separate miniature-game-mode scale; ordinary chat size is unaffected.
+    private int freeKeyboardSize = 100;
     private int keyboardTilt = -30;
     private int opacity = 100;
     private int chatTextSize = 100;
@@ -63,6 +65,7 @@ public final class FoxCraftFeatureSettings {
     public float historyHeight() { return historyHeight; }
     public int inputY() { return inputY; }
     public int keyboardSize() { return keyboardSize; }
+    public int freeKeyboardSize() { return freeKeyboardSize; }
     public int keyboardTilt() { return keyboardTilt; }
     public int opacity() { return opacity; }
     public int chatTextSize() { return chatTextSize; }
@@ -98,6 +101,15 @@ public final class FoxCraftFeatureSettings {
         keyboardSize = clamp(keyboardSize + percent, 70, 140);
         save();
     }
+    /** 5% is the smallest practical world-space quad; never change chat scaling. */
+    public void adjustFreeKeyboardSize(int percent) {
+        freeKeyboardSize = clamp(freeKeyboardSize + percent, 5, 140);
+        save();
+    }
+    public void resetFreeKeyboardSize() {
+        freeKeyboardSize = 100;
+        save();
+    }
     public void adjustKeyboardTilt(int degrees) {
         keyboardTilt = clamp(keyboardTilt + degrees, -65, 20);
         save();
@@ -128,6 +140,7 @@ public final class FoxCraftFeatureSettings {
         historyHeight = 0f;
         inputY = 0;
         keyboardSize = 100;
+        freeKeyboardSize = 100;
         keyboardTilt = -30;
         opacity = 100;
         chatTextSize = 100;
@@ -228,6 +241,7 @@ public final class FoxCraftFeatureSettings {
             historyHeight = clamp(asFloat(p, "historyHeight", 0), -0.35f, 0.35f);
             inputY = clamp(asInt(p, "inputY", 0), -90, 90);
             keyboardSize = clamp(asInt(p, "keyboardSize", 100), 70, 140);
+            freeKeyboardSize = clamp(asInt(p, "freeKeyboardSize", 100), 5, 140);
             keyboardTilt = clamp(asInt(p, "keyboardTilt", -30), -65, 20);
             opacity = clamp(asInt(p, "opacity", 100), 30, 100);
             chatTextSize = clamp(asInt(p, "chatTextSize", 100), 70, 150);
@@ -264,6 +278,7 @@ public final class FoxCraftFeatureSettings {
         p.setProperty("historyHeight", Float.toString(historyHeight));
         p.setProperty("inputY", Integer.toString(inputY));
         p.setProperty("keyboardSize", Integer.toString(keyboardSize));
+        p.setProperty("freeKeyboardSize", Integer.toString(freeKeyboardSize));
         p.setProperty("keyboardTilt", Integer.toString(keyboardTilt));
         p.setProperty("opacity", Integer.toString(opacity));
         p.setProperty("chatTextSize", Integer.toString(chatTextSize));

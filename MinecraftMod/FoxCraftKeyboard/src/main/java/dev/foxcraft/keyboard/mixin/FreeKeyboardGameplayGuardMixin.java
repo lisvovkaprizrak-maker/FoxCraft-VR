@@ -20,6 +20,13 @@ public abstract class FreeKeyboardGameplayGuardMixin {
         if (FoxCraftVrPlane.interceptsGameplayControls()) cir.setReturnValue(false);
     }
 
+    // Ongoing mining runs every game tick even after the initial doAttack.
+    @Inject(method = "handleBlockBreaking(Z)V", at = @At("HEAD"),
+        cancellable = true, require = 0)
+    private void foxcraft$preventHeldBlockBreaking(boolean breaking, CallbackInfo ci) {
+        if (FoxCraftVrPlane.interceptsGameplayControls()) ci.cancel();
+    }
+
     @Inject(method = "doItemUse", at = @At("HEAD"), cancellable = true, require = 0)
     private void foxcraft$preventTypingItemUse(CallbackInfo ci) {
         if (FoxCraftVrPlane.interceptsGameplayControls()) ci.cancel();

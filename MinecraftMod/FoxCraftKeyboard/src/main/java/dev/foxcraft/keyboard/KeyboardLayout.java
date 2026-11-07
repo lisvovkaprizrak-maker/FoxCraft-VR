@@ -295,6 +295,11 @@ public final class KeyboardLayout {
         }
         addWeighted(keys, english.x()+5, header.y(), english.width()-10,
             header.height(), 2, f, cmds, f, weights);
+        // The free keyboard has its own settings gear in the unused top-right
+        // crest row. Keep F1–F12 and the existing move handle untouched.
+        keys.add(new Key("⚙", Command.SETTINGS, "", "",
+            english.x() + english.width() - 32, english.y() + 6,
+            25, Math.max(12, Math.min(20, header.height()))));
         addWeighted(keys, english.x()+5, bottom.y(), english.width()-10,
             bottom.height(), 2,
             new String[]{"В ЧАТ","✥","CTRL","SHIFT","ALT","ESC","TAB","SPACE","ENTER"},
