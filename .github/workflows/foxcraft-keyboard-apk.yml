@@ -24,6 +24,9 @@ on:
       - 'Assets/Scripts/VersionChecker.cs'
       - 'Assets/Scripts/UIHandler.cs'
       - 'Assets/Scripts/JNIStorage.cs'
+      - 'Assets/Scripts/KeyboardHandler.cs'
+      - 'Assets/Scripts/DesktopCam.cs'
+      - 'Assets/Scripts/FoxCraftDevice.cs'
       - 'Assets/Resources/FoxCraftIcon.png'
       - 'Assets/Resources/FoxCraftIcon.png.meta'
   workflow_dispatch:
