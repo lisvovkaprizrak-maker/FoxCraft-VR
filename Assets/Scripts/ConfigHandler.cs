@@ -77,7 +77,9 @@ public class ConfigHandler : MonoBehaviour
             return false;
         foreach (char c in version)
         {
-            if (!char.IsLetterOrDigit(c) && c != '-' && c != '_' && c != '.')
+            bool asciiLetter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+            bool asciiDigit = c >= '0' && c <= '9';
+            if (!asciiLetter && !asciiDigit && c != '-' && c != '_' && c != '.')
                 return false;
         }
         return true;
