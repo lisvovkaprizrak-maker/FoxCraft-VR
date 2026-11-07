@@ -272,6 +272,19 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         self.assertIn("VerifyAsset", builder)
         self.assertTrue((ROOT / "Assets/Resources/FoxCraftIcon.png").stat().st_size > 1024)
 
+    def test_installed_profile_menu_ignores_invalid_jni_entries_and_uses_direct_click(self):
+        manager = read("Assets/Scripts/InstanceManager.cs")
+        self.assertIn("if (JNIStorage.instancesObj != null)", manager)
+        self.assertIn("if (installed != null)", manager)
+        self.assertIn("if (item == null)", manager)
+        self.assertIn("if (profile == null || string.IsNullOrWhiteSpace(profile.instanceName))", manager)
+        self.assertIn("() => CreateInstanceInfoPage(profileName)", manager)
+        self.assertNotIn("GameObject.Find(EventSystem.current.currentSelectedGameObject", manager)
+        self.assertIn("empty.GetComponent<Button>().interactable = false", manager)
+        self.assertIn("public void UpdateMenu()", manager)
+        self.assertIn("loaderDropdown.value >= loaderDropdown.options.Count", manager)
+        self.assertIn("Mathf.RoundToInt(Mathf.Clamp01(color.r) * 255f)", manager)
+
     def test_custom_profiles_are_created_and_deleted_safely(self):
         manager = read("Assets/Scripts/InstanceManager.cs")
         button = read("Assets/Scripts/InstanceButton.cs")
