@@ -336,13 +336,11 @@ public final class VirtualKeyboardOverlay {
                             "NEAR", "FAR", "", ""});
                     case "CONTROLLERS" -> KeyboardLayout.toolMenu(panel,
                         new String[]{featurePrefs.haptics() ? "ВИБРАЦИЯ: ВКЛ" : "ВИБРАЦИЯ: ВЫКЛ",
-                            "СИЛА: " + featurePrefs.hapticStrength(),
                             featurePrefs.leftHand() ? "ЛЕВАЯ: ВКЛ" : "ЛЕВАЯ: ВЫКЛ",
                             featurePrefs.rightHand() ? "ПРАВАЯ: ВКЛ" : "ПРАВАЯ: ВЫКЛ",
                             "ЛУЧ КОРОЧЕ", "ЛУЧ ДЛИННЕЕ",
                             "ТОЧКА МЕНЬШЕ", "ТОЧКА БОЛЬШЕ", "← Назад"},
                         new KeyboardLayout.Command[]{KeyboardLayout.Command.HAPTIC_TOGGLE,
-                            KeyboardLayout.Command.HAPTIC_STRENGTH,
                             KeyboardLayout.Command.CONTROLLER_LEFT_TOGGLE,
                             KeyboardLayout.Command.CONTROLLER_RIGHT_TOGGLE,
                             KeyboardLayout.Command.BEAM_SHORTER,
@@ -350,7 +348,7 @@ public final class VirtualKeyboardOverlay {
                             KeyboardLayout.Command.DOT_SMALLER,
                             KeyboardLayout.Command.DOT_LARGER,
                             KeyboardLayout.Command.SETTINGS_HOME},
-                        new String[]{"", "", "", "", "", "", "", "", ""});
+                        new String[]{"", "", "", "", "", "", "", ""});
                     default -> panel;
                 };
             }
