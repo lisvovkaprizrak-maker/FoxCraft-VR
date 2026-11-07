@@ -67,6 +67,23 @@ public static class FoxCraftDevice
         }
     }
 
+    // Device model codenames are ambiguous until Android's PackageManager
+    // initializes. Callers that select cameras or replace input modules
+    // should defer the decision during the earliest Unity frames.
+    public static bool IsDetectionPending
+    {
+        get
+        {
+            if (Application.platform != RuntimePlatform.Android)
+                return false;
+            // This resolves known Quest/Pico models without JNI and probes
+            // Android hardware features for unrecognized device models.
+            bool isHeadset = IsVrHeadset;
+            return !isHeadset && !detectedHeadset.HasValue;
+        }
+    }
+
     public static bool IsAndroidPhone =>
-        Application.platform == RuntimePlatform.Android && !IsVrHeadset;
+        Application.platform == RuntimePlatform.Android &&
+        !IsDetectionPending && !IsVrHeadset;
 }
