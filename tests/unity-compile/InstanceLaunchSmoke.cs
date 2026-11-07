@@ -223,8 +223,14 @@ public static class InstanceLaunchSmoke
                 System.Reflection.BindingFlags.NonPublic)
                 .SetValue(successfulButton, true);
             update.Invoke(successfulButton, null);
+            Assert(LeanTween.ValueCallCount == previousFades,
+                "stale true gameReady never fades a newly launched game");
+            AndroidJavaClass.GameReady = false;
+            update.Invoke(successfulButton, null);
+            AndroidJavaClass.GameReady = true;
+            update.Invoke(successfulButton, null);
             Assert(LeanTween.ValueCallCount == previousFades + 1,
-                "gameReady starts exactly one VR fade after an active launch");
+                "gameReady must transition false-to-true after Java launch");
             update.Invoke(successfulButton, null);
             Assert(LeanTween.ValueCallCount == previousFades + 1,
                 "repeated gameReady polls never queue duplicate VR transitions");
@@ -244,6 +250,13 @@ public static class InstanceLaunchSmoke
                 System.Reflection.BindingFlags.Instance |
                 System.Reflection.BindingFlags.NonPublic)
                 .SetValue(missingFade, true);
+            typeof(InstanceButton).GetField("javaLaunchDispatched",
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic)
+                .SetValue(missingFade, true);
+            AndroidJavaClass.GameReady = false;
+            update.Invoke(missingFade, null);
+            AndroidJavaClass.GameReady = true;
             update.Invoke(missingFade, null);
             Assert(MonoBehaviour.CoroutineStarts == beforeCoroutines + 1,
                 "missing fade schedules fallback VR handoff on Unity thread");
@@ -271,6 +284,40 @@ public static class InstanceLaunchSmoke
             Assert(!handoff.MoveNext() && manager.DeinitializeCalls == 1,
                 "OpenXR loader is deinitialized once on the Unity coroutine");
             AndroidJavaClass.GameReady = false;
+
+            // Pojlib may catch Java exceptions internally. The JVM can keep
+            // loading forever without ever publishing gameReady. Detect this
+            // after a bounded period, restore the launcher and give guidance.
+            var watchUi = new UIHandler();
+            var watchdog = new InstanceButton {
+                configHandler = prefs, uiHandler = watchUi,
+                ScreenFade = new CanvasGroup { gameObject = new GameObject() }
+            };
+            var flags = System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic;
+            typeof(InstanceButton).GetField("launchInProgress", flags)
+                .SetValue(watchdog, true);
+            typeof(InstanceButton).GetField("javaLaunchDispatched", flags)
+                .SetValue(watchdog, true);
+            typeof(InstanceButton).GetField("waitingForGameReady", flags)
+                .SetValue(watchdog, true);
+            typeof(InstanceButton).GetField("gameLaunchStartedAt", flags)
+                .SetValue(watchdog, 1f);
+            ProgressBarManager.started = true;
+            Time.realtimeSinceStartup = 180f;
+            update.Invoke(watchdog, null);
+            Assert(watchUi.killCalls == 0,
+                "VR launch remains active before 180-second gameReady timeout");
+            Time.realtimeSinceStartup = 182f;
+            update.Invoke(watchdog, null);
+            Assert(watchUi.killCalls == 1 && !ProgressBarManager.started,
+                "expired gameReady watchdog restores original QuestCraft menu");
+            Assert(watchUi.lastError != null &&
+                watchUi.lastError.Contains("180 секунд"),
+                "timeout displays a meaningful Java/Pojlib diagnostic");
+            update.Invoke(watchdog, null);
+            Assert(watchUi.killCalls == 1,
+                "timed-out watchdog cannot repeatedly dismiss the launcher");
 
             Console.WriteLine("FoxCraft VR launch smoke: " + checks + " checks passed.");
             return 0;
