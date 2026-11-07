@@ -153,7 +153,7 @@ namespace TMPro
         }
         public void SetValueWithoutNotify(int selected) => value = selected;
     }
-    public class TMP_InputField { public string text; public UnityEngine.GameObject gameObject = new UnityEngine.GameObject(); }
+    public class TMP_InputField { public string text; public bool enabled = true; public bool IsActive() => enabled; public UnityEngine.GameObject gameObject = new UnityEngine.GameObject(); }
     public enum TextAlignmentOptions { Center }
     public class TextMeshProUGUI
     {
