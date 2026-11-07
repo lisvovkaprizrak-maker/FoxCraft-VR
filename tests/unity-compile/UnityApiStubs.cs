@@ -174,7 +174,11 @@ public sealed class UIHandler
     public void PlaySetter() { }
     public void SetAndShowError(string message) { }
 }
-public sealed class ConfigHandler { public void SetLastSelectedInstance(int index) { } }
+public sealed class ConfigHandler
+{
+    public bool IsPhoneModeSelected { get; set; }
+    public void SetLastSelectedInstance(int index) { }
+}
 public sealed class PojlibInstance
 {
     public UnityEngine.AndroidJavaObject raw;
