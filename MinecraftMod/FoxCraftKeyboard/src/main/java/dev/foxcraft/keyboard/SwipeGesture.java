@@ -12,6 +12,10 @@ public final class SwipeGesture {
     private static final int MAX_POINTS = 192;
     private static final double SAMPLE_STEP = 5.0;
     private static final double MIN_DISTANCE = 13.0;
+    private static volatile double swipeThreshold = MIN_DISTANCE;
+    public static void setSensitivity(int percent) {
+        swipeThreshold = MIN_DISTANCE * 100.0 / Math.max(50, Math.min(160, percent));
+    }
     private final List<GestureWordRecognizer.Point> points = new ArrayList<>();
     private KeyboardLayout.Key first;
     private KeyboardLayout.Key lastLetter;
@@ -63,7 +67,7 @@ public final class SwipeGesture {
     }
 
     public boolean isSwiping() {
-        return first != null && crossed > 1 && travel >= MIN_DISTANCE;
+        return first != null && crossed > 1 && travel >= swipeThreshold;
     }
 
     /** Up to three approximate word matches, with no raw intermediate letters. */
