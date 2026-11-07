@@ -83,6 +83,20 @@ public static class FoxCraftDevice
         }
     }
 
+    // If Android never exposes its PackageManager, use the same flat
+    // fallback for both camera and touch. This is called only after a bounded
+    // startup wait; Quest/Pico models and reported VR capabilities win first.
+    public static void CompleteDetectionWithPhoneFallback()
+    {
+        if (Application.platform == RuntimePlatform.Android &&
+            IsDetectionPending)
+        {
+            detectedHeadset = false;
+            Debug.LogWarning("[FoxCraft] VR capabilities unavailable after startup; " +
+                "using flat Android launcher controls.");
+        }
+    }
+
     public static bool IsAndroidPhone =>
         Application.platform == RuntimePlatform.Android &&
         !IsDetectionPending && !IsVrHeadset;
