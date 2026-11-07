@@ -327,6 +327,29 @@ public static class InstanceLaunchSmoke
             Assert(watchUi.killCalls == 1,
                 "timed-out watchdog cannot repeatedly dismiss the launcher");
 
+            // A timed-out Java worker may still be modifying the instance.
+            // Never start another copy until it has terminated.
+            var nestedWorker = typeof(InstanceButton).GetNestedType(
+                "PrelaunchState", System.Reflection.BindingFlags.NonPublic);
+            Assert(nestedWorker != null, "pending Java worker state is testable");
+            var pendingWorker = System.Activator.CreateInstance(nestedWorker, true);
+            nestedWorker.GetField("completed").SetValue(pendingWorker, false);
+            typeof(InstanceButton).GetField("pendingGameLaunch", flags)
+                .SetValue(watchdog, pendingWorker);
+            JNIStorage.ActiveInstance = null;
+            int javaCalls = AndroidJavaClass.LaunchInstanceCallCount;
+            watchdog.LaunchCurrentInstance();
+            Assert(watchUi.lastError != null &&
+                watchUi.lastError.Contains("Предыдущий запуск Java"),
+                "timed-out native worker blocks overlapping Minecraft launch");
+            Assert(AndroidJavaClass.LaunchInstanceCallCount == javaCalls,
+                "blocked reattempt does not create a second Java worker");
+            nestedWorker.GetField("completed").SetValue(pendingWorker, true);
+            watchdog.LaunchCurrentInstance();
+            Assert(watchUi.lastError != null &&
+                watchUi.lastError.Contains("installing"),
+                "the player can try again after the old Java worker finishes");
+
             Console.WriteLine("FoxCraft VR launch smoke: " + checks + " checks passed.");
             return 0;
         }
