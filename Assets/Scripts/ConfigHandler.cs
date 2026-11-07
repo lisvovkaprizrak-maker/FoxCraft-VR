@@ -123,20 +123,30 @@ public class ConfigHandler : MonoBehaviour
             : new List<string>();
     }
 
+    private static List<string> NormalizePhoneVersions(
+        IList<string> versions, string fallback)
+    {
+        List<string> safe = new List<string>();
+        if (versions != null)
+        {
+            foreach (string version in versions)
+            {
+                if (safe.Count >= MaxCachedPhoneVersions)
+                    break;
+                if (IsSafeVersionId(version) && !safe.Contains(version))
+                    safe.Add(version);
+            }
+        }
+        if (safe.Count == 0)
+            safe.Add(IsSafeVersionId(fallback) ? fallback : "1.21.5");
+        return safe;
+    }
+
     public void SetCachedPhoneVersions(List<string> versions)
     {
         if (config == null || versions == null || versions.Count == 0)
             return;
-        List<string> safe = new List<string>();
-        foreach (string version in versions)
-        {
-            if (safe.Count >= MaxCachedPhoneVersions)
-                break;
-            if (IsSafeVersionId(version) && !safe.Contains(version))
-                safe.Add(version);
-        }
-        if (safe.Count == 0)
-            return;
+        List<string> safe = NormalizePhoneVersions(versions, config.phoneVersion);
         config.phoneVersionCache = safe;
         SaveConfig();
     }
@@ -264,9 +274,26 @@ public class ConfigHandler : MonoBehaviour
             config.phoneVersion = "1.21.5";
             migrated = true;
         }
-        if (config.phoneVersionCache == null || config.phoneVersionCache.Count == 0)
+        // launcher.conf is editable and may come from an older FoxCraft build.
+        // Sanitize version IDs read from disk too, not just Mojang fetch results.
+        List<string> sanitized = NormalizePhoneVersions(
+            config.phoneVersionCache, config.phoneVersion);
+        bool changed = config.phoneVersionCache == null ||
+            config.phoneVersionCache.Count != sanitized.Count;
+        if (!changed)
         {
-            config.phoneVersionCache = new List<string> { config.phoneVersion };
+            for (int i = 0; i < sanitized.Count; i++)
+            {
+                if (config.phoneVersionCache[i] != sanitized[i])
+                {
+                    changed = true;
+                    break;
+                }
+            }
+        }
+        if (changed)
+        {
+            config.phoneVersionCache = sanitized;
             migrated = true;
         }
         if (string.IsNullOrWhiteSpace(config.customRAMValue))
