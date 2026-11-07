@@ -47,6 +47,20 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         self.assertIn('new AndroidJavaClass(BridgeClass)', runtime)
         self.assertNotIn('CallStatic("launchInstance"', runtime)
 
+    def test_phone_uses_existing_flat_questcraft_camera_and_android_keyboard(self):
+        device = read("Assets/Scripts/FoxCraftDevice.cs")
+        camera = read("Assets/Scripts/DesktopCam.cs")
+        keyboard = read("Assets/Scripts/KeyboardHandler.cs")
+        config = read("Assets/Scripts/ConfigHandler.cs")
+        self.assertIn('model.Contains("quest")', device)
+        self.assertIn('model.Contains("pico")', device)
+        self.assertIn("FoxCraftDevice.IsVrHeadset", camera)
+        self.assertIn("DesktopCamera.SetActive(true)", camera)
+        self.assertIn("screenCanvas.worldCamera = flatCamera", camera)
+        self.assertIn("FoxCraftDevice.IsAndroidPhone", keyboard)
+        self.assertIn("keyboard.SetActive(false)", keyboard)
+        self.assertIn("FoxCraftDevice.IsVrHeadset", config)
+
     def test_app_can_be_installed_on_android_without_vr_tracking(self):
         manifest = read("Assets/Plugins/Android/AndroidManifest.xml")
         flags = re.findall(
