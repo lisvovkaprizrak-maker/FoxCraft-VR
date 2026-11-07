@@ -66,3 +66,44 @@ and the staged Fabric 1.21.5 keyboard JAR. A successful C# preflight check is
 
 The original QuestCraft menus continue to use QuestCraft APIs/links until
 dedicated FoxCraft replacements exist; preserve upstream GPL and attribution.
+
+
+## Automated launcher verification
+
+The pull-request preflight builds the real FoxCraft launcher C# components
+against lightweight Unity API test doubles and executes startup smoke checks:
+
+- First-run launcher config creation and default phone mode on non-headsets.
+- Preserving Microsoft accounts, RAM, game profile selection and cached phone
+  versions when changing VR/phone options.
+- Migrating QuestCraft-era launcher configs without deleting existing accounts.
+- Backing up malformed settings before starting from defaults.
+- Waiting for JNIStorage and a Pojlib activity before attempting Microsoft login.
+- Exactly one initial sign-in attempt; Play remains locked until Pojlib confirms
+  an authenticated account.
+- Checking the APK package, manifest, required native libraries, signing and
+  bundled Fabric keyboard via `tools/verify_foxcraft_test_apk.py`.
+
+The smoke runner lives in `tests/unity-login-compile/SmokeProgram.cs` and is
+part of `.github/workflows/foxcraft-keyboard-apk.yml`. These checks use fakes
+for Android/Unity APIs: they do **not** prove a Unity APK runs on real phones,
+and the phone's 2D renderer remains unimplemented.
+
+## Manual acceptance criteria (when a testable APK exists)
+
+1. A Quest headset installs FoxCraft alongside QuestCraft, signs in and
+   launches a supported VR Minecraft instance without the old game being
+   overwritten.
+2. All pre-existing QuestCraft launcher menus still work: profiles,
+   Microsoft login, mods/modpacks, developer settings and logs.
+3. A normal Android ARM64 phone installs FoxCraft and can touch/tap the entire
+   flat launcher menu, enter account text, select and persist a separate Java
+   Edition release.
+4. Once the in-APK 2D backend is implemented, **Играть** starts the selected
+   version with on-screen controls, does not start OpenXR, and returns safely to
+   the launcher. Until then it must show an explicit unavailable-runtime
+   message rather than silently launch VR.
+5. Restarting either device retains the selected mode, correct Minecraft
+   version, account identity and installed game profiles.
+
+Do not distribute a phone-playable build until criterion 4 actually passes.
