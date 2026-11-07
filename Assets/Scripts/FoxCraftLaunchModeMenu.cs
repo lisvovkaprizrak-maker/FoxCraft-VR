@@ -66,6 +66,8 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
 
         if (config == null)
             config = FindObjectOfType<ConfigHandler>();
+        if (config != null && phoneVersions.Count == 0)
+            phoneVersions.AddRange(config.GetCachedPhoneVersions());
         if (window == null)
             window = FindObjectOfType<WindowHandler>();
 
@@ -192,9 +194,9 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
             return;
 
         int index = phoneVersions.IndexOf(config.SelectedPhoneVersion);
-        if (index < 0)
-            index = 0;
-        int destination = (index + step + phoneVersions.Count) % phoneVersions.Count;
+        int destination = index < 0
+            ? (step < 0 ? phoneVersions.Count - 1 : 0)
+            : (index + step + phoneVersions.Count) % phoneVersions.Count;
         config.SetPhoneVersion(phoneVersions[destination]);
         displayedPhone = null;
     }
@@ -234,6 +236,10 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
             }
         }
 
+        if (config == null)
+            config = FindObjectOfType<ConfigHandler>();
+        if (config != null && phoneVersions.Count > 0)
+            config.SetCachedPhoneVersions(phoneVersions);
         displayedPhone = null;
     }
 
