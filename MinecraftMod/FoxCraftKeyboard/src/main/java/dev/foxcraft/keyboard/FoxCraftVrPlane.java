@@ -27,7 +27,12 @@ public final class FoxCraftVrPlane {
     private static final float SCALE_MULTIPLIER = 0.68f;
     // Use the same chat-relative placement rule as Vivecraft's own keyboard.
     // FoxCraft is a separate layer: the original keyboard is never disabled.
-    private static final float BELOW_CHAT = 0.69f;
+    private static final float BELOW_CHAT = 0.58f;
+    // Raise chat and keyboard together in room space (~16 cm at GUI scale 1).
+    private static final float CHAT_RAISE = 0.16f;
+    private static Vector3f chatGuiReference;
+    private static Vector3f chatGuiOriginal;
+    private static Vector3f chatGuiRaised;
     private static final float FORWARD_FROM_CHAT = 0.28f;
     private static final float TOWARDS_PLAYER = 0.065f;
 
@@ -86,6 +91,7 @@ public final class FoxCraftVrPlane {
         if (keyboard == null || disabled) return;
         MinecraftClient client = MinecraftClient.getInstance();
         if (!(client.currentScreen instanceof ChatScreen)) {
+            restoreChatGuiPosition();
             wasPressed[0] = wasPressed[1] = false;
             releaseBuffer();
             return;
@@ -105,6 +111,17 @@ public final class FoxCraftVrPlane {
 
             float guiScale = guiClass.getField("GUI_SCALE").getFloat(null);
             if (!(guiScale > 0)) return;
+            // Adjust the actual chat GUI anchor, not just our keyboard. Keep
+            // an unshifted copy so repeated frame rendering never adds height.
+            if (chatGuiReference != guiPos || chatGuiRaised == null ||
+                guiPos.distanceSquared(chatGuiRaised) > 0.000001f) {
+                chatGuiOriginal = new Vector3f(guiPos);
+                chatGuiReference = guiPos;
+            }
+            chatGuiRaised = new Vector3f(chatGuiOriginal).add(
+                guiRot.transformDirection(new Vector3f(0, 1, 0),
+                    new Vector3f()).mul(CHAT_RAISE * guiScale));
+            guiPos.set(chatGuiRaised);
             // Equivalent to QuestCraft's chat-relative keyboard positioning:
             // project down the GUI's local up axis and slightly toward player.
             // Neither KeyboardHandler.SHOWING nor its framebuffer is modified.
@@ -274,6 +291,18 @@ public final class FoxCraftVrPlane {
                 keyboard.vrMoved(original, x, y, hand);
             wasPressed[hand] = down;
         }
+    }
+
+    private static void restoreChatGuiPosition() {
+        // Only restore if the same chat GUI position is still present. Do not
+        // overwrite a fresh position calculated by Vivecraft for another menu.
+        if (chatGuiReference != null && chatGuiRaised != null &&
+            chatGuiOriginal != null &&
+            chatGuiReference.distanceSquared(chatGuiRaised) < 0.000001f)
+            chatGuiReference.set(chatGuiOriginal);
+        chatGuiReference = null;
+        chatGuiOriginal = null;
+        chatGuiRaised = null;
     }
 
     private static void releaseBuffer() {

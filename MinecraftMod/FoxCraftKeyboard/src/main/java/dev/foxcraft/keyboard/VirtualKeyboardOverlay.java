@@ -378,8 +378,9 @@ public final class VirtualKeyboardOverlay {
         if (result.key().command() == KeyboardLayout.Command.TYPE &&
             !release.suggestions().isEmpty()) {
             clearSuggestions();
-            String chosen = shift ? capitalize(result.text()) : result.text();
-            List<String> choices = shift
+            String chosen = shouldUppercaseFirstRussianLetter(field, result.text())
+                ? capitalize(result.text()) : (shift ? capitalize(result.text()) : result.text());
+            List<String> choices = (shift || shouldUppercaseFirstRussianLetter(field, result.text()))
                 ? release.suggestions().stream()
                     .map(VirtualKeyboardOverlay::capitalize).toList()
                 : release.suggestions();
@@ -399,6 +400,15 @@ public final class VirtualKeyboardOverlay {
                 panel = null;
             }
         } else activate(screen, result);
+    }
+
+    /** Only the first Cyrillic letter of a new message is automatic uppercase.
+     *  Commands beginning with '/' and words after spaces retain case. */
+    private boolean shouldUppercaseFirstRussianLetter(TextFieldWidget field, String text) {
+        return russian && !symbols && field != null &&
+            field.getText().isEmpty() && field.getCursor() == 0 &&
+            field.getSelectedText().isEmpty() && !text.isEmpty() &&
+            Character.UnicodeScript.of(text.codePointAt(0)) == Character.UnicodeScript.CYRILLIC;
     }
 
     private static String capitalize(String word) {
@@ -437,7 +447,9 @@ public final class VirtualKeyboardOverlay {
         }
         clearSuggestions();
         switch (result.key().command()) {
-            case TYPE, SPACE -> field.write(result.text());
+            case TYPE -> field.write(shouldUppercaseFirstRussianLetter(field, result.text())
+                ? capitalize(result.text()) : result.text());
+            case SPACE -> field.write(result.text());
             case BACKSPACE -> field.eraseCharacters(-1);
             case LEFT -> field.moveCursor(-1, false);
             case RIGHT -> field.moveCursor(1, false);
