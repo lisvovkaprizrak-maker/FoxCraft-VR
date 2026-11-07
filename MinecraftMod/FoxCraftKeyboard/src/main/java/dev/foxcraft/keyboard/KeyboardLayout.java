@@ -189,6 +189,17 @@ public final class KeyboardLayout {
             return new Panel(x, y, width, height, List.copyOf(keys));
         }
 
+        // The two primary grab controls belong to the KEYBOARD itself,
+        // not to the chat history: left = move the entire chat group in 3D,
+        // right = move only the keyboard in 3D. Both are held with the
+        // right-hand trigger. Keep the centre free for the FoxCraft crest.
+        int grabWidth = Math.min(57, Math.max(30, (insideWidth - 96) / 4));
+        int grabHeight = Math.max(12, Math.min(20, brandHeight - 4));
+        keys.add(new Key("ЧАТ ↔", Command.MOVE_GRAB, "CHAT_GROUP", "",
+            insideX + 2, rowY, grabWidth, grabHeight));
+        keys.add(new Key("КЛАВ ↔", Command.MOVE_GRAB, "KEYBOARD", "",
+            insideX + insideWidth - grabWidth - 2, rowY,
+            grabWidth, grabHeight));
         // Reference silhouette has a centered raised fox crest above a separate
         // control strip. The logo is decorative, not a clickable key.
         rowY += brandHeight + gap;
@@ -266,7 +277,10 @@ public final class KeyboardLayout {
         if (header == null || bottom == null) return english;
         List<Key> keys = new ArrayList<>();
         for (Key k : english.keys()) {
-            if (k.y() == header.y() || k.y() == bottom.y()) continue;
+            // Free mode has its OWN grab key. It must never expose the
+            // chat-group handle while chat is closed.
+            if (k.y() == header.y() || k.y() == bottom.y() ||
+                k.command() == Command.MOVE_GRAB) continue;
             if (k.command() == Command.TYPE)
                 keys.add(new Key(k.label().toUpperCase(Locale.ROOT),
                     Command.FREE_KEY, k.value().toUpperCase(Locale.ROOT), "",
