@@ -406,6 +406,84 @@ public static class InstanceLaunchSmoke
             AndroidJavaClass.GameReady = false;
             AndroidJavaClass.LaunchInstanceDelayMs = 0;
 
+            // Installing a missing Fabric/Vanilla profile is expensive and
+            // must run on a Java worker, not block Unity menu input. The
+            // installation status gates Play and restores the selected profile.
+            var install = typeof(InstanceButton).GetMethod("InstallDefaultInstance",
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic);
+            Assert(install != null, "launcher exposes asynchronous Fabric installer");
+            AndroidJavaClass.InstallDelayMs = 85;
+            AndroidJavaClass.FailInstall = false;
+            var installedUi = new UIHandler();
+            var installer = new InstanceButton {
+                configHandler = prefs, uiHandler = installedUi,
+                ScreenFade = new CanvasGroup { gameObject = new GameObject() }
+            };
+            Time.realtimeSinceStartup = 5f;
+            var installRoutine = (IEnumerator)install.Invoke(installer,
+                new object[] { "Fabric 1.21.5" });
+            Assert(installRoutine.MoveNext() && InstanceButton.IsInstallingInstance,
+                "launcher stays responsive while Java downloads Minecraft");
+            JNIStorage.ActiveInstance = null;
+            installer.LaunchCurrentInstance();
+            Assert(installedUi.lastError != null &&
+                installedUi.lastError.Contains("Установка Minecraft уже выполняется"),
+                "tapping Play twice cannot start concurrent Minecraft installs");
+            running = true;
+            for (int i = 0; i < 250 && running; i++)
+            {
+                running = installRoutine.MoveNext();
+                if (running) Thread.Sleep(4);
+            }
+            Assert(!running && !InstanceButton.IsInstallingInstance,
+                "installer finishes without leaving Play disabled");
+            Assert(prefs.config.lastSelectedInstanceName == "Fabric 1.21.5" &&
+                prefs.saveCalls > 0,
+                "new Minecraft profile selected and persisted by stable name");
+            Assert(JNIStorage.instance.refreshCalls > 0 &&
+                installedUi.lastError.Contains("установлена"),
+                "successful install refreshes profile list and informs player");
+
+            AndroidJavaClass.FailInstall = true;
+            var failedInstaller = new InstanceButton {
+                configHandler = prefs, uiHandler = installedUi
+            };
+            var failure = (IEnumerator)install.Invoke(failedInstaller,
+                new object[] { "Fabric 1.20.1" });
+            running = true;
+            for (int i = 0; i < 250 && running; i++)
+            {
+                running = failure.MoveNext();
+                if (running) Thread.Sleep(4);
+            }
+            Assert(!running && !InstanceButton.IsInstallingInstance &&
+                installedUi.lastError.Contains("Не удалось установить Minecraft"),
+                "failed Fabric installation restores menu with error");
+            AndroidJavaClass.FailInstall = false;
+            AndroidJavaClass.InstallDelayMs = 500;
+            var delayed = new InstanceButton {
+                configHandler = prefs, uiHandler = installedUi
+            };
+            Time.realtimeSinceStartup = 10f;
+            var hungInstall = (IEnumerator)install.Invoke(delayed,
+                new object[] { "Fabric 1.19.4" });
+            Assert(hungInstall.MoveNext(), "slow Java install worker started");
+            Thread.Sleep(30);
+            int startedInstalls = AndroidJavaClass.InstallCallCount;
+            Time.realtimeSinceStartup = 611f;
+            Assert(!hungInstall.MoveNext() && !InstanceButton.IsInstallingInstance,
+                "long-running installer times out without freezing main Unity menu");
+            Assert(installedUi.lastError.Contains("10 минут"),
+                "installer timeout offers concrete recovery instructions");
+            delayed.LaunchCurrentInstance();
+            Assert(AndroidJavaClass.InstallCallCount == startedInstalls &&
+                installedUi.lastError.Contains("Установка Minecraft уже выполняется"),
+                "timed-out worker blocks unsafe duplicate installations");
+            AndroidJavaClass.InstallDelayMs = 0;
+            // Let the original background worker leave its Java mock cleanly.
+            Thread.Sleep(520);
+
             Console.WriteLine("FoxCraft VR launch smoke: " + checks + " checks passed.");
             return 0;
         }
