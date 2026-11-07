@@ -81,7 +81,17 @@ namespace UnityEngine
     {
         public static bool VrTrackingFeature;
         public static bool OculusVrFeature;
+        public string uuid;
+        public string username;
+        public bool isDemoMode;
         public void Dispose() { }
+        public T Get<T>(string field)
+        {
+            object value = field == "uuid" ? uuid :
+                field == "username" ? username :
+                field == "isDemoMode" ? (object)isDemoMode : null;
+            return value == null ? default(T) : (T)value;
+        }
         public T Call<T>(string name, params object[] parameters)
         {
             if (name == "getPackageManager")
