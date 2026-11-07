@@ -32,8 +32,12 @@ namespace UnityEngine
     }
     public class AndroidJavaClass
     {
+        public static int LoginCallCount;
         public void SetStatic(string name, object value) { }
-        public void CallStatic(string name, params object[] parameters) { }
+        public void CallStatic(string name, params object[] parameters)
+        {
+            if (name == "login") LoginCallCount++;
+        }
         public T CallStatic<T>(string name, params object[] parameters) => default(T);
         public T GetStatic<T>(string name) => default(T);
     }
@@ -80,10 +84,21 @@ namespace UnityEngine.UI
 namespace Newtonsoft.Json
 {
     public enum Formatting { Indented }
+    public sealed class JsonException : Exception
+    {
+        public JsonException(string message) : base(message) { }
+    }
     public static class JsonConvert
     {
-        public static T DeserializeObject<T>(string json) => default(T);
-        public static string SerializeObject(object value, Formatting format) => "{}";
+        private static System.Text.Json.JsonSerializerOptions Options(bool indent = false) =>
+            new System.Text.Json.JsonSerializerOptions { IncludeFields = true, WriteIndented = indent };
+        public static T DeserializeObject<T>(string json)
+        {
+            try { return System.Text.Json.JsonSerializer.Deserialize<T>(json, Options()); }
+            catch (System.Text.Json.JsonException e) { throw new JsonException(e.Message); }
+        }
+        public static string SerializeObject(object value, Formatting format) =>
+            System.Text.Json.JsonSerializer.Serialize(value, Options(format == Formatting.Indented));
     }
 }
 public static class FoxCraftDevice { public static bool IsVrHeadset => false; }
