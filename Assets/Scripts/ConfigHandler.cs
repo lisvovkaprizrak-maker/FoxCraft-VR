@@ -16,6 +16,33 @@ public class ConfigHandler : MonoBehaviour
     public const string VrMode = "vr";
     public const string PhoneMode = "phone";
 
+    public bool IsLoaded => config != null;
+
+    public void SaveConfig()
+    {
+        if (config == null || string.IsNullOrEmpty(configPath))
+            return;
+        File.WriteAllText(configPath, JsonConvert.SerializeObject(config, Formatting.Indented));
+    }
+
+    // Restore after JNIStorage has populated the version drop-down. Otherwise
+    // TMP clamps an empty list to index 0 and loses the saved selection.
+    public void RestoreLastSelectedInstance()
+    {
+        if (config == null || JNIStorage.instance == null ||
+            JNIStorage.instance.instancesDropdown == null)
+            return;
+        TMP_Dropdown dropdown = JNIStorage.instance.instancesDropdown;
+        if (dropdown.options == null || dropdown.options.Count == 0)
+            return;
+
+        int selected = Mathf.Clamp(config.lastSelectedInstance, 0, dropdown.options.Count - 1);
+        UIHandler.selectedInstance = selected;
+        dropdown.SetValueWithoutNotify(selected);
+        if (JNIStorage.instance.uiHandler != null)
+            JNIStorage.instance.uiHandler.UpdateDropdowns(false, null);
+    }
+
     public bool IsPhoneModeSelected => config != null && config.launchMode == PhoneMode;
 
     // The existing launcher.conf is shared by both modes. Missing launchMode values
@@ -117,7 +144,7 @@ public class ConfigHandler : MonoBehaviour
                 JNIStorage.apiClass.SetStatic("memoryValue", config.customRAMValue);
             }
             
-            JNIStorage.instance.instancesDropdown.value = config.lastSelectedInstance;
+            // Selected instance is restored after Pojlib populates the list.
         }
         else
         {
@@ -145,44 +172,40 @@ public class ConfigHandler : MonoBehaviour
 
     public void SetLastSelectedInstance(int instance)
     {
-        string configFile = File.ReadAllText(configPath);
-        config = JsonConvert.DeserializeObject<Config>(configFile);
+        if (config == null)
+            return;
         config.lastSelectedInstance = instance;
-        string JSON = JsonConvert.SerializeObject(config, Formatting.Indented);
-        File.WriteAllText(configPath, JSON);
+        SaveConfig();
     }
 
     public void SetLastSelectedAccount(int account)
     {
-        string configFile = File.ReadAllText(configPath);
-        config = JsonConvert.DeserializeObject<Config>(configFile);
+        if (config == null)
+            return;
         config.lastSelectedAccount = account;
-        string JSON = JsonConvert.SerializeObject(config, Formatting.Indented);
-        File.WriteAllText(configPath, JSON);
+        SaveConfig();
     }
     
     public void SetMemoryValue()
     {
-        string configFile = File.ReadAllText(configPath);
-        config = JsonConvert.DeserializeObject<Config>(configFile);
+        if (config == null)
+            return;
         string ramValue = devHandler._ramSetterField.text;
         
         if (ramValue != null)
         {
             config.customRAMValue = ramValue;
-            string JSON = JsonConvert.SerializeObject(config, Formatting.Indented);
-            File.WriteAllText(configPath, JSON);
+            SaveConfig();
             JNIStorage.apiClass.SetStatic("memoryValue", ramValue);
         }
     }
 
     public void AgreeToLegal()
     {
-        string configFile = File.ReadAllText(configPath);
-        config = JsonConvert.DeserializeObject<Config>(configFile);
+        if (config == null)
+            return;
         config.acceptedLegal = true;
-        string JSON = JsonConvert.SerializeObject(config, Formatting.Indented);
-        File.WriteAllText(configPath, JSON);
+        SaveConfig();
     }
 
     public class Config
