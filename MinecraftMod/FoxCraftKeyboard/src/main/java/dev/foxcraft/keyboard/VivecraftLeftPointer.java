@@ -69,7 +69,8 @@ public final class VivecraftLeftPointer {
             Object guiLeftClick = FoxCraftGuiClickInput.optionalBinding(gui, "KEY_LEFT_CLICK");
             Object guiRightClick = FoxCraftGuiClickInput.optionalBinding(gui, "KEY_RIGHT_CLICK");
             boolean nativeLeftClick = FoxCraftGuiClickInput.pressed(
-                provider, leftHand, keyboardBinding, guiLeftClick, guiRightClick);
+                provider, leftHand, keyboardBinding, guiLeftClick, guiRightClick,
+                FoxCraftGuiClickInput.optionalLeftUseBinding());
             boolean valid = u >= 0 && u <= 1 && v >= 0 && v <= 1;
             return new Sample(valid, u * guiWidth, v * guiHeight,
                 nativeLeftClick);
