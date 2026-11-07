@@ -3,18 +3,19 @@ package dev.foxcraft.keyboard;
 import java.lang.reflect.Method;
 
 /**
- * Reads keyboard and GUI actions WITHOUT changing Vivecraft/QuestCraft button
- * mappings. The stock Keyboard Click action can stop producing presses once
- * the stock keyboard is hidden in favour of FoxCraft's detached surface.
+ * Samples existing Vivecraft/OpenXR input actions for the physical controller
+ * that owns a FoxCraft pointer. This class NEVER changes controller mappings.
  *
- * GUI click actions are unhanded, so their active OpenXR origin MUST match
- * the physical controller whose ray is being tested. Never assign a global
- * GUI click to BOTH pointers or guess an origin for the left hand.
+ * IMPORTANT: HandedKeyBinding.isDown(LEFT/RIGHT) is a synthetic binding state,
+ * not reliable physical input while Vivecraft's own keyboard is hidden.
+ * On QuestCraft a RIGHT trigger was making that stale/aliased LEFT binding
+ * appear pressed, so FoxCraft clicked the LEFT pointer instead of the RIGHT.
+ * Only an active action with a matching OpenXR physical origin may click.
  */
 public final class FoxCraftGuiClickInput {
     private FoxCraftGuiClickInput() {}
 
-    /** Optional on older QuestCraft/Vivecraft forks; absence is not fatal. */
+    /** Absent actions must not take down the entire detached VR keyboard. */
     public static Object optionalBinding(Class<?> owner, String field) {
         try {
             return owner.getField(field).get(null);
@@ -23,70 +24,98 @@ public final class FoxCraftGuiClickInput {
         }
     }
 
+    /** The left index trigger may be mapped to ordinary Use by QuestCraft. */
+    public static Object optionalLeftUseBinding() {
+        try {
+            Class<?> clientClass = Class.forName("net.minecraft.client.MinecraftClient");
+            Object mc = clientClass.getMethod("getInstance").invoke(null);
+            Object options = clientClass.getField("options").get(mc);
+            return options.getClass().getField("useKey").get(options);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            return null;
+        }
+    }
+
     public static boolean pressed(Object provider, Object hand, Object keyboardClick,
                                   Object guiLeftClick, Object guiRightClick) {
+        return pressed(provider, hand, keyboardClick, guiLeftClick, guiRightClick, null);
+    }
+
+    /**
+     * Optional read-only left-index Use fallback. This is NOT a remapping:
+     * it never changes Minecraft controls and only clicks when the action's
+     * actual OpenXR origin belongs to the LEFT physical controller.
+     * A right-trigger/Use event cannot fire the left ray.
+     */
+    public static boolean pressed(Object provider, Object hand, Object keyboardClick,
+                                  Object guiLeftClick, Object guiRightClick, Object leftUse) {
         if (provider == null || hand == null) return false;
-        return nativeKeyboardClick(hand, keyboardClick) ||
-            originatedGuiClick(provider, hand, guiLeftClick) ||
-            originatedGuiClick(provider, hand, guiRightClick);
+        // All paths use the SAME origin validation. Do not call isDown()
+        // directly even for the special Vivecraft handed keyboard action.
+        return pressedFromOrigin(provider, hand, guiLeftClick) ||
+            pressedFromOrigin(provider, hand, guiRightClick) ||
+            pressedFromOrigin(provider, hand, keyboardClick) ||
+            (hand instanceof Enum<?> e && "LEFT".equals(e.name()) &&
+             pressedFromOrigin(provider, hand, leftUse));
     }
 
-    private static boolean nativeKeyboardClick(Object hand, Object binding) {
-        if (binding == null) return false;
-        try {
-            for (Method method : binding.getClass().getMethods()) {
-                if (method.getName().equals("isDown") &&
-                    method.getParameterCount() == 1 &&
-                    method.getParameterTypes()[0].isInstance(hand)) {
-                    return Boolean.TRUE.equals(method.invoke(binding, hand));
-                }
-            }
-        } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
-            // Unsupported Vivecraft fork: try the GUI actions instead.
-        }
-        return false;
-    }
-
-    private static boolean originatedGuiClick(Object provider, Object hand, Object binding) {
+    private static boolean pressedFromOrigin(Object provider, Object hand, Object binding) {
         if (binding == null) return false;
         try {
             Object action = null;
-            for (Method method : provider.getClass().getMethods()) {
-                if (method.getName().equals("getInputAction") &&
-                    method.getParameterCount() == 1 &&
-                    method.getParameterTypes()[0].isInstance(binding)) {
-                    action = method.invoke(provider, binding);
+            for (Method m : provider.getClass().getMethods()) {
+                if (m.getName().equals("getInputAction") &&
+                    m.getParameterCount() == 1 &&
+                    m.getParameterTypes()[0].isInstance(binding)) {
+                    action = m.invoke(provider, binding);
                     break;
                 }
             }
             if (action == null) return false;
-            Class<?> type = action.getClass();
-            // GUI click must be active and actually held this frame.
-            if (!Boolean.TRUE.equals(type.getMethod("isActive").invoke(action)) ||
-                !Boolean.TRUE.equals(type.getMethod("isButtonPressed").invoke(action)))
-                return false;
-
-            long origin = ((Number) type.getMethod("getLastOrigin")
-                .invoke(action)).longValue();
-            if (origin == 0L) return false;
-
-            // Vivecraft declares this method protected on its VR provider.
-            Method resolve = null;
-            for (Class<?> owner = provider.getClass(); owner != null;
-                 owner = owner.getSuperclass()) {
+            Class<?> cls = action.getClass();
+            synchronized (action) {
+                boolean handed = Boolean.TRUE.equals(cls.getMethod("isHanded").invoke(action));
+                Method setHand = null;
+                Object previousHand = null;
+                if (handed) {
+                    setHand = cls.getMethod("setCurrentHand", hand.getClass());
+                    previousHand = cls.getMethod("getCurrentHand").invoke(action);
+                    setHand.invoke(action, hand);
+                }
                 try {
-                    resolve = owner.getDeclaredMethod("getOriginControllerType", long.class);
-                    break;
-                } catch (NoSuchMethodException ignored) {
-                    // Search superclass.
+                    if (!Boolean.TRUE.equals(cls.getMethod("isActive").invoke(action)) ||
+                        !Boolean.TRUE.equals(cls.getMethod("isButtonPressed").invoke(action)))
+                        return false;
+                    long origin = ((Number) cls.getMethod("getLastOrigin")
+                        .invoke(action)).longValue();
+                    // Origin 0 is unknown: it must not generate phantom clicks.
+                    if (origin == 0L) return false;
+                    return fromHand(provider, origin, hand);
+                } finally {
+                    if (handed) setHand.invoke(action, previousHand);
                 }
             }
-            if (resolve == null) return false;
-            resolve.setAccessible(true);
-            return hand.equals(resolve.invoke(provider, origin));
         } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
-            // Never attribute an unverified GUI event to the other controller.
-            return false;
+            return false; // Fail closed rather than transfer a press between hands.
         }
+    }
+
+    /** Vivecraft/QuestCraft declares getOriginControllerType as protected. */
+    private static boolean fromHand(Object provider, long origin, Object expected)
+        throws ReflectiveOperationException
+    {
+        Method resolver = null;
+        for (Class<?> owner = provider.getClass(); owner != null;
+             owner = owner.getSuperclass()) {
+            try {
+                resolver = owner.getDeclaredMethod("getOriginControllerType", long.class);
+                break;
+            } catch (NoSuchMethodException ignored) {
+                // Protected Vivecraft method may be in a superclass.
+            }
+        }
+        if (resolver == null) return false;
+        resolver.setAccessible(true);
+        return expected.equals(resolver.invoke(provider, origin));
     }
 }
