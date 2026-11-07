@@ -370,11 +370,15 @@ public class InstanceButton : MonoBehaviour
 
         // Only touch UI objects on the Unity main thread; do not do so from
         // Java workers. On a successful handoff gameReady handles the fade.
-        while (!launchState.completed && launchInProgress)
+        // Do not keep a Unity coroutine polling for the entire Minecraft
+        // session if Pojlib.launchInstance blocks until the JVM shuts down.
+        // Once gameReady is observed, the fade owns the handoff; the Java
+        // worker remains alive independently until the game exits.
+        while (!launchState.completed && launchInProgress && !gameReady)
             yield return null;
-        // A watchdog timeout already restored the launcher. Never let a
-        // late worker completion modify the next session's UI.
-        if (!launchInProgress)
+        // A watchdog timeout or successful VR handoff already owns the UI.
+        // Late worker completion must never dismiss the active Minecraft view.
+        if (!launchInProgress || gameReady)
             yield break;
         if (launchState.error != null)
         {
