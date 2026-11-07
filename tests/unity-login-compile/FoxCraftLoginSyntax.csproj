@@ -15,5 +15,6 @@
     <Compile Include="../../Assets/Scripts/DevHandler.cs" Link="DevHandler.cs" />
     <Compile Include="../../Assets/Scripts/FoxCraftDevice.cs" Link="FoxCraftDevice.cs" />
     <Compile Include="../../Assets/Scripts/FoxCraftLaunchModeMenu.cs" Link="FoxCraftLaunchModeMenu.cs" />
+    <Compile Include="../../Assets/Scripts/KeyboardHandler.cs" Link="KeyboardHandler.cs" />
   </ItemGroup>
 </Project>
