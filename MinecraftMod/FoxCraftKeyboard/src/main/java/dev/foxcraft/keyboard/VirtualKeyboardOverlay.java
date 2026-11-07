@@ -7,6 +7,8 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.sound.PositionedSoundInstance;
+import net.minecraft.sound.SoundEvents;
 import org.lwjgl.glfw.GLFW;
 import java.util.List;
 import java.util.Locale;
@@ -1144,6 +1146,14 @@ public final class VirtualKeyboardOverlay {
         KeyHoldController.Activation result = release.activation();
         TextFieldWidget field = focusedField(screen);
         if (result == null || field == null) return;
+        if (featurePrefs.clickSound()) {
+            try {
+                MinecraftClient.getInstance().getSoundManager().play(
+                    PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0f));
+            } catch (RuntimeException | LinkageError ignored) {
+                // Unsupported audio hosts do not interrupt controller typing.
+            }
+        }
         if ("COMPOSE".equals(menuPage) &&
             result.key().command() == KeyboardLayout.Command.TYPE &&
             !release.suggestions().isEmpty()) {
