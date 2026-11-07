@@ -1266,7 +1266,8 @@ public final class VirtualKeyboardOverlay {
                     field.write("." + KeyboardLayout.trailingWordSpace(
                         field.getText(), field.getCursor()));
                 } else {
-                    field.write(result.text());
+                    field.write(KeyboardLayout.firstRussianLetter(result.text(),
+                        russian, field.getText(), field.getCursor()));
                 }
             }
             case SPACE -> field.write(" ");
@@ -1517,7 +1518,9 @@ public final class VirtualKeyboardOverlay {
             }
             case TYPE -> {
                 if (".".equals(result.text())) quickDraft.dot();
-                else quickDraft.insert(result.text());
+                else quickDraft.insert(KeyboardLayout.firstRussianLetter(
+                    result.text(), russian, quickDraft.message(),
+                    quickDraft.atStartOfLine() && quickDraft.message().isEmpty() ? 0 : 1));
                 if (shift) shift = false;
             }
             case SPACE -> quickDraft.insert(" ");
