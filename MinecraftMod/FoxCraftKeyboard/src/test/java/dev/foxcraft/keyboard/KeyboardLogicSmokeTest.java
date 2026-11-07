@@ -13,6 +13,7 @@ public final class KeyboardLogicSmokeTest {
         testRequestedTypingAndSwipe();
         testLargeOfflineDictionaryAndPersonalWords();
         testQuickBinds();
+        testFreeKeyboard();
         // Regression: on Quest, the world-selection text field must not
         // display FoxCraft over the menu, while in-world chat stays usable
         // even if the optional 3D Vivecraft hook never starts.
@@ -638,6 +639,53 @@ public final class KeyboardLogicSmokeTest {
 
 
         System.out.println("FoxCraft keyboard logic smoke tests: OK");
+    }
+
+    private static void testFreeKeyboard() {
+        KeyboardLayout.Panel en = KeyboardLayout.make(854, 480,
+            false, false, false, false, false);
+        KeyboardLayout.Panel free = KeyboardLayout.freeKeyboard(en);
+        require(free.width() == en.width() &&
+            free.height() == en.height(),
+            "Game keyboard must retain calibrated physical dimensions");
+        for (int fn = 1; fn <= 12; fn++) {
+            String name = "F" + fn;
+            require(free.keys().stream().anyMatch(k ->
+                k.command() == KeyboardLayout.Command.FREE_KEY &&
+                name.equals(k.value())),
+                "Missing physical function key " + name);
+            require(FreeKeyboardKeys.keyCode(name) == 289 + fn,
+                "Function-key GLFW mapping: " + name);
+        }
+        for (char letter='A'; letter<='Z';letter++) {
+            String name = String.valueOf(letter);
+            require(free.keys().stream().anyMatch(k ->
+                k.command() == KeyboardLayout.Command.FREE_KEY &&
+                name.equals(k.value())),
+                "Missing QWERTY game key " + name);
+            require(FreeKeyboardKeys.keyCode(name) == letter,
+                "GLFW game key mapping " + name);
+        }
+        require(free.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.FREE_RETURN),
+            "Free mode must return to normal chat keyboard");
+        require(free.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.MOVE_GRAB &&
+            "FREE".equals(k.value())),
+            "Free mode has an independent right-trigger room drag handle");
+        require(free.keys().stream().filter(k ->
+            k.command() == KeyboardLayout.Command.FREE_MODIFIER).count() == 3,
+            "Ctrl Shift and Alt are available in game mode");
+        require(free.keys().stream().noneMatch(k ->
+            k.command() == KeyboardLayout.Command.TYPE),
+            "Free mode must never emit chat text");
+        require(FreeKeyboardKeys.keyCode("M") == 77 &&
+            FreeKeyboardKeys.keyCode("F3") == 292 &&
+            FreeKeyboardKeys.keyCode("F12") == 301,
+            "Litematica M and vanilla F3/F12 keycodes");
+        require(FreeKeyboardKeys.keyCode("F13") == -1 &&
+            FreeKeyboardKeys.keyCode("HELLO") == -1,
+            "Reject unsupported game-key sequences");
     }
 
     private static void testQuickBinds() {
