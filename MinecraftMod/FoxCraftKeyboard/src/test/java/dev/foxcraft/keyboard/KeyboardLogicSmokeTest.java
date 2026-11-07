@@ -607,8 +607,8 @@ public final class KeyboardLogicSmokeTest {
             "Delete moved to the top-right controls");
         require(ru.keys().stream().anyMatch(k ->
             k.command() == KeyboardLayout.Command.TYPE && "!".equals(k.value()) &&
-                k.y() < key(ru.keys(), "1").y()),
-            "Exclamation mark is directly available in the top toolbar");
+                k.y() > key(ru.keys(), "1").y()),
+            "Exclamation mark is at the bottom left of the keyboard");
         require(ru.keys().stream().noneMatch(k ->
             k.command() == KeyboardLayout.Command.COLLAPSE ||
                 k.command() == KeyboardLayout.Command.ESCAPE),
