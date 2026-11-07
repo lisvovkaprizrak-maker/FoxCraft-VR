@@ -166,6 +166,17 @@ public final class FoxCraftFeatureSettings {
         offsetForward = clamp(forward, -0.45f, 0.45f);
     }
     public void savePosition() { save(); }
+    public void resetKeyboardPosition() {
+        setPosition(0, 0, 0);
+        save();
+    }
+
+    public void resetChatPosition() {
+        historyHeight = 0f;
+        inputY = 0;
+        save();
+    }
+
     public void resetPosition() {
         setPosition(0, 0, 0);
         historyHeight = 0f;
