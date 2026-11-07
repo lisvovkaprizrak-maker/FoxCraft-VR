@@ -16,6 +16,16 @@ on:
       - 'tests/unity-compile/**'
       - 'tools/verify_foxcraft_test_apk.py'
       - 'tests/test_verify_foxcraft_test_apk.py'
+      - 'tests/test_foxcraft_launcher_modes.py'
+      - 'Assets/Scripts/ConfigHandler.cs'
+      - 'Assets/Scripts/FoxCraftLaunchModeMenu.cs'
+      - 'Assets/Scripts/FoxCraftPhoneRuntime.cs'
+      - 'Assets/Scripts/LoadReleases.cs'
+      - 'Assets/Scripts/VersionChecker.cs'
+      - 'Assets/Scripts/UIHandler.cs'
+      - 'Assets/Scripts/JNIStorage.cs'
+      - 'Assets/Resources/FoxCraftIcon.png'
+      - 'Assets/Resources/FoxCraftIcon.png.meta'
   workflow_dispatch:
 
 permissions:
@@ -51,6 +61,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_stage_foxcraft_ingame_keyboard.py' -v
           python3 -m unittest discover -s tests -p 'test_foxcraft_quest_smoke.py' -v
           python3 -m unittest discover -s tests -p 'test_verify_foxcraft_test_apk.py' -v
+          python3 -m unittest discover -s tests -p 'test_foxcraft_launcher_modes.py' -v
       - name: Require configured Unity license for manual Android build
         if: github.event_name == 'workflow_dispatch'
         env:
