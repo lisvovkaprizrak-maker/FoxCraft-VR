@@ -13,6 +13,8 @@
     <Compile Include="../../Assets/Scripts/ConfigHandler.cs" Link="ConfigHandler.cs" />
     <Compile Include="../../Assets/Scripts/LoginHandler.cs" Link="LoginHandler.cs" />
     <Compile Include="../../Assets/Scripts/DevHandler.cs" Link="DevHandler.cs" />
+    <Compile Include="../../Assets/Scripts/FoxCraftLaunchGate.cs" Link="FoxCraftLaunchGate.cs" />
+    <Compile Include="../../Assets/Scripts/ProgressBarManager.cs" Link="ProgressBarManager.cs" />
     <Compile Include="../../Assets/Scripts/FoxCraftDevice.cs" Link="FoxCraftDevice.cs" />
     <Compile Include="../../Assets/Scripts/FoxCraftLaunchModeMenu.cs" Link="FoxCraftLaunchModeMenu.cs" />
     <Compile Include="../../Assets/Scripts/KeyboardHandler.cs" Link="KeyboardHandler.cs" />
