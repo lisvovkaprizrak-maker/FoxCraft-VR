@@ -359,6 +359,52 @@ public static class InstanceLaunchSmoke
             Assert(ui.lastError != null && ui.lastError.Contains("installing"),
                 "the player can try again after the old Java worker finishes");
 
+            // Pojlib.launchInstance can remain blocked for the entire game.
+            // The VR handoff should finish its Unity coroutine after gameReady
+            // without waiting for the background JVM to shut down.
+            AndroidJavaClass.PrelaunchResult = true;
+            AndroidJavaClass.FailLaunchInstance = false;
+            AndroidJavaClass.LaunchInstanceDelayMs = 700;
+            AndroidJavaClass.GameReady = false;
+            var longRunningButton = new InstanceButton {
+                configHandler = prefs,
+                uiHandler = new UIHandler(),
+                ScreenFade = new CanvasGroup { gameObject = new GameObject() }
+            };
+            typeof(InstanceButton).GetField("launchInProgress", flags)
+                .SetValue(longRunningButton, true);
+            IEnumerator gameRunning = (IEnumerator)prepare.Invoke(longRunningButton,
+                new object[] {
+                    new PojlibInstance {
+                        versionName = "1.20.1", raw = new AndroidJavaObject()
+                    }
+                });
+            Time.realtimeSinceStartup = 400f;
+            bool dispatched = false;
+            var dispatchFlag = typeof(InstanceButton).GetField(
+                "javaLaunchDispatched", flags);
+            for (int i = 0; i < 200; i++)
+            {
+                if ((bool)dispatchFlag.GetValue(longRunningButton))
+                {
+                    dispatched = true;
+                    break;
+                }
+                Assert(gameRunning.MoveNext(),
+                    "Unity coroutine stays active until Java launch dispatched");
+                Thread.Sleep(4);
+            }
+            Assert(dispatched, "Java worker dispatched before VR gameReady");
+            AndroidJavaClass.GameReady = true;
+            int beforeLongGameFade = LeanTween.ValueCallCount;
+            update.Invoke(longRunningButton, null);
+            Assert(LeanTween.ValueCallCount == beforeLongGameFade + 1,
+                "running JVM gameReady triggers VR fade without waiting for return");
+            Assert(!gameRunning.MoveNext(),
+                "Unity launcher stops polling after Minecraft game handoff");
+            AndroidJavaClass.GameReady = false;
+            AndroidJavaClass.LaunchInstanceDelayMs = 0;
+
             Console.WriteLine("FoxCraft VR launch smoke: " + checks + " checks passed.");
             return 0;
         }
