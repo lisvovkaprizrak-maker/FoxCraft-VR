@@ -108,6 +108,37 @@ public static class InstanceLaunchSmoke
             Assert(ui.lastError != null && ui.lastError.Contains("prelaunch"),
                 "Pojlib prelaunch failure is visible to the user");
 
+            // Simulate a Java prelaunch call stuck longer than 150 seconds
+            // by advancing the fake Unity clock, without waiting in CI.
+            AndroidJavaClass.PrelaunchDelayMs = 500;
+            var slowUi = new UIHandler();
+            var slowButton = new InstanceButton {
+                configHandler = prefs,
+                uiHandler = slowUi,
+                ScreenFade = new CanvasGroup { gameObject = new GameObject() }
+            };
+            Time.realtimeSinceStartup = 1f;
+            IEnumerator stalled = (IEnumerator)prepare.Invoke(slowButton,
+                new object[] { installed });
+            Assert(stalled.MoveNext(), "slow Pojlib worker starts");
+            Thread.Sleep(35);
+            int pendingCalls = AndroidJavaClass.PrelaunchCallCount;
+            Time.realtimeSinceStartup = 152f;
+            Assert(!stalled.MoveNext(), "prelaunch times out instead of infinite spinner");
+            Assert(slowUi.playCalls == 1 && slowUi.killCalls == 1 &&
+                !ProgressBarManager.started,
+                "prelaunch timeout restores launcher UI and progress");
+            Assert(slowUi.lastError != null &&
+                slowUi.lastError.Contains("150 секунд"),
+                "timed-out prelaunch tells the user to restart FoxCraft");
+            slowButton.LaunchCurrentInstance();
+            Assert(slowUi.lastError != null &&
+                slowUi.lastError.Contains("ещё выполняется"),
+                "new launch blocked while timed-out worker still touches files");
+            Assert(AndroidJavaClass.PrelaunchCallCount == pendingCalls,
+                "no duplicate Java prelaunch starts during unresolved timeout");
+            AndroidJavaClass.PrelaunchDelayMs = 0;
+
             Console.WriteLine("FoxCraft VR launch smoke: " + checks + " checks passed.");
             return 0;
         }
