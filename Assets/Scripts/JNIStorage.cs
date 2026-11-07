@@ -117,7 +117,13 @@ public class JNIStorage : MonoBehaviour
         connected = apiClass.CallStatic<bool>("hasConnection", activity);
         if (!connected)
         {
-            uiHandler.SetAndShowError("Unable to connect to Microsoft servers, are you offline? Some features may not work properly!");
+            // The bundled QuestCraft Pojlib connectivity check recognizes Wi-Fi
+            // only. A phone using cellular data is not necessarily offline.
+            if (FoxCraftDevice.IsAndroidPhone)
+                uiHandler.SetAndShowError("FoxCraft: проверка сети Pojlib пока поддерживает Wi-Fi. " +
+                    "Для первоначального входа подключитесь к Wi-Fi; поддержка мобильной сети будет добавлена.");
+            else
+                uiHandler.SetAndShowError("Unable to connect to Microsoft servers, are you offline? Some features may not work properly!");
         }
     }
 
