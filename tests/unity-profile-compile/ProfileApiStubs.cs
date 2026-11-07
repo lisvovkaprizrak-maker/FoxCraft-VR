@@ -79,6 +79,11 @@ namespace UnityEngine
         public static Color green => new Color(0, 1, 0);
         public static Color Lerp(Color from, Color to, float t) => from;
     }
+    public static class Mathf
+    {
+        public static float Clamp01(float value) => Math.Min(1f, Math.Max(0f, value));
+        public static int RoundToInt(float value) => (int)Math.Round(value);
+    }
     public sealed class Texture2D { }
     public class AndroidJavaObject : IDisposable
     {
@@ -156,7 +161,7 @@ namespace TMPro
 namespace UnityEngine.UI
 {
     public sealed class ClickEvent { public void AddListener(Action click) { } }
-    public class Button { public ClickEvent onClick = new ClickEvent(); }
+    public class Button { public bool interactable = true; public ClickEvent onClick = new ClickEvent(); }
     public class Toggle { public bool isOn, interactable; }
     public class RawImage { public object texture; public UnityEngine.Color color; }
 }
