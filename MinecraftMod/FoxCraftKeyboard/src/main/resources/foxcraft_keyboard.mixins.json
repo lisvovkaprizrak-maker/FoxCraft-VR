@@ -9,6 +9,7 @@
     "FoxCraftChatHudMixin",
     "FoxCraftChatInputBackgroundMixin",
     "FreeKeyboardPhysicalStateMixin",
+    "FreeKeyboardGameplayGuardMixin",
     "VREffectsHelperMixin",
     "QuestCraftOpenXrActionSetMixin",
     "VRArmHelperMixin"
