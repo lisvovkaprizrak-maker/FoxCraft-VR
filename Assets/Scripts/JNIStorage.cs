@@ -193,16 +193,16 @@ public class JNIStorage : MonoBehaviour
             Debug.LogWarning("[FoxCraft] Pojlib connectivity probe unavailable: " +
                 exception.GetType().Name);
         }
+        // Pojlib's old Wi-Fi-only check can be false while a phone has a
+        // validated LTE/5G connection. Android's network capabilities are an
+        // independent signal; no change to Pojlib's token-refresh internals.
         if (!connected)
-        {
-            // The bundled QuestCraft Pojlib connectivity check recognizes Wi-Fi
-            // only. A phone using cellular data is not necessarily offline.
-            if (FoxCraftDevice.IsAndroidPhone)
-                uiHandler.SetAndShowError("FoxCraft: проверка сети Pojlib пока поддерживает Wi-Fi. " +
-                    "Для первоначального входа подключитесь к Wi-Fi; поддержка мобильной сети будет добавлена.");
-            else
-                uiHandler.SetAndShowError("Unable to connect to Microsoft servers, are you offline? Some features may not work properly!");
-        }
+            connected = FoxCraftNetworkStatus.HasValidatedInternet();
+
+        if (!connected && uiHandler != null)
+            uiHandler.SetAndShowError(
+                "FoxCraft не обнаружил подключение к интернету. " +
+                "Проверьте Wi-Fi или мобильную сеть и попробуйте ещё раз.");
     }
 
     public async void FixFilePermissions()
