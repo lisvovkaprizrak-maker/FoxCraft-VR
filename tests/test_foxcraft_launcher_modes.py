@@ -49,6 +49,28 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         self.assertIn("closeButton.onClick.AddListener", menu)
         self.assertNotIn('root.anchoredPosition = new Vector2(0f, 160f)', menu)
 
+    def test_questcraft_profile_changes_save_immediately_across_four_dropdowns(self):
+        ui = read("Assets/Scripts/UIHandler.cs")
+        config = read("Assets/Scripts/ConfigHandler.cs")
+        for dropdown in (
+            "dropdownMain", "dropdownInstanceCreator",
+            "dropdownModInfo", "dropdownModSearch"
+        ):
+            self.assertIn(f"OnSelectedInstanceChanged({dropdown})", ui)
+        self.assertIn("private void OnSelectedInstanceChanged(TMP_Dropdown origin)", ui)
+        self.assertIn("origin.options[origin.value] == null", ui)
+        self.assertIn("UpdateDropdowns(false, null)", ui)
+        self.assertIn("configHandler.SetLastSelectedInstance(", ui)
+        self.assertIn("SetValueWithoutNotify(selectedInstance)", ui)
+        self.assertIn("config.lastSelectedInstanceName =", config)
+
+    def test_failed_launch_rechecks_real_play_readiness_before_unlocking_ui(self):
+        ui = read("Assets/Scripts/UIHandler.cs")
+        kill = ui.split("public void KillSetter()", 1)[1]
+        self.assertIn("UILoginCheck();", kill)
+        self.assertIn("FoxCraftLaunchGate.CanPlay", ui)
+        self.assertIn("FoxCraftLaunchGate.CanManageInstances", ui)
+
     def test_play_button_requires_downloads_and_verified_account(self):
         ui = read("Assets/Scripts/UIHandler.cs")
         progress = read("Assets/Scripts/ProgressBarManager.cs")
