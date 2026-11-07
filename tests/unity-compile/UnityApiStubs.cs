@@ -66,8 +66,14 @@ namespace UnityEngine
         public static bool PrelaunchResult;
         public static bool FailLaunchInstance;
         public static int LaunchInstanceCallCount;
+        public static bool GameReady;
         public AndroidJavaClass(string name) { }
-        public T GetStatic<T>(string field) { return default(T); }
+        public T GetStatic<T>(string field)
+        {
+            if (field == "gameReady")
+                return (T)(object)GameReady;
+            return default(T);
+        }
         public T CallStatic<T>(string method, params object[] args)
         {
             if (method == "prelaunch")
@@ -276,8 +282,10 @@ public sealed class TweenDescriptor
 }
 public static class LeanTween
 {
+    public static int ValueCallCount;
     public static TweenDescriptor value(UnityEngine.GameObject go, float from, float to, float time)
     {
+        ValueCallCount++;
         return new TweenDescriptor();
     }
 }
