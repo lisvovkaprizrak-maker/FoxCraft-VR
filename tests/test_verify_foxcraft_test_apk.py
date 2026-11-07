@@ -20,6 +20,8 @@ BADGING = (
     "package: name='com.foxcraftvr.quest' versionCode='101'\n"
     "launchable-activity: name='pojlib.UnityPlayerActivity'\n"
     "native-code: 'arm64-v8a'\n"
+    "application-label:'FoxCraft'\n"
+    "uses-feature-not-required: name='android.hardware.vr.headtracking'\n"
 )
 
 
@@ -98,6 +100,22 @@ class VerifyFoxCraftTestApkTests(unittest.TestCase):
         self.make_apk(armv7=True)
         with self.assertRaisesRegex(mod.ApkVerificationError, "ARMv7"):
             self.verify_with_mock_aapt()
+
+    def test_android_phone_incompatible_required_headtracking_rejected(self):
+        self.make_apk()
+        badging = BADGING.replace(
+            "uses-feature-not-required: name='android.hardware.vr.headtracking'",
+            "uses-feature: name='android.hardware.vr.headtracking'",
+        )
+        with self.assertRaisesRegex(mod.ApkVerificationError, "phone install blocked"):
+            self.verify_with_mock_aapt(badging)
+
+    def test_missing_foxcraft_brand_rejected(self):
+        self.make_apk()
+        badging = BADGING.replace("application-label:'FoxCraft'",
+                                 "application-label:'QuestCraft'")
+        with self.assertRaisesRegex(mod.ApkVerificationError, "application label"):
+            self.verify_with_mock_aapt(badging)
 
     def test_questcraft_package_id_rejected(self):
         self.make_apk()
