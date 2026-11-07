@@ -92,6 +92,9 @@ namespace UnityEngine
         public static bool FailLaunchInstance;
         public static int LaunchInstanceDelayMs;
         public static int LaunchInstanceCallCount;
+        public static int InstallDelayMs;
+        public static int InstallCallCount;
+        public static bool FailInstall;
         public static bool GameReady;
         public AndroidJavaClass(string name) { }
         public T GetStatic<T>(string field)
@@ -110,6 +113,15 @@ namespace UnityEngine
                 if (PrelaunchDelayMs > 0)
                     System.Threading.Thread.Sleep(PrelaunchDelayMs);
                 return (T)(object)PrelaunchResult;
+            }
+            if (method == "createNewInstance")
+            {
+                System.Threading.Interlocked.Increment(ref InstallCallCount);
+                if (InstallDelayMs > 0)
+                    System.Threading.Thread.Sleep(InstallDelayMs);
+                if (FailInstall)
+                    throw new InvalidOperationException("Simulated Fabric installation failure");
+                return (T)(object)new AndroidJavaObject();
             }
             return default(T);
         }
@@ -284,9 +296,17 @@ public sealed class UIHandler
 }
 public sealed class ConfigHandler
 {
+    public sealed class Config
+    {
+        public string lastSelectedInstanceName;
+    }
+    public Config config = new Config();
+    public bool IsLoaded => config != null;
     public bool IsPhoneModeSelected { get; set; }
     public string SelectedPhoneVersion { get; set; } = "1.21.5";
     public int lastSelectedInstance = -1;
+    public int saveCalls;
+    public void SaveConfig() { saveCalls++; }
     public void SetLastSelectedInstance(int index) { lastSelectedInstance = index; }
 }
 public sealed class PojlibInstance
@@ -303,7 +323,8 @@ public sealed class JNIStorage
     public UIHandler uiHandler;
     public static PojlibInstance ActiveInstance;
     public static PojlibInstance GetInstance(string name) { return ActiveInstance; }
-    public void UpdateInstances() { }
+    public int refreshCalls;
+    public void UpdateInstances() { refreshCalls++; }
 }
 public static class ProgressBarManager { public static bool started; }
 public sealed class TweenDescriptor
