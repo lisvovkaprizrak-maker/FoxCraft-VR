@@ -51,9 +51,7 @@ public class ConfigHandler : MonoBehaviour
 
     private static string InitialModeForDevice()
     {
-        string model = (SystemInfo.deviceModel ?? "").ToLowerInvariant();
-        return model.Contains("quest") || model.Contains("pico") || model.Contains("yvr")
-            ? VrMode : PhoneMode;
+        return FoxCraftDevice.IsVrHeadset ? VrMode : PhoneMode;
     }
 
     public void LoadConfig()
