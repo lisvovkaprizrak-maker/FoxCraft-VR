@@ -87,6 +87,10 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         self.assertIn("currInstName = selectedDropdown.options[selectedIndex].text;", button)
         self.assertIn("ProgressBarManager.started = false;", button)
         self.assertIn("uiHandler.KillSetter();", button)
+        self.assertIn("PrelaunchTimeoutSeconds = 150f", button)
+        self.assertIn("pendingPrelaunch", button)
+        self.assertIn("Time.realtimeSinceStartup < deadline", button)
+        self.assertIn("if (!pendingPrelaunch.completed)", button)
         self.assertIn("selected == null || JNIStorage.apiClass == null", button)
         self.assertIn("Сначала выберите сборку Minecraft", button)
 
