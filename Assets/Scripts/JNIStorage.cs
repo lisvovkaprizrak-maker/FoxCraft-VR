@@ -45,8 +45,13 @@ public class JNIStorage : MonoBehaviour
 		CrashReportHandler.enableCaptureExceptions = false;
         instance = this;
 
-        // If the user has not granted Microphone permission, don't try to start the clip.
-        if (Microphone.devices.Length != 0)
+        // Do not request/activate microphone recording while browsing a phone
+        // launcher menu. Preserve QuestCraft's VR microphone only when the user
+        // has already granted the Android microphone permission.
+        if (!FoxCraftDevice.IsAndroidPhone &&
+            UnityEngine.Android.Permission.HasUserAuthorizedPermission(
+                UnityEngine.Android.Permission.Microphone) &&
+            Microphone.devices.Length > 0)
         {
             Microphone.Start(Microphone.devices[0], true, 1, 44100);
         }
