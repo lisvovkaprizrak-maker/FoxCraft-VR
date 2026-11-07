@@ -390,8 +390,9 @@ public static class InstanceLaunchSmoke
                     dispatched = true;
                     break;
                 }
-                Assert(gameRunning.MoveNext(),
-                    "Unity coroutine stays active until Java launch dispatched");
+                if (!gameRunning.MoveNext())
+                    throw new InvalidOperationException(
+                        "Unity coroutine ended before Java launch was dispatched");
                 Thread.Sleep(4);
             }
             Assert(dispatched, "Java worker dispatched before VR gameReady");
