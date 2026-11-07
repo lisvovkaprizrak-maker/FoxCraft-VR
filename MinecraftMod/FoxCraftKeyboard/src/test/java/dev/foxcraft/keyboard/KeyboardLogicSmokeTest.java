@@ -770,6 +770,11 @@ public final class KeyboardLogicSmokeTest {
                 k.command() == KeyboardLayout.Command.FREE_OPTIONS &&
                 "FREE_THEMES".equals(k.value())),
                 "Free menu must link to shared palette");
+            require(root.keys().stream().anyMatch(k ->
+                k.command() == KeyboardLayout.Command.ADJUST_OPTION &&
+                "FREE_RESET_ALL".equals(k.value()) &&
+                k.label().contains("СБРОС ДО СТАНДАРТА")),
+                "FREE gear settings must offer a direct default-reset button");
             KeyboardLayout.Panel themes = FreeKeyboardSettingsMenu.make(shell,
                 "FREE_THEMES", prefs, KeyboardTheme.CLASSIC);
             require(themes.keys().stream().filter(k ->
