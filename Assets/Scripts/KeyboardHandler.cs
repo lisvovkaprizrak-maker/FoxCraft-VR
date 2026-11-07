@@ -1,8 +1,5 @@
-using System.Threading.Tasks;
 using TMPro;
-using Unity.XR.CoreUtils;
 using UnityEngine;
-using UnityEngine.UI;
 
 public class KeyboardHandler : MonoBehaviour
 {
@@ -13,91 +10,73 @@ public class KeyboardHandler : MonoBehaviour
     public AudioSource keyPop;
     private static bool isShift;
 
+    // Preserve QuestCraft's original field-selection priority. A field may be
+    // absent or disabled while the user changes tabs.
+    private TMP_InputField ActiveField()
+    {
+        if (searchBox != null && searchBox.IsActive()) return searchBox;
+        if (ramSetter != null && ramSetter.IsActive()) return ramSetter;
+        if (instanceEditor != null && instanceEditor.IsActive()) return instanceEditor;
+        return null;
+    }
+
     private void Update()
     {
         if (keyboard == null)
             return;
 
-        // QuestCraft's VR key grid must not cover the native Android keyboard.
-        // TMP_InputField will instead request the system keyboard on a phone.
+        // The VR key grid is never shown over a phone's Android IME.
         if (FoxCraftDevice.IsAndroidPhone)
         {
-            keyboard.SetActive(false);
+            if (keyboard.activeSelf)
+                keyboard.SetActive(false);
             return;
         }
 
-        keyboard.SetActive(searchBox.IsActive() || ramSetter.IsActive() || instanceEditor.IsActive());
+        bool shouldShow = ActiveField() != null;
+        if (keyboard.activeSelf != shouldShow)
+            keyboard.SetActive(shouldShow);
     }
-    
+
+    private void PlayKeySound()
+    {
+        if (keyPop != null)
+            keyPop.Play();
+    }
+
     public void KeyPress(string key)
     {
-        if (searchBox.IsActive())
-        {
-            searchBox.text += isShift ? key.ToUpper() : key.ToLower();
-            keyPop.Play();
-        }
-        else if (ramSetter.IsActive())
-        {
-            ramSetter.text += isShift ? key.ToUpper() : key.ToLower();
-            keyPop.Play();
-        } else if (instanceEditor.IsActive())
-        {
-            instanceEditor.text += isShift ? key.ToUpper() : key.ToLower();
-            keyPop.Play();
-        }
+        TMP_InputField field = ActiveField();
+        if (field == null || string.IsNullOrEmpty(key))
+            return;
+
+        field.text += isShift ? key.ToUpperInvariant() : key.ToLowerInvariant();
+        PlayKeySound();
     }
 
     public void BackspacePress()
     {
-        if (searchBox.IsActive())
-        {
-            searchBox.text = searchBox.text.Remove(searchBox.text.Length - 1, 1);
-            keyPop.Play();
-        }
-        else if (ramSetter.IsActive())
-        {
-            ramSetter.text = ramSetter.text.Remove(ramSetter.text.Length - 1, 1);
-            keyPop.Play();
-        } else if (instanceEditor.IsActive())
-        {
-            instanceEditor.text = instanceEditor.text.Remove(instanceEditor.text.Length - 1, 1);
-            keyPop.Play();
-        }
+        TMP_InputField field = ActiveField();
+        if (field == null || string.IsNullOrEmpty(field.text))
+            return;
+
+        field.text = field.text.Substring(0, field.text.Length - 1);
+        PlayKeySound();
     }
 
     public void ShiftPress()
     {
-        ShiftPressTask();
-    }
-
-    private async Task ShiftPressTask()
-    {
         isShift = !isShift;
-        // var keys = keyboard.GetNamedChild("Keys").GetChildGameObjects().GetComponentsInChildren<TMP_Text>();
-        //
-        // foreach (var key in keys)
-        // {
-        //     key.text = isShift ? key.text.ToLower() : key.text.ToUpper();
-        // }
-        
-        keyPop.Play();
+        PlayKeySound();
     }
 
     public void SpacePress()
     {
-        if (searchBox.IsActive())
-        {
-            searchBox.text += " ";
-            keyPop.Play();
-        }
-        else if (ramSetter.IsActive())
-        {
-            ramSetter.text += " ";
-            keyPop.Play();
-        } else if (instanceEditor.IsActive())
-        {
-            instanceEditor.text += " ";
-            keyPop.Play();
-        }
+        TMP_InputField field = ActiveField();
+        if (field == null)
+            return;
+
+        field.text += " ";
+        PlayKeySound();
     }
 }
