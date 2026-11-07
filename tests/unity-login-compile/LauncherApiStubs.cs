@@ -225,6 +225,7 @@ namespace UnityEngine.UI
     {
         public UnityEngine.GameObject gameObject = new UnityEngine.GameObject();
         public float value;
+        public float normalizedValue;
     }
     public class Image
     {
