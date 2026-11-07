@@ -691,12 +691,14 @@ public final class VirtualKeyboardOverlay {
             c.fill(cx + 4, cy + 4, cx + 6, cy + 6, ink);
             rounded(c, cx - 2, cy - 2, 4, 4, 2, accent);
         } else if (cmd == KeyboardLayout.Command.MICROPHONE) {
-            // A standalone microphone silhouette with simple stand.
-            rounded(c, cx - 3, cy - 6, 6, 9, 3, ink);
-            c.fill(cx - 6, cy - 1, cx - 4, cy + 3, ink);
-            c.fill(cx + 4, cy - 1, cx + 6, cy + 3, ink);
-            c.fill(cx - 5, cy + 3, cx + 5, cy + 5, ink);
+            // Single, clean upright microphone: capsule, open cradle, stand.
+            rounded(c, cx - 3, cy - 8, 6, 11, 3, ink);
+            c.fill(cx - 1, cy - 5, cx + 1, cy - 1, accent);
+            c.fill(cx - 6, cy - 1, cx - 5, cy + 4, ink);
+            c.fill(cx + 5, cy - 1, cx + 6, cy + 4, ink);
+            c.fill(cx - 5, cy + 4, cx + 6, cy + 5, ink);
             c.fill(cx - 1, cy + 5, cx + 1, cy + 8, ink);
+            c.fill(cx - 4, cy + 8, cx + 4, cy + 9, ink);
         } else if (cmd == KeyboardLayout.Command.QUICK_MESSAGES) {
             // Message card + three short lines: quick-bind pictogram.
             rounded(c, cx - 8, cy - 6, 16, 12, 2, ink);
