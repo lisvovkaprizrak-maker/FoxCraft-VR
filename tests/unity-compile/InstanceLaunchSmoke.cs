@@ -222,6 +222,14 @@ public static class InstanceLaunchSmoke
                 System.Reflection.BindingFlags.Instance |
                 System.Reflection.BindingFlags.NonPublic)
                 .SetValue(successfulButton, true);
+            var notReadyFlag = typeof(InstanceButton).GetField("sawGameNotReady",
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic);
+            Assert((bool)notReadyFlag.GetValue(successfulButton),
+                "fast Java launches capture false gameReady before JNI dispatch");
+            // Simulate a NEW run whose previous Java session still had
+            // gameReady=true when the worker was dispatched.
+            notReadyFlag.SetValue(successfulButton, false);
             update.Invoke(successfulButton, null);
             Assert(LeanTween.ValueCallCount == previousFades,
                 "stale true gameReady never fades a newly launched game");
