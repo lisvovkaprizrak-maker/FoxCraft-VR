@@ -23,7 +23,10 @@ public class JNIStorage : MonoBehaviour
     public GameObject instanceArray;
     
     public bool connected;
-    
+    // Set after a fatal Pojlib/JNI startup error so LoginHandler can exit
+    // rather than waiting forever for an Activity that never initialized.
+    public bool InitializationFailed { get; private set; }
+
     static void CloseXR()
     {
         // A phone may have no initialized OpenXR loader.
@@ -43,6 +46,7 @@ public class JNIStorage : MonoBehaviour
     private void Start()
     {
         instance = this;
+        InitializationFailed = false;
         if (Application.platform != RuntimePlatform.Android)
             return;
 
@@ -73,6 +77,7 @@ public class JNIStorage : MonoBehaviour
         }
         catch (Exception exception)
         {
+            InitializationFailed = true;
             Debug.LogError("[FoxCraft] Launcher initialization failed: " +
                 exception.GetType().Name);
             if (uiHandler != null)
