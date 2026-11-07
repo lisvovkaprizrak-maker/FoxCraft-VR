@@ -84,7 +84,18 @@ public class UIHandler : MonoBehaviour
 
     public void UILoginCheck()
     {
-        if (loginHandler.selectedAccountUsername != "Add Account" && !loginHandler.isDemoMode)
+        // A saved display name alone is not proof of Microsoft authentication.
+        // Pojlib must complete login and publish its verified account object.
+        if (loginHandler == null || !loginHandler.HasAuthenticatedAccount)
+        {
+            dropdownMain.interactable = false;
+            modsButton.interactable = false;
+            instancesButton.interactable = false;
+            playButton.interactable = false;
+            return;
+        }
+
+        if (!loginHandler.isDemoMode)
         {
             dropdownMain.interactable = true;
             modsButton.interactable = true;
