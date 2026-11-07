@@ -32,10 +32,20 @@ namespace UnityEngine
         public void SetActive(bool active) { }
     }
     public static class Time { public static float realtimeSinceStartup { get; set; } }
+    public class WaitForSecondsRealtime
+    {
+        public float waitTime;
+        public WaitForSecondsRealtime(float seconds) { waitTime = seconds; }
+    }
     public class Coroutine { }
     public class MonoBehaviour
     {
-        protected Coroutine StartCoroutine(IEnumerator coroutine) { return null; }
+        public static int CoroutineStarts;
+        protected Coroutine StartCoroutine(IEnumerator coroutine)
+        {
+            CoroutineStarts++;
+            return new Coroutine();
+        }
         protected static void DontDestroyOnLoad(object target) { }
         protected static T[] FindObjectsOfType<T>(bool includeInactive) { return System.Array.Empty<T>(); }
     }
@@ -164,7 +174,8 @@ namespace UnityEngine.XR.Management
 {
     public sealed class XRManagerSettings
     {
-        public void DeinitializeLoader() { }
+        public int DeinitializeCalls;
+        public void DeinitializeLoader() { DeinitializeCalls++; }
     }
     public sealed class XRGeneralSettings
     {
