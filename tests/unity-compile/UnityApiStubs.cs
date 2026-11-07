@@ -327,6 +327,7 @@ public sealed class JNIStorage
     public void UpdateInstances() { refreshCalls++; }
 }
 public static class ProgressBarManager { public static bool started; }
+public static class InstanceManager { public static bool IsUpdatingProfiles { get; set; } }
 public sealed class TweenDescriptor
 {
     public TweenDescriptor setOnUpdate(Action<float> action) { return this; }
