@@ -112,6 +112,14 @@ def verify_apk(path: Path) -> str:
     if "arm64-v8a" not in badging:
         raise ApkVerificationError("Android package metadata does not advertise ARM64")
 
+    # This ONE launcher must install on phones as well as headsets. A required
+    # VR tracking feature makes ordinary Android phones reject the APK.
+    if re.search(r"^uses-feature: name='android.hardware.vr.headtracking'",
+                 badging, re.MULTILINE):
+        raise ApkVerificationError("Head tracking is incorrectly required; phone install blocked")
+    if "application-label:'FoxCraft'" not in badging:
+        raise ApkVerificationError("FoxCraft Android application label is missing")
+
     run_tool([sdk_tool("apksigner"), "verify", "--verbose", str(path)])
     return (f"Verified UNTESTED FoxCraft Quest APK: package={PACKAGE}; "
             f"activity={ACTIVITY}; ARM64 Unity runtime; valid signature; "
