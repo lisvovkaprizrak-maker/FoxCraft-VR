@@ -43,7 +43,8 @@ public final class FoxCraftVrPlane {
     private static final float BELOW_MENU = 1.02f;
     private static final float MENU_FORWARD = 0.10f;
     // FoxCraft is a separate layer: the native keyboard remains a fallback.
-    private static final float BELOW_CHAT = 0.69f;
+    // Place the keyboard clear of the chat history and input, even after reset.
+    private static final float BELOW_CHAT = 1.05f;
     private static final float FORWARD_FROM_CHAT = 0.28f;
     private static final float TOWARDS_PLAYER = 0.065f;
     // Vivecraft MathUtils.LEFT is local +X. Shift toward the player's RIGHT
@@ -66,6 +67,11 @@ public final class FoxCraftVrPlane {
     private static float scale;
     private static Vector3f position;
     private static Matrix4f rotation;
+    // Capture the chat/menu GUI pose ONCE per editing screen. Re-reading
+    // GUI_POS_ROOM every frame makes the supposedly free keyboard follow chat.
+    private static Screen placementScreen;
+    private static Vector3f placementAnchor;
+    private static Matrix4f placementRotation;
     private static boolean ready;
     private static int grabHand = -1;
     private static Vector3f grabStartController;
@@ -76,6 +82,14 @@ public final class FoxCraftVrPlane {
 
     public static FoxCraftFeatureSettings features() {
         return keyboard != null ? keyboard.features() : null;
+    }
+
+    /** Recenter only the keyboard surface; never move the chat itself. */
+    public static void resetKeyboardPlacement() {
+        finishGrab(grabHand);
+        placementScreen = null;
+        placementAnchor = null;
+        placementRotation = null;
     }
 
     /**
@@ -294,7 +308,16 @@ public final class FoxCraftVrPlane {
 
             float guiScale = guiClass.getField("GUI_SCALE").getFloat(null);
             if (!(guiScale > 0)) return;
-            followGrab(guiRot, guiScale);
+            // Pin the keyboard to its own room pose for this screen. Subsequent
+            // chat window movement must not drag the keyboard along with it.
+            if (placementScreen != client.currentScreen ||
+                placementAnchor == null || placementRotation == null) {
+                placementScreen = client.currentScreen;
+                placementAnchor = new Vector3f(guiPos);
+                placementRotation = new Matrix4f(guiRot);
+            }
+            Matrix4f baseRotation = placementRotation;
+            followGrab(baseRotation, guiScale);
             FoxCraftFeatureSettings settings = keyboard.features();
             // Chat history uses an isolated HUD transform. Never mutate
             // GuiHandler.GUI_POS_ROOM: doing so also moves the chat input
@@ -305,21 +328,21 @@ public final class FoxCraftVrPlane {
             // Neither KeyboardHandler.SHOWING nor its framebuffer is modified.
             float down = inChat ? BELOW_CHAT : BELOW_MENU;
             float forward = inChat ? FORWARD_FROM_CHAT : MENU_FORWARD;
-            rotation = new Matrix4f(guiRot)
+            rotation = new Matrix4f(baseRotation)
                 .rotateX((float) Math.toRadians(settings.keyboardTilt()));
             float xCorrection = (inChat ? CHAT_RIGHT_SHIFT : MENU_RIGHT_SHIFT)
                 + settings.offsetRight();
             float yCorrection = (inChat ? CHAT_DOWN_SHIFT : MENU_DOWN_SHIFT)
                 + settings.offsetDown();
-            position = new Vector3f(guiPos)
-                .sub(guiRot.transformDirection(new Vector3f(0, 1, 0),
+            position = new Vector3f(placementAnchor)
+                .sub(baseRotation.transformDirection(new Vector3f(0, 1, 0),
                     new Vector3f()).mul((down + yCorrection) * guiScale))
                 // +X in Vivecraft's GUI basis means LEFT, not RIGHT.
                 // Apply the offset to the shared room-space position, never
                 // only to the drawn quad: projected controller UVs follow it.
-                .sub(guiRot.transformDirection(new Vector3f(1, 0, 0),
+                .sub(baseRotation.transformDirection(new Vector3f(1, 0, 0),
                     new Vector3f()).mul(xCorrection * guiScale))
-                .add(guiRot.transformDirection(new Vector3f(0, 0, 1),
+                .add(baseRotation.transformDirection(new Vector3f(0, 0, 1),
                     new Vector3f()).mul(
                         (forward + settings.offsetForward()) * guiScale))
                 .add(rotation.transformDirection(new Vector3f(0, 0, 1),
@@ -556,6 +579,9 @@ public final class FoxCraftVrPlane {
         screen = null;
         position = null;
         rotation = null;
+        placementScreen = null;
+        placementAnchor = null;
+        placementRotation = null;
         bufferWidth = bufferHeight = 0;
     }
 
