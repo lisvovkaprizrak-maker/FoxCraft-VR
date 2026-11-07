@@ -501,6 +501,12 @@ public final class FoxCraftVrPlane {
             if (down && !wasPressed[hand]) {
                 accepted = x >= 0 && y >= 0 &&
                     keyboard.vrPressed(original, x, y, hand);
+                if (accepted) {
+                    // No text/chat data. Confirms which physical ray actually
+                    // accepted the press when diagnosing real Quest hardware.
+                    System.out.println("[FoxCraft][QXR-hand-v1] " +
+                        "key press: controller=" + handed + " rayIndex=" + hand);
+                }
             } else if (!down && wasPressed[hand]) {
                 keyboard.vrReleased(original, x, y, hand);
             } else if (down) {

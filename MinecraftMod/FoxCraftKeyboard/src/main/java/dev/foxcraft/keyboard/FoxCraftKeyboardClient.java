@@ -19,7 +19,7 @@ public final class FoxCraftKeyboardClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         FoxCraftVrPlane.attach(keyboard);
-        LOGGER.info("FoxCraftKeyboard initialized: Minecraft 1.21.5 VR text overlay registered.");
+        LOGGER.info("[FoxCraft][QXR-hand-v1 2026-11-07] Minecraft 1.21.5 VR text overlay: physical OpenXR hand sampler enabled.");
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
             ScreenEvents.afterRender(screen).register((s, context, mouseX, mouseY, tickDelta) ->
                 keyboard.render(s, context, mouseX, mouseY));
