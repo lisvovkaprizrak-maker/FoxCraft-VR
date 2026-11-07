@@ -52,6 +52,8 @@ jobs:
             src/main/java/dev/foxcraft/keyboard/KeyboardPointerInput.java \
             src/main/java/dev/foxcraft/keyboard/FoxCraftGuiClickInput.java \
             src/main/java/dev/foxcraft/keyboard/VivecraftLeftPointer.java \
+            src/main/java/dev/foxcraft/keyboard/FoxCraftGuiClickInput.java \
+            src/main/java/dev/foxcraft/keyboard/FoxCraftQuestOpenXrInput.java \
             src/test/java/dev/foxcraft/keyboard/KeyboardLogicSmokeTest.java
           java -cp build/smoke dev.foxcraft.keyboard.KeyboardLogicSmokeTest
       - name: Verify second controller ray and Vivecraft bridge against API test doubles
@@ -60,11 +62,21 @@ jobs:
           javac -encoding UTF-8 -d build/vr-bridge \
             src/main/java/dev/foxcraft/keyboard/FoxCraftGuiClickInput.java \
             src/main/java/dev/foxcraft/keyboard/VivecraftLeftPointer.java \
+            src/main/java/dev/foxcraft/keyboard/FoxCraftGuiClickInput.java \
+            src/main/java/dev/foxcraft/keyboard/FoxCraftQuestOpenXrInput.java \
             src/test/vrbridge/org/vivecraft/client_vr/ClientDataHolderVR.java \
             src/test/vrbridge/org/vivecraft/client_vr/provider/ControllerType.java \
             src/test/vrbridge/org/vivecraft/client_vr/gameplay/screenhandlers/GuiHandler.java \
             src/test/vrbridge/dev/foxcraft/keyboard/LeftPointerBridgeSmokeTest.java
           java -cp build/vr-bridge dev.foxcraft.keyboard.LeftPointerBridgeSmokeTest
+      - name: Test QuestCraft OpenXR native left/right controller origins
+        run: |
+          mkdir -p build/quest-openxr
+          javac -encoding UTF-8 -d build/quest-openxr \
+            src/main/java/dev/foxcraft/keyboard/FoxCraftQuestOpenXrInput.java \
+            src/test/vrbridge/org/vivecraft/client_vr/provider/ControllerType.java \
+            $(find src/test/questopenxr -name '*.java' | sort)
+          java -cp build/quest-openxr dev.foxcraft.keyboard.QuestOpenXrTriggerSmokeTest
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.12.1'
