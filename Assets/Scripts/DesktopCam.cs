@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 public class DesktopCam : MonoBehaviour
@@ -6,13 +7,24 @@ public class DesktopCam : MonoBehaviour
     public GameObject DesktopCamera;
     public Canvas[] Canvases;
 
-    private void Start()
+    private IEnumerator Start()
     {
-        // QuestCraft normally uses a tracked VR camera on Android. Keep it on
-        // Quest and Pico devices, but expose the existing desktop/flat camera
-        // on regular Android phones (and in the desktop Unity editor).
+        // On some headsets Android reports an internal model codename and
+        // initializes the PackageManager a few frames after the scene.
+        // Do not disable the Quest VR camera until classification completes.
+        if (Application.platform == RuntimePlatform.Android)
+        {
+            float deadline = Time.realtimeSinceStartup + 5f;
+            while (FoxCraftDevice.IsDetectionPending &&
+                   Time.realtimeSinceStartup < deadline)
+                yield return null;
+            if (FoxCraftDevice.IsDetectionPending)
+                Debug.LogWarning("[FoxCraft] Android hardware classification timed out; " +
+                    "falling back to flat launcher camera.");
+        }
+
         if (FoxCraftDevice.IsVrHeadset)
-            return;
+            yield break;
 
         if (DesktopCamera == null)
         {
