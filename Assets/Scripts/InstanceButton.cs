@@ -261,11 +261,15 @@ public class InstanceButton : MonoBehaviour
         }
 
         Debug.Log("[FoxCraft] Starting Minecraft through Pojlib.");
-        SynchronizationContext mainThread = SynchronizationContext.Current;
+
+        // Do JNI work off Unity's render thread, but report its result on the
+        // Unity coroutine. SynchronizationContext.Current can be null after
+        // some Android lifecycle transitions; relying on Post() left Play
+        // permanently disabled if launchInstance threw on such devices.
+        PrelaunchState launchState = new PrelaunchState();
         Thread launchWorker = new Thread(() =>
         {
             bool attached = false;
-            string error = null;
             try
             {
                 attached = AndroidJNI.AttachCurrentThread() >= 0;
@@ -276,34 +280,36 @@ public class InstanceButton : MonoBehaviour
             }
             catch (Exception ex)
             {
-                error = "Minecraft launch failed: " + ex.GetType().Name;
+                launchState.error = "Minecraft launch failed: " + ex.GetType().Name;
             }
             finally
             {
-                if (attached) AndroidJNI.DetachCurrentThread();
-            }
-
-            if (error != null)
-            {
-                string message = error;
-                if (mainThread != null)
-                    mainThread.Post(_ =>
-                    {
-                        launchInProgress = false;
-                        ProgressBarManager.started = false;
-                        if (uiHandler != null)
-                        {
-                            uiHandler.KillSetter();
-                            uiHandler.SetAndShowError(message);
-                        }
-                        else Debug.LogError("[FoxCraft] " + message);
-                    }, null);
-                else
-                    Debug.LogError("[FoxCraft] " + message);
+                if (attached)
+                    AndroidJNI.DetachCurrentThread();
+                launchState.completed = true;
             }
         });
         launchWorker.IsBackground = true;
         launchWorker.Start();
+
+        // Only touch UI objects on the Unity main thread; do not do so from
+        // Java workers. On a successful handoff gameReady handles the fade.
+        while (!launchState.completed)
+            yield return null;
+        if (launchState.error != null)
+        {
+            launchInProgress = false;
+            ProgressBarManager.started = false;
+            if (uiHandler != null)
+            {
+                uiHandler.KillSetter();
+                uiHandler.SetAndShowError(launchState.error);
+            }
+            else
+            {
+                Debug.LogError("[FoxCraft] " + launchState.error);
+            }
+        }
     }
 
     public void KillInstance()
