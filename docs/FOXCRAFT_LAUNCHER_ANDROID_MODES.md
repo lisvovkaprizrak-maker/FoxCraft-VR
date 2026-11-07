@@ -1,0 +1,68 @@
+# FoxCraft launcher — QuestCraft menu with VR and phone modes
+
+Status: **preview implementation; not an Android phone game release**.
+
+## Scope
+
+- Keep QuestCraft's launcher scene and functional menus: Microsoft login, saved
+  accounts, Minecraft instances, Modrinth mods/modpacks, settings, RAM, logs and
+  VR play. FoxCraft adds a fox-branded mode selector rather than replacing these
+  screens or modifying the Minecraft gameplay mod.
+- VR/Quest/Pico uses the original Pojlib + Vivecraft launch flow.
+- Phone uses the original QuestCraft desktop/flat launcher camera, Android touch
+  and the native software keyboard. The Minecraft **version selection** is
+  independent of VR and populated from Mojang's official release manifest.
+- The selected mode and phone version are stored in the existing
+  `launcher.conf`. Older configs are migrated without resetting accounts.
+- The test Android package is `com.foxcraftvr.quest`; it must not overwrite
+  an existing QuestCraft installation.
+
+## Phone Minecraft runtime integration — mandatory before claiming phone play
+
+The QuestCraft bundled Pojlib and Vivecraft modules do **not** constitute a
+standalone, touch-capable 2D Minecraft renderer. Do not call
+`pojlib.API.launchInstance` in phone mode. Currently the launch guard displays
+an explicit error until a compatible game renderer is integrated.
+
+A future **in-APK** Android module must expose:
+
+```java
+package dev.foxcraft.mobile;
+public final class MobileMinecraftBridge {
+    public static boolean isAvailable(android.app.Activity activity);
+    public static boolean launch(
+        android.app.Activity activity,
+        pojlib.account.MinecraftAccount account,
+        String minecraftVersion);
+}
+```
+
+The implementation must:
+1. Bundle compatible Java runtime, LWJGL/GL and Android surface integration
+   *for 2D Minecraft* (review licenses and attribution of any Pojav/Amethyst
+   sources); do not assume QuestCraft's OpenXR renderer works on a phone.
+2. Download and validate exactly the selected Minecraft version, dependencies,
+   assets and compatible mod loader. Keep phone game profiles separate from VR.
+3. Provide touch movement, camera, buttons, inventory, chat, software keyboard
+   and pause/back navigation. Respect Android lifecycle and device RAM.
+4. Reuse a securely authenticated account without logging/exporting Microsoft
+   tokens. No third-party intent handoff of credentials.
+5. Have instrumentation/device tests on a Quest 3 and ordinary Android ARM64
+   phone, including offline/error paths, first login and actual Minecraft
+   world creation/entry.
+
+Until then, the selector and version list can be tested, but phone **Играть**
+must not silently launch the VR runtime.
+
+## Building
+
+Open the Unity project in **Unity 2022.3.62f3** with Android Build Support.
+The manual GitHub Actions build path is
+`.github/workflows/foxcraft-keyboard-apk.yml`, which requires Unity license
+credentials in repository secrets. It builds a separate untested FoxCraft APK
+only after verifying the bundled `Assets/Plugins/Android/Pojlib-release.aar`
+and the staged Fabric 1.21.5 keyboard JAR. A successful C# preflight check is
+**not** an APK build or proof of working VR/phone play.
+
+The original QuestCraft menus continue to use QuestCraft APIs/links until
+dedicated FoxCraft replacements exist; preserve upstream GPL and attribution.
