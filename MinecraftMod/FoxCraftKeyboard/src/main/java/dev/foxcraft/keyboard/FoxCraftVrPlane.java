@@ -607,9 +607,14 @@ public final class FoxCraftVrPlane {
         screen = null;
         position = null;
         rotation = null;
-        placementScreen = null;
-        placementAnchor = null;
-        placementRotation = null;
+        // Litematica and other mods temporarily open a normal Screen when
+        // an M/F key is pressed. Preserve FREE's world anchor across that
+        // interruption so the keyboard returns in exactly the same place.
+        if (keyboard == null || !keyboard.isFreeMode()) {
+            placementScreen = null;
+            placementAnchor = null;
+            placementRotation = null;
+        }
         bufferWidth = bufferHeight = 0;
     }
 
