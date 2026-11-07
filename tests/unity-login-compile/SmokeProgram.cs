@@ -172,6 +172,47 @@ public static class SmokeProgram
             Check(!login.HasAuthenticatedAccount,
                 "Play remains blocked until Pojlib confirms Microsoft account");
 
+            var verifiedLogin = typeof(LoginHandler).GetMethod("CompleteVerifiedLogin",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Check(verifiedLogin != null, "verified account completion is testable");
+            var original = new AndroidJavaObject {
+                uuid = "test-uuid", username = "UpdatedMinecraftName", isDemoMode = false
+            };
+            verifiedLogin.Invoke(login, new object[] {
+                original, original.username, original.uuid
+            });
+            Check(login.HasAuthenticatedAccount,
+                "Play unlocks only after verified MinecraftAccount is present");
+            Check(restored.config.accounts.Count == 1 &&
+                restored.config.accounts[0].username == "UpdatedMinecraftName",
+                "renamed Minecraft accounts retain their stored UUID without duplicates");
+            Check(restored.config.lastSelectedAccount == 0,
+                "restored account selection points to the authenticated account");
+
+            login.Login();
+            Check(!login.HasAuthenticatedAccount && JNIStorage.accountObj == null,
+                "switching Microsoft accounts immediately clears previous Play access");
+            Check(AndroidJavaClass.LoginCallCount == 2,
+                "new login attempt invokes Pojlib again exactly once");
+            var another = new AndroidJavaObject {
+                uuid = "different-uuid", username = "AnotherAccount", isDemoMode = true
+            };
+            verifiedLogin.Invoke(login, new object[] {
+                another, another.username, another.uuid
+            });
+            Check(restored.config.accounts.Count == 2 &&
+                restored.config.lastSelectedAccount == 1,
+                "new Microsoft account is saved and selected by UUID");
+            Check(login.isDemoMode && login.HasAuthenticatedAccount,
+                "verified demo-mode flag comes from Java MinecraftAccount");
+            var persistedAccounts = NewSettings();
+            persistedAccounts.LoadConfig();
+            Check(persistedAccounts.config.accounts.Count == 2 &&
+                persistedAccounts.config.lastSelectedAccount == 1,
+                "verified Microsoft identities and choice survive restart");
+            typeof(LoginHandler).GetMethod("OnDestroy",
+                BindingFlags.Instance | BindingFlags.NonPublic).Invoke(login, null);
+
             // Migrate a genuine older QuestCraft config without deleting accounts,
             // restoring compatibility with pre-FoxCraft launcher.conf files.
             File.WriteAllText(ConfigHandler.configPath,
