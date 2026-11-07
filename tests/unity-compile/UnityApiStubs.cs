@@ -16,13 +16,19 @@ namespace UnityEngine
     public class Texture2D { }
     public static class SystemInfo { public static string deviceModel { get; set; } }
     public sealed class Camera { }
-    public sealed class Canvas { public Camera worldCamera { get; set; } }
+    public sealed class Canvas
+    {
+        public Camera worldCamera { get; set; }
+        public GameObject gameObject { get; set; }
+        public T GetComponent<T>() where T : new() { return new T(); }
+    }
     public class GameObject
     {
         public GameObject() { }
         public GameObject(string name) { }
         public T AddComponent<T>() where T : new() { return new T(); }
         public T GetComponent<T>() where T : new() { return new T(); }
+        public T[] GetComponents<T>() where T : new() { return System.Array.Empty<T>(); }
         public void SetActive(bool active) { }
     }
     public static class Time { public static float realtimeSinceStartup { get; set; } }
@@ -31,6 +37,7 @@ namespace UnityEngine
     {
         protected Coroutine StartCoroutine(IEnumerator coroutine) { return null; }
         protected static void DontDestroyOnLoad(object target) { }
+        protected static T[] FindObjectsOfType<T>(bool includeInactive) { return System.Array.Empty<T>(); }
     }
     public class CanvasGroup
     {
@@ -72,6 +79,31 @@ namespace UnityEngine
         public static int AttachCurrentThread() { return 0; }
         public static void DetachCurrentThread() { }
     }
+}
+namespace UnityEngine.EventSystems
+{
+    public class BaseInputModule
+    {
+        public bool enabled { get; set; }
+    }
+    public class EventSystem
+    {
+        public static EventSystem current { get; set; }
+        public UnityEngine.GameObject gameObject { get; set; }
+        public T GetComponent<T>() where T : new() { return new T(); }
+        public T[] GetComponents<T>() where T : new() { return System.Array.Empty<T>(); }
+    }
+}
+namespace UnityEngine.InputSystem.UI
+{
+    public sealed class InputSystemUIInputModule : UnityEngine.EventSystems.BaseInputModule
+    {
+        public void AssignDefaultActions() { }
+    }
+}
+namespace UnityEngine.UI
+{
+    public sealed class GraphicRaycaster { }
 }
 namespace UnityEngine.Android
 {
