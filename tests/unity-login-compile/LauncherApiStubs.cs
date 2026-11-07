@@ -267,6 +267,12 @@ public class UIHandler
     public UnityEngine.UI.Button playButton = new UnityEngine.UI.Button();
     public TMPro.TMP_Dropdown dropdownMain = new TMPro.TMP_Dropdown();
 }
+// The launcher configuration smoke harness compiles ProgressBarManager but
+// does not import the actual Quest VR InstanceButton module.
+public static class InstanceButton
+{
+    public static bool IsInstallingInstance { get; set; }
+}
 public class SkinHandler { }
 public class JNIStorage
 {
