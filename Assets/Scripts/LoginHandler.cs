@@ -38,10 +38,18 @@ public class LoginHandler : MonoBehaviour
         // Unity does not promise Start() ordering across MonoBehaviours. Wait
         // for JNIStorage to create/load launcher.conf before touching accounts.
         yield return null;
-        while (JNIStorage.instance == null || JNIStorage.apiClass == null ||
-               JNIStorage.activity == null || JNIStorage.instance.configHandler == null ||
-               !JNIStorage.instance.configHandler.IsLoaded)
+        while (JNIStorage.instance == null ||
+               (!JNIStorage.instance.InitializationFailed &&
+                (JNIStorage.apiClass == null || JNIStorage.activity == null ||
+                 JNIStorage.instance.configHandler == null ||
+                 !JNIStorage.instance.configHandler.IsLoaded)))
             yield return null;
+
+        if (JNIStorage.instance.InitializationFailed)
+        {
+            Debug.LogWarning("[FoxCraft] Microsoft login skipped: launcher startup failed.");
+            yield break;
+        }
 
         configPath = ConfigHandler.configPath;
         config = JNIStorage.instance.configHandler.config;
