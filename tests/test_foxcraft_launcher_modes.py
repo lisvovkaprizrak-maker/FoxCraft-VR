@@ -114,6 +114,17 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         self.assertIn("GraphicRaycaster", touch)
         self.assertIn("FoxCraftPhoneTouchInput", read("Assets/Scripts/UIHandler.cs"))
 
+    def test_phone_network_detection_accepts_validated_mobile_data(self):
+        network = read("Assets/Scripts/FoxCraftNetworkStatus.cs")
+        main = read("Assets/Scripts/JNIStorage.cs")
+        manifest = read("Assets/Plugins/Android/AndroidManifest.xml")
+        self.assertIn('getSystemService', network)
+        self.assertIn('getActiveNetwork', network)
+        self.assertIn('getNetworkCapabilities', network)
+        self.assertIn('NetCapabilityValidated = 16', network)
+        self.assertIn('FoxCraftNetworkStatus.HasValidatedInternet()', main)
+        self.assertIn('android.permission.ACCESS_NETWORK_STATE', manifest)
+
     def test_app_can_be_installed_on_android_without_vr_tracking(self):
         manifest = read("Assets/Plugins/Android/AndroidManifest.xml")
         flags = re.findall(
