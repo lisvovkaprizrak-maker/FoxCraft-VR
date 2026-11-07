@@ -50,8 +50,15 @@ public final class FoxCraftGuiClickInput {
     public static boolean pressed(Object provider, Object hand, Object keyboardClick,
                                   Object guiLeftClick, Object guiRightClick, Object leftUse) {
         if (provider == null || hand == null) return false;
-        // All paths use the SAME origin validation. Do not call isDown()
-        // directly even for the special Vivecraft handed keyboard action.
+        // QuestCraft OpenXR-1.21.5 returns LEFT for almost every action
+        // source (only its right-hand AIM POSE handle returns RIGHT), and its
+        // handed action cache is mirrored. Never use origin-based routing
+        // on that provider: query physical OpenXR subaction paths instead.
+        if (FoxCraftQuestOpenXrInput.handles(provider))
+            return FoxCraftQuestOpenXrInput.pressed(provider, hand,
+                keyboardClick, guiLeftClick);
+        // Original Vivecraft/OpenVR providers may expose real origins.
+        // All these paths still require a matching origin.
         return pressedFromOrigin(provider, hand, guiLeftClick) ||
             pressedFromOrigin(provider, hand, guiRightClick) ||
             pressedFromOrigin(provider, hand, keyboardClick) ||
