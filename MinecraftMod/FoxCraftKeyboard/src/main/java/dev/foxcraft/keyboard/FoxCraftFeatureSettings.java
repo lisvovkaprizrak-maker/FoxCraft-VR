@@ -73,12 +73,18 @@ public final class FoxCraftFeatureSettings {
     public void toggleAutoSpace() { autoSpace = !autoSpace; save(); }
 
     public void adjustHistoryHeight(int centimetres) {
-        historyHeight = clamp(historyHeight + centimetres / 100f, -0.35f, 0.35f);
+        setHistoryHeight(historyHeight + centimetres / 100f);
         save();
     }
+    public void setHistoryHeight(float height) {
+        historyHeight = clamp(height, -0.35f, 0.35f);
+    }
     public void adjustInputY(int pixels) {
-        inputY = clamp(inputY + pixels, -90, 90);
+        setInputY(inputY + pixels);
         save();
+    }
+    public void setInputY(int pixels) {
+        inputY = clamp(pixels, -90, 90);
     }
     public void adjustKeyboardSize(int percent) {
         keyboardSize = clamp(keyboardSize + percent, 70, 140);
