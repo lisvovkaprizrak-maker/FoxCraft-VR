@@ -9,6 +9,9 @@ on:
       - 'Assets/Scripts/FoxCraftVoiceBridge.cs'
       - 'Assets/Plugins/Android/AndroidManifest.xml'
       - 'Assets/Scripts/InstanceButton.cs'
+      - 'Assets/Scripts/InstanceManager.cs'
+      - 'Assets/Scripts/APIParser.cs'
+      - 'tests/unity-profile-compile/**'
       - 'tests/test_keyboard_apk_pipeline.py'
       - 'tools/check_foxcraft_pojlib_api.py'
       - 'tools/foxcraft_quest_smoke.py'
@@ -81,6 +84,10 @@ jobs:
         run: |
           dotnet build tests/unity-compile/FoxCraftUnitySyntax.csproj --configuration Release --nologo
           dotnet run --project tests/unity-compile/FoxCraftUnitySyntax.csproj --configuration Release --no-build
+      - name: Compile and smoke-test asynchronous Minecraft profile management
+        run: |
+          dotnet build tests/unity-profile-compile/FoxCraftProfileSyntax.csproj --configuration Release --nologo
+          dotnet run --project tests/unity-profile-compile/FoxCraftProfileSyntax.csproj --configuration Release --no-build
       - name: Compile and smoke-test configuration and Microsoft login startup
         run: |
           dotnet build tests/unity-login-compile/FoxCraftLoginSyntax.csproj --configuration Release --nologo
