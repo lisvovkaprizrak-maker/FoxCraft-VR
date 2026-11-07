@@ -110,7 +110,17 @@ class KeyboardApkPipelineTests(unittest.TestCase):
         )
         self.assertIn("workflow_dispatch:", workflow)
         self.assertIn("pull_request:", workflow)
-        self.assertIn("if: github.event_name == 'workflow_dispatch'", workflow)
+        # A branch push may attempt a full build, but only when the private
+        # Unity license readiness job confirms secrets exist. No unlicensed
+        # build may start, and PRs remain source-check-only.
+        self.assertIn("unity-license-readiness:", workflow)
+        self.assertIn("github.event_name == 'push'", workflow)
+        self.assertIn("needs: [preflight, unity-license-readiness]", workflow)
+        self.assertIn("needs.unity-license-readiness.outputs.ready == 'true'", workflow)
+        self.assertIn('echo "ready=false" >> "$GITHUB_OUTPUT"', workflow)
+        self.assertIn('echo "ready=true" >> "$GITHUB_OUTPUT"', workflow)
+        self.assertIn("No Unity license secrets configured", workflow)
+        self.assertIn("paths:\n      - '.github/workflows/foxcraft-keyboard-apk.yml'", workflow)
         self.assertIn("secrets.UNITY_LICENSE", workflow)
         self.assertIn("game-ci/unity-builder@v4", workflow)
         self.assertIn("buildMethod: FoxCraftKeyboardAndroidBuild.BuildTestApk", workflow)
