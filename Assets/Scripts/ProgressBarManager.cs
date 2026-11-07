@@ -105,7 +105,9 @@ public class ProgressBarManager : MonoBehaviour
         if (progressBar != null)
         {
             progressBar.gameObject.SetActive(true);
-            progressBar.value = Mathf.Clamp01(value);
+            // Bundled Pojlib DownloadManager.getPercentComplete returns 0..100.
+            // normalizedValue also handles Slider min/max customized in Unity.
+            progressBar.normalizedValue = Mathf.Clamp01(value / 100f);
         }
     }
 
