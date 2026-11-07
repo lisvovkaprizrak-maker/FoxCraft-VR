@@ -23,6 +23,7 @@ public final class KeyboardLayout {
         CONTROLLER_LEFT_TOGGLE, CONTROLLER_RIGHT_TOGGLE, BEAM_SHORTER,
         BEAM_LONGER, DOT_SMALLER, DOT_LARGER,
         POSITION_PAGE, KEYBOARD_PAGE, CHAT_PAGE, SWIPE_PAGE,
+        WORD_LIST, WORD_ADD, WORD_PICK, WORD_SAVE, WORD_REMOVE, WORD_CLEAR,
         ADJUST_OPTION, POSITION_LOCK, RESET_CONFIRM, RESET_ALL,
         COMPOSE_AUTOSEND
     }
@@ -421,6 +422,45 @@ public final class KeyboardLayout {
             new Command[]{Command.QUICK_MESSAGES, Command.LANGUAGE,
                 Command.SYMBOLS, Command.SHIFT, Command.LEFT, Command.SPACE,
                 Command.RIGHT, Command.TYPE, Command.BACKSPACE, Command.COMPOSE_CLEAR},
+            new String[]{"", "", "", "", "", " ", "", "/", "", ""},
+            new int[]{4, 2, 2, 3, 2, 7, 2, 2, 2, 3});
+        return new Panel(original.x(), original.y(), original.width(),
+            original.height(), List.copyOf(keys));
+    }
+
+    /**
+     * A dedicated personal-word composer with the same real VR hit zones
+     * as the keyboard; it NEVER writes into Minecraft's chat text field.
+     */
+    public static Panel wordEditorMenu(Panel original, String word,
+                                       boolean russian, boolean shift) {
+        if (original == null) return null;
+        Key header = original.keys().stream()
+            .filter(k -> k.command() == Command.LANGUAGE_RU).findFirst().orElse(null);
+        Key footer = original.keys().stream()
+            .filter(k -> k.command() == Command.HISTORY_PREVIOUS).findFirst().orElse(null);
+        if (header == null || footer == null) return original;
+        List<Key> keys = new ArrayList<>();
+        for (Key key : original.keys())
+            if (key.y() != header.y() && key.y() != footer.y())
+                keys.add(key);
+        int x = original.x() + 5;
+        int width = original.width() - 10;
+        String tail = word == null ? "" :
+            word.length() > 19 ? "…" + word.substring(word.length() - 19) : word;
+        addWeighted(keys, x, header.y(), width, header.height(), 2,
+            new String[]{"СЛОВО: " + (tail.isBlank() ? "…" : tail),
+                "СОХРАНИТЬ", "УДАЛИТЬ"},
+            new Command[]{Command.NONE, Command.WORD_SAVE, Command.WORD_REMOVE},
+            new String[]{"", "", ""}, new int[]{9, 5, 4});
+        addWeighted(keys, x, footer.y(), width, footer.height(), 2,
+            new String[]{"НАЗАД", russian ? "EN" : "RU", "123",
+                shift ? "SHIFT*" : "SHIFT", "←",
+                russian ? "ПРОБЕЛ" : "SPACE", "→", "/", "⌫", "ОЧИСТ"},
+            new Command[]{Command.SWIPE_PAGE, Command.LANGUAGE,
+                Command.SYMBOLS, Command.SHIFT, Command.LEFT, Command.SPACE,
+                Command.RIGHT, Command.TYPE, Command.BACKSPACE,
+                Command.WORD_CLEAR},
             new String[]{"", "", "", "", "", " ", "", "/", "", ""},
             new int[]{4, 2, 2, 3, 2, 7, 2, 2, 2, 3});
         return new Panel(original.x(), original.y(), original.width(),
