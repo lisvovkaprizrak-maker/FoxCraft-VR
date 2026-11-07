@@ -7,6 +7,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.text.Text;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.sound.SoundEvents;
 import org.lwjgl.glfw.GLFW;
@@ -109,6 +110,55 @@ public final class VirtualKeyboardOverlay {
             .resolve("foxcraft-keyboard-theme.txt"));
     private KeyboardTheme theme = themePrefs.load();
     private boolean suppressMinecraftGuiClick;
+    // FREE mode remains active with no ChatScreen. This dummy field is used
+    // for pointer capture only: it never receives typed content.
+    private static boolean freeModeActive;
+    private static TextFieldWidget freeField;
+    private final FreeKeyboardGameInput gameKeys = new FreeKeyboardGameInput();
+    private final String[] heldGameKeys = new String[2];
+    private boolean previousLanguageRussian = true, previousSymbols, previousShift;
+
+    public boolean isFreeMode() { return freeModeActive; }
+
+    /** Clear held game keys whenever a mod opens its own GUI. */
+    public void suspendFreeKeys() {
+        if (!freeModeActive) return;
+        gameKeys.releaseAll();
+        heldGameKeys[0] = heldGameKeys[1] = null;
+        pointer.cancel();
+        leftPointer.cancel();
+    }
+
+    private void enterFreeMode() {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        gameKeys.releaseAll();
+        freeField = new TextFieldWidget(mc.textRenderer, 0, 0, 20, 16, Text.empty());
+        previousLanguageRussian = russian;
+        previousSymbols = symbols;
+        previousShift = shift;
+        freeModeActive = true;
+        russian = false;
+        symbols = false;
+        shift = false;
+        clearSuggestions();
+        openPage("FREE");
+        // No GUI screen: gameplay and locomotion remain available.
+        mc.setScreen(null);
+    }
+
+    private void leaveFreeMode() {
+        gameKeys.releaseAll();
+        heldGameKeys[0] = heldGameKeys[1] = null;
+        freeModeActive = false;
+        freeField = null;
+        russian = previousLanguageRussian;
+        symbols = previousSymbols;
+        shift = previousShift;
+        openPage("KEYBOARD");
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.world != null) mc.setScreen(new ChatScreen(""));
+    }
+
 
     /**
      * A visible focused text field alone does not imply a keyboard request.
@@ -117,6 +167,19 @@ public final class VirtualKeyboardOverlay {
      * the same explicit-menu-click rule.
      */
     public boolean shouldDisplayForScreen(Screen screen) {
+        if (freeModeActive && (screen instanceof ChatScreen ||
+            MinecraftClient.getInstance().world == null)) {
+            // Escape hatch: opening vanilla chat or leaving the world must
+            // never trap the player in an invisible game-key mode.
+            gameKeys.releaseAll();
+            freeModeActive = false;
+            freeField = null;
+            russian = previousLanguageRussian;
+            symbols = previousSymbols;
+            shift = previousShift;
+            openPage("KEYBOARD");
+        }
+        if (freeModeActive) return screen == null;
         TextFieldWidget field = focusedField(screen);
         boolean menuRequested = screen == activatedMenuScreen
             && field != null && field == activatedMenuField;
@@ -168,7 +231,7 @@ public final class VirtualKeyboardOverlay {
             suppressMinecraftGuiClick = false;
             collapsed = false;
             settingsOpen = false;
-            menuPage = "KEYBOARD";
+            menuPage = freeModeActive ? "FREE" : "KEYBOARD";
             quickDraft.clear();
             wordDraft.clear();
             editingQuickSlot = -1;
@@ -233,14 +296,17 @@ public final class VirtualKeyboardOverlay {
                 chat && !detached, russian, symbols, shift, collapsed,
                 preferredWidth, featurePrefs.wordSuggestions()
                     ? suggestions : List.of(), chatInputBottomY, detached);
-            if (settingsOpen && panel != null) {
+            if (freeModeActive && panel != null) {
+                panel = KeyboardLayout.freeKeyboard(panel);
+            } else if (settingsOpen && panel != null) {
                 panel = switch (menuPage) {
                     case "THEMES" -> KeyboardLayout.themeMenu(panel, theme.name());
                     case "SETTINGS" -> KeyboardLayout.toolMenu(panel,
-                        new String[]{"ПОЗИЦИЯ КЛАВ", "ПОЗИЦИЯ ЧАТА",
+                        new String[]{"СВОБ. КЛАВ", "ПОЗИЦИЯ КЛАВ", "ПОЗИЦИЯ ЧАТА",
                             "НАСТР. КЛАВ", "ЧАТ И ТЕКСТ", "СВАЙП",
                             "КОНТРОЛЛЕРЫ", "БИНДЫ", "ТЕМЫ", "← Назад"},
-                        new KeyboardLayout.Command[]{KeyboardLayout.Command.POSITION_PAGE,
+                        new KeyboardLayout.Command[]{KeyboardLayout.Command.FREE_OPEN,
+                            KeyboardLayout.Command.POSITION_PAGE,
                             KeyboardLayout.Command.CHAT_PAGE,
                             KeyboardLayout.Command.KEYBOARD_PAGE,
                             KeyboardLayout.Command.CHAT_PAGE,
@@ -249,7 +315,7 @@ public final class VirtualKeyboardOverlay {
                             KeyboardLayout.Command.QUICK_MESSAGES,
                             KeyboardLayout.Command.THEMES_PAGE,
                             KeyboardLayout.Command.BACK_TO_KEYS},
-                        new String[]{"", "POSITION", "", "", "", "",
+                        new String[]{"", "", "POSITION", "", "", "", "",
                             "", "", ""});
                     case "KEYBOARD_POSITION" -> KeyboardLayout.toolMenu(panel,
                         new String[]{"УДЕРЖИ: КЛАВ", "↑ ВЫШЕ", "↓ НИЖЕ",
@@ -506,7 +572,12 @@ public final class VirtualKeyboardOverlay {
         if (!collapsed) {
             int brandY = panel.y() + 4;
             int brandX = panel.x() + (panel.width() - 92) / 2;
-            if (theme == KeyboardTheme.CLASSIC) {
+            if (freeModeActive) {
+                String freeLabel = "СВОБОДНАЯ КЛАВИАТУРА";
+                context.drawText(font, freeLabel,
+                    panel.x() + (panel.width() - font.getWidth(freeLabel)) / 2,
+                    brandY + 4, textColor, true);
+            } else if (theme == KeyboardTheme.CLASSIC) {
                 drawFoxBadge(context, brandX, brandY);
                 context.drawText(font, ("Fox"), brandX + 20, brandY + 4,
                     accent, true);
@@ -1152,13 +1223,25 @@ public final class VirtualKeyboardOverlay {
         if (field == null) return false;
         boolean accepted = handPointer(hand).press(panel, x, y,
             System.nanoTime() / 1_000_000L, field);
-        if (accepted && ("MOVE".equals(menuPage) ||
-            "KEYBOARD_POSITION".equals(menuPage) ||
-            "CHAT_POSITION".equals(menuPage))) {
+        if (accepted && freeModeActive) {
             KeyboardLayout.Key key = panel.at(x, y);
-            if (key != null && key.command() == KeyboardLayout.Command.MOVE_GRAB)
-                if (hand == 0)
-                    FoxCraftVrPlane.beginGrab(hand, key.value());
+            if (key != null && key.command() == KeyboardLayout.Command.FREE_KEY) {
+                heldGameKeys[hand] = key.value();
+                gameKeys.press(key.value());
+            } else if (key != null && key.command() == KeyboardLayout.Command.MOVE_GRAB &&
+                       hand == 0) {
+                FoxCraftVrPlane.beginGrab(hand, "FREE");
+            }
+        }
+        // Grabs on the MAIN keyboard are active directly from its
+        // upper-left chat handle and upper-right keyboard handle.
+        // Other existing settings-page grab controls keep working.
+        // FREE mode has its own independent grab handled above.
+        if (accepted && !freeModeActive && hand == 0) {
+            KeyboardLayout.Key key = panel.at(x, y);
+            if (key != null &&
+                key.command() == KeyboardLayout.Command.MOVE_GRAB)
+                FoxCraftVrPlane.beginGrab(hand, key.value());
         }
         return accepted;
     }
@@ -1169,6 +1252,10 @@ public final class VirtualKeyboardOverlay {
     }
 
     public void vrReleased(Screen screen, double x, double y, int hand) {
+        if (heldGameKeys[hand] != null) {
+            gameKeys.release(heldGameKeys[hand]);
+            heldGameKeys[hand] = null;
+        }
         FoxCraftVrPlane.finishGrab(hand);
         if (panel == null) {
             handPointer(hand).cancel();
@@ -1255,6 +1342,14 @@ public final class VirtualKeyboardOverlay {
         KeyHoldController.Activation result = release.activation();
         TextFieldWidget field = focusedField(screen);
         if (result == null || field == null) return;
+        if (freeModeActive) {
+            switch (result.key().command()) {
+                case FREE_RETURN -> leaveFreeMode();
+                case FREE_MODIFIER -> { gameKeys.tapModifier(result.key().value()); panel = null; }
+                default -> { }
+            }
+            return;
+        }
         if (featurePrefs.clickSound()) {
             try {
                 MinecraftClient.getInstance().getSoundManager().play(
@@ -1426,6 +1521,8 @@ public final class VirtualKeyboardOverlay {
             case LANGUAGE_EN -> { russian = false; symbols = false; }
             case SYMBOLS -> symbols = !symbols;
             case RESIZE -> { /* Fixed size; intentionally disabled. */ }
+            case FREE_OPEN -> enterFreeMode();
+            case FREE_RETURN -> leaveFreeMode();
             case SETTINGS -> openPage("SETTINGS");
             case THEMES_PAGE -> openPage("THEMES");
             case SETTINGS_HOME -> openPage("SETTINGS");
@@ -1634,6 +1731,16 @@ public final class VirtualKeyboardOverlay {
                 showStatus("Положение изменено");
             }
             case MOVE_GRAB -> { /* Held-controller movement is handled by VR plane. */ }
+            case FREE_MODIFIER -> {
+                gameKeys.tapModifier(result.key().value());
+                panel = null;
+            }
+            case FREE_KEY -> {
+                if (!FoxCraftVrPlane.isVrSession()) {
+                    gameKeys.press(result.key().value());
+                    gameKeys.release(result.key().value());
+                }
+            }
             case MOVE_RESET -> {
                 FoxCraftVrPlane.resetKeyboardPlacement();
                 featurePrefs.resetPosition();
@@ -1839,7 +1946,7 @@ public final class VirtualKeyboardOverlay {
     }
 
     private static TextFieldWidget focusedField(Screen screen) {
-        if (screen == null) return null;
+        if (screen == null) return freeModeActive ? freeField : null;
         Element focused = screen.getFocused();
         // Only handle editable, focused fields. Never steal player movement or
         // send text to chat when the player is not actually editing.

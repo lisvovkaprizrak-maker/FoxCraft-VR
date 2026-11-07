@@ -13,6 +13,8 @@ public final class KeyboardLogicSmokeTest {
         testRequestedTypingAndSwipe();
         testLargeOfflineDictionaryAndPersonalWords();
         testQuickBinds();
+        testFreeKeyboard();
+        testPrimaryVrDragHandles();
         // Regression: on Quest, the world-selection text field must not
         // display FoxCraft over the menu, while in-world chat stays usable
         // even if the optional 3D Vivecraft hook never starts.
@@ -640,6 +642,101 @@ public final class KeyboardLogicSmokeTest {
         System.out.println("FoxCraft keyboard logic smoke tests: OK");
     }
 
+    /**
+     * Regression for Quest 3 user report: the controls must be in the TOP
+     * CORNERS OF THE KEYBOARD, not attached to the chat history.
+     * One handle moves the complete chat in XYZ; one moves ONLY the keyboard.
+     */
+    private static void testPrimaryVrDragHandles() {
+        for (boolean russian : new boolean[]{true, false}) {
+            KeyboardLayout.Panel normal = KeyboardLayout.make(
+                854, 480, true, russian, false, false, false);
+            require(normal != null, "Normal chat keyboard must be visible");
+            List<KeyboardLayout.Key> drag = normal.keys().stream()
+                .filter(k -> k.command() == KeyboardLayout.Command.MOVE_GRAB)
+                .toList();
+            require(drag.size() == 2,
+                "Exactly two main keyboard controls, not duplicate chat handles");
+            KeyboardLayout.Key chat = drag.stream()
+                .filter(k -> "CHAT_GROUP".equals(k.value()))
+                .findFirst().orElseThrow();
+            KeyboardLayout.Key keyboard = drag.stream()
+                .filter(k -> "KEYBOARD".equals(k.value()))
+                .findFirst().orElseThrow();
+            require(chat.x() < normal.x() + normal.width() / 4 &&
+                keyboard.x() > normal.x() + 3 * normal.width() / 4,
+                "Whole chat grab must be top-left; keyboard grab top-right");
+            require(chat.y() < normal.y() + 27 &&
+                keyboard.y() == chat.y(),
+                "Both controls must be in the top crest row of keyboard");
+            require(chat.x() + chat.width() < keyboard.x(),
+                "Keyboard and chat handles must never overlap");
+            require(normal.at(chat.x() + 2, chat.y() + 2) == chat &&
+                normal.at(keyboard.x() + 2, keyboard.y() + 2) == keyboard,
+                "VR trigger must select each independent grab button");
+            require(normal.keys().stream()
+                .filter(k -> k != chat && k != keyboard)
+                .noneMatch(k -> k.contains(chat.x() + 2, chat.y() + 2) ||
+                                k.contains(keyboard.x() + 2, keyboard.y() + 2)),
+                "Grab keys must not be covered by letter/menu keys");
+        }
+        KeyboardLayout.Panel english = KeyboardLayout.make(
+            854, 480, false, false, false, false, false);
+        KeyboardLayout.Panel free = KeyboardLayout.freeKeyboard(english);
+        require(free.keys().stream().filter(k ->
+                k.command() == KeyboardLayout.Command.MOVE_GRAB).count() == 1 &&
+            free.keys().stream().noneMatch(k ->
+                "CHAT_GROUP".equals(k.value())),
+            "Free game keyboard keeps just its OWN grab and no chat control");
+    }
+
+    private static void testFreeKeyboard() {
+        KeyboardLayout.Panel en = KeyboardLayout.make(854, 480,
+            false, false, false, false, false);
+        KeyboardLayout.Panel free = KeyboardLayout.freeKeyboard(en);
+        require(free.width() == en.width() &&
+            free.height() == en.height(),
+            "Game keyboard must retain calibrated physical dimensions");
+        for (int fn = 1; fn <= 12; fn++) {
+            String name = "F" + fn;
+            require(free.keys().stream().anyMatch(k ->
+                k.command() == KeyboardLayout.Command.FREE_KEY &&
+                name.equals(k.value())),
+                "Missing physical function key " + name);
+            require(FreeKeyboardKeys.keyCode(name) == 289 + fn,
+                "Function-key GLFW mapping: " + name);
+        }
+        for (char letter='A'; letter<='Z';letter++) {
+            String name = String.valueOf(letter);
+            require(free.keys().stream().anyMatch(k ->
+                k.command() == KeyboardLayout.Command.FREE_KEY &&
+                name.equals(k.value())),
+                "Missing QWERTY game key " + name);
+            require(FreeKeyboardKeys.keyCode(name) == letter,
+                "GLFW game key mapping " + name);
+        }
+        require(free.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.FREE_RETURN),
+            "Free mode must return to normal chat keyboard");
+        require(free.keys().stream().anyMatch(k ->
+            k.command() == KeyboardLayout.Command.MOVE_GRAB &&
+            "FREE".equals(k.value())),
+            "Free mode has an independent right-trigger room drag handle");
+        require(free.keys().stream().filter(k ->
+            k.command() == KeyboardLayout.Command.FREE_MODIFIER).count() == 3,
+            "Ctrl Shift and Alt are available in game mode");
+        require(free.keys().stream().noneMatch(k ->
+            k.command() == KeyboardLayout.Command.TYPE),
+            "Free mode must never emit chat text");
+        require(FreeKeyboardKeys.keyCode("M") == 77 &&
+            FreeKeyboardKeys.keyCode("F3") == 292 &&
+            FreeKeyboardKeys.keyCode("F12") == 301,
+            "Litematica M and vanilla F3/F12 keycodes");
+        require(FreeKeyboardKeys.keyCode("F13") == -1 &&
+            FreeKeyboardKeys.keyCode("HELLO") == -1,
+            "Reject unsupported game-key sequences");
+    }
+
     private static void testQuickBinds() {
         try {
             Path config = Files.createTempFile("foxcraft-binds-", ".properties");
@@ -1011,11 +1108,19 @@ public final class KeyboardLogicSmokeTest {
                 Math.abs(fresh.historyHeight() - 0.08f) < 0.001f,
                 "Keyboard reset must not move chat or its input field");
             fresh.move(0.2f, 0.1f, -0.1f);
+            fresh.setChatRoomPosition(0.35f, -0.18f, 0.55f);
+            fresh.savePosition();
+            FoxCraftFeatureSettings chatSaved = new FoxCraftFeatureSettings(options);
+            require(Math.abs(chatSaved.chatRight() - 0.35f) < 0.001f &&
+                Math.abs(chatSaved.chatForward() - 0.55f) < 0.001f,
+                "Moved chat group must persist independent XY/Z offsets");
             fresh.resetChatPosition();
             require(Math.abs(fresh.offsetRight() - 0.2f) < 0.001f &&
                 Math.abs(fresh.offsetDown() - 0.1f) < 0.001f &&
                 Math.abs(fresh.offsetForward() + 0.1f) < 0.001f &&
-                fresh.inputY() == 0 && fresh.historyHeight() == 0f,
+                fresh.inputY() == 0 && fresh.historyHeight() == 0f &&
+                fresh.chatRight() == 0f && fresh.chatDown() == 0f &&
+                fresh.chatForward() == 0f,
                 "Chat reset must not move the independently positioned keyboard");
             fresh.resetAllVisualSettings();
             require(new FoxCraftFeatureSettings(options).inputY() == 0 &&

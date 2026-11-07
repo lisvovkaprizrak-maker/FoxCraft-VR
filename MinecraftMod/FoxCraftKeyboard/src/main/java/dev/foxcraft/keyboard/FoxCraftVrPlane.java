@@ -103,18 +103,28 @@ public final class FoxCraftVrPlane {
     public static void beginGrab(int hand, String target) {
         // Dragging is restricted to an explicitly pressed right-trigger
         // move button. Ordinary keyboard typing remains unchanged.
-        if (hand != 0 || keyboard == null ||
-            keyboard.features().positionLocked()) return;
+        if (hand != 0 || keyboard == null) return;
+        // The chat handle is independent of the keyboard position lock.
+        // It moves the WHOLE chat GUI, not just the input/history height.
+        if ("CHAT_GROUP".equals(target)) {
+            if (grabHand < 0 && FoxCraftChatGrab.beginFromKeyboard(hand)) {
+                grabHand = hand;
+                grabTarget = target;
+                grabStartController = null;
+            }
+            return;
+        }
+        if (keyboard.features().positionLocked() || grabHand >= 0) return;
         if (!"KEYBOARD".equals(target) && !"INPUT".equals(target) &&
-            !"HISTORY".equals(target)) return;
+            !"HISTORY".equals(target) && !"FREE".equals(target)) return;
         Vector3f controller = controllerRoomPosition(hand);
         if (controller == null) return;
         FoxCraftFeatureSettings pref = keyboard.features();
         grabHand = hand;
         grabStartController = controller;
-        grabStartRight = pref.offsetRight();
-        grabStartDown = pref.offsetDown();
-        grabStartForward = pref.offsetForward();
+        grabStartRight = "FREE".equals(target) ? pref.freeRight() : pref.offsetRight();
+        grabStartDown = "FREE".equals(target) ? pref.freeDown() : pref.offsetDown();
+        grabStartForward = "FREE".equals(target) ? pref.freeForward() : pref.offsetForward();
         grabStartHistory = pref.historyHeight();
         grabStartInputY = pref.inputY();
         grabTarget = target;
@@ -122,12 +132,15 @@ public final class FoxCraftVrPlane {
 
     public static void finishGrab(int hand) {
         if (hand != grabHand || keyboard == null) return;
+        boolean chatGroup = "CHAT_GROUP".equals(grabTarget);
         grabHand = -1;
         grabStartController = null;
-        keyboard.features().savePosition();
+        grabTarget = "KEYBOARD";
+        if (chatGroup) FoxCraftChatGrab.finish();
+        else keyboard.features().savePosition();
     }
 
-    private static Vector3f controllerRoomPosition(int hand) {
+    static Vector3f controllerRoomPosition(int hand) {
         try {
             Class<?> holderType = Class.forName("org.vivecraft.client_vr.ClientDataHolderVR");
             Object holder = holderType.getMethod("getInstance").invoke(null);
@@ -153,7 +166,12 @@ public final class FoxCraftVrPlane {
             new Vector3f(0, 1, 0), new Vector3f()).normalize();
         Vector3f localForward = guiRotation.transformDirection(
             new Vector3f(0, 0, 1), new Vector3f()).normalize();
-        keyboard.features().setPosition(
+        if ("FREE".equals(grabTarget)) {
+            keyboard.features().setFreePosition(
+                grabStartRight + delta.dot(localRight) / guiScale,
+                grabStartDown - delta.dot(localUp) / guiScale,
+                grabStartForward + delta.dot(localForward) / guiScale);
+        } else keyboard.features().setPosition(
             grabStartRight + delta.dot(localRight) / guiScale,
             grabStartDown - delta.dot(localUp) / guiScale,
             grabStartForward + delta.dot(localForward) / guiScale);
@@ -272,6 +290,16 @@ public final class FoxCraftVrPlane {
     }
 
     /** Prevent secondary 2D chat clicks while pointing at FoxCraft in VR. */
+    /**
+     * Suppress ordinary world attack/use while a free-mode controller ray is
+     * touching an actual keyboard key. Away from the keyboard, all game
+     * controls remain untouched.
+     */
+    public static boolean interceptsGameplayControls() {
+        return keyboard != null && keyboard.isFreeMode() &&
+            (isPointingAtKeyboard(0) || isPointingAtKeyboard(1));
+    }
+
     public static boolean interceptsMainGuiMouse() {
         return isReady() && keyboard != null &&
             keyboard.detachedContains(cursorX[0], cursorY[0]);
@@ -286,6 +314,9 @@ public final class FoxCraftVrPlane {
         if (keyboard == null || disabled) return;
         MinecraftClient client = MinecraftClient.getInstance();
         if (!keyboard.shouldDisplayForScreen(client.currentScreen)) {
+            // A game-key shortcut may open a mod menu before the controller
+            // releases its trigger. Never leave that key synthetically held.
+            keyboard.suspendFreeKeys();
             finishGrab(grabHand);
             wasPressed[0] = wasPressed[1] = false;
             ready = false;
@@ -302,27 +333,40 @@ public final class FoxCraftVrPlane {
                 "org.vivecraft.client_vr.gameplay.screenhandlers.GuiHandler");
             Object chatPos = guiClass.getField("GUI_POS_ROOM").get(null);
             Object chatRotation = guiClass.getField("GUI_ROTATION_ROOM").get(null);
-            if (!(chatPos instanceof Vector3f guiPos) ||
-                !(chatRotation instanceof Matrix4f guiRot))
-                return; // GUI is not yet positioned; retry on the next frame.
+            // While playing with FREE keyboard, GuiHandler may no longer
+            // expose a GUI pose; keep the last valid chat-room anchor.
+            boolean free = keyboard.isFreeMode();
+            if ((!free || placementAnchor == null || placementRotation == null) &&
+                (!(chatPos instanceof Vector3f) ||
+                 !(chatRotation instanceof Matrix4f)))
+                return;
 
             float guiScale = guiClass.getField("GUI_SCALE").getFloat(null);
             if (!(guiScale > 0)) return;
-            // Pin the keyboard to its own room pose for this screen. Subsequent
-            // chat window movement must not drag the keyboard along with it.
-            if (placementScreen != client.currentScreen ||
+            // Capture the *untouched* GUI pose before applying any chat
+            // movement. Otherwise opening the chat after a saved relocation
+            // makes the keyboard inherit that relocation and "stick" to chat.
+            if ((!free && placementScreen != client.currentScreen) ||
                 placementAnchor == null || placementRotation == null) {
+                if (!(chatPos instanceof Vector3f guiPos) ||
+                    !(chatRotation instanceof Matrix4f guiRot)) return;
                 placementScreen = client.currentScreen;
                 placementAnchor = new Vector3f(guiPos);
                 placementRotation = new Matrix4f(guiRot);
             }
+            // Only the chat's GUI room-space quad receives chat offsets.
+            // FoxCraft's keyboard uses the independent pose saved above.
+            FoxCraftChatGrab.updateRoomPose(client.currentScreen,
+                chatPos instanceof Vector3f v ? v : null,
+                chatRotation instanceof Matrix4f m ? m : null,
+                guiScale);
             Matrix4f baseRotation = placementRotation;
             followGrab(baseRotation, guiScale);
             FoxCraftFeatureSettings settings = keyboard.features();
             // Chat history uses an isolated HUD transform. Never mutate
             // GuiHandler.GUI_POS_ROOM: doing so also moves the chat input
             // and breaks independent height controls or other GUI elements.
-            boolean inChat = client.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen;
+            boolean inChat = free || client.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen;
             // Equivalent to QuestCraft's chat-relative keyboard positioning:
             // project down the GUI's local up axis and slightly toward player.
             // Neither KeyboardHandler.SHOWING nor its framebuffer is modified.
@@ -331,9 +375,9 @@ public final class FoxCraftVrPlane {
             rotation = new Matrix4f(baseRotation)
                 .rotateX((float) Math.toRadians(settings.keyboardTilt()));
             float xCorrection = (inChat ? CHAT_RIGHT_SHIFT : MENU_RIGHT_SHIFT)
-                + settings.offsetRight();
+                + (free ? settings.freeRight() : settings.offsetRight());
             float yCorrection = (inChat ? CHAT_DOWN_SHIFT : MENU_DOWN_SHIFT)
-                + settings.offsetDown();
+                + (free ? settings.freeDown() : settings.offsetDown());
             position = new Vector3f(placementAnchor)
                 .sub(baseRotation.transformDirection(new Vector3f(0, 1, 0),
                     new Vector3f()).mul((down + yCorrection) * guiScale))
@@ -344,7 +388,7 @@ public final class FoxCraftVrPlane {
                     new Vector3f()).mul(xCorrection * guiScale))
                 .add(baseRotation.transformDirection(new Vector3f(0, 0, 1),
                     new Vector3f()).mul(
-                        (forward + settings.offsetForward()) * guiScale))
+                        (forward + (free ? settings.freeForward() : settings.offsetForward())) * guiScale))
                 .add(rotation.transformDirection(new Vector3f(0, 0, 1),
                     new Vector3f()).mul(TOWARDS_PLAYER * guiScale));
             scale = Math.max(0.25f, guiScale *
@@ -579,9 +623,14 @@ public final class FoxCraftVrPlane {
         screen = null;
         position = null;
         rotation = null;
-        placementScreen = null;
-        placementAnchor = null;
-        placementRotation = null;
+        // Litematica and other mods temporarily open a normal Screen when
+        // an M/F key is pressed. Preserve FREE's world anchor across that
+        // interruption so the keyboard returns in exactly the same place.
+        if (keyboard == null || !keyboard.isFreeMode()) {
+            placementScreen = null;
+            placementAnchor = null;
+            placementRotation = null;
+        }
         bufferWidth = bufferHeight = 0;
     }
 
