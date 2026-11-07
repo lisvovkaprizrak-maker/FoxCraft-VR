@@ -11,7 +11,7 @@ public class DesktopCam : MonoBehaviour
         // QuestCraft normally uses a tracked VR camera on Android. Keep it on
         // Quest and Pico devices, but expose the existing desktop/flat camera
         // on regular Android phones (and in the desktop Unity editor).
-        if (Application.platform == RuntimePlatform.Android && IsVrHeadset())
+        if (FoxCraftDevice.IsVrHeadset)
             return;
 
         if (DesktopCamera == null)
@@ -42,12 +42,4 @@ public class DesktopCam : MonoBehaviour
         }
     }
 
-    private static bool IsVrHeadset()
-    {
-        string model = (SystemInfo.deviceModel ?? "").ToLowerInvariant();
-        return model.Contains("quest") ||
-               model.Contains("pico") ||
-               model.Contains("yvr") ||
-               model.Contains("oculus");
-    }
 }
