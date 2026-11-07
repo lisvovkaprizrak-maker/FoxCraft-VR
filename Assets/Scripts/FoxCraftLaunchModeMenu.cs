@@ -19,6 +19,9 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
     private ConfigHandler config;
     private WindowHandler window;
     private GameObject panel;
+    private GameObject modeToggle;
+    private TextMeshProUGUI modeToggleLabel;
+    private bool expanded;
     private Image vrBackground;
     private Image phoneBackground;
     private TextMeshProUGUI vrLabel;
@@ -84,8 +87,11 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
 
         bool visible = ui.playButton != null && ui.playButton.gameObject.activeInHierarchy &&
             (window == null || window.mainPanel == null || window.mainPanel.activeInHierarchy);
-        if (panel.activeSelf != visible)
-            panel.SetActive(visible);
+        if (modeToggle != null && modeToggle.activeSelf != visible)
+            modeToggle.SetActive(visible);
+        bool showPanel = visible && expanded;
+        if (panel.activeSelf != showPanel)
+            panel.SetActive(showPanel);
         if (!visible)
             return;
 
@@ -103,6 +109,8 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
             phoneVersionLabel.text = gameVersion;
         vrBackground.color = phone ? Dark : Orange;
         phoneBackground.color = phone ? Orange : Dark;
+        if (modeToggleLabel != null)
+            modeToggleLabel.text = phone ? "ТЕЛ. ▼" : "VR ▼";
         vrLabel.color = White;
         phoneLabel.color = White;
         detail.text = phone
@@ -124,6 +132,9 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
         if (config == null)
             return;
         config.SetLaunchMode(mode);
+        // Keep the panel open for phone version selection; choosing VR can
+        // close it immediately because the original QuestCraft list remains.
+        expanded = mode == ConfigHandler.PhoneMode;
         displayedPhone = null;
     }
 
@@ -136,15 +147,30 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
         if (canvas == null)
             return;
 
+        // Real QuestCraft scene: MainCanvas is 1200x600; its bottom bar
+        // contains Play centered at x=600, and Mods/Options towards x=920/1141.
+        // A compact toggle at x=1055 avoids existing buttons. Expand into a
+        // temporary chooser over the profile grid rather than covering Play.
+        modeToggle = CreateElement("FoxCraft mode toggle", canvas.transform,
+            new Vector2(90f, 60f), Vector2.zero);
+        RectTransform toggleRect = modeToggle.GetComponent<RectTransform>();
+        toggleRect.anchorMin = new Vector2(1f, 0f);
+        toggleRect.anchorMax = new Vector2(1f, 0f);
+        toggleRect.anchoredPosition = new Vector2(-145f, 55f);
+        modeToggle.GetComponent<Image>().color = Orange;
+        Button toggleButton = modeToggle.AddComponent<Button>();
+        toggleButton.onClick.AddListener(() => { expanded = !expanded; });
+        modeToggleLabel = CreateText("VR ▼", modeToggle.transform,
+            new Vector2(88f, 58f), Vector2.zero, 18, White);
+
         panel = CreateElement("FoxCraft • VR / Phone", canvas.transform,
-            new Vector2(570f, 230f), new Vector2(0f, 0f));
+            new Vector2(570f, 230f), Vector2.zero);
         RectTransform root = panel.GetComponent<RectTransform>();
-        root.anchorMin = new Vector2(0.5f, 0f);
-        root.anchorMax = new Vector2(0.5f, 0f);
-        root.anchoredPosition = new Vector2(0f, 160f);
-        panel.GetComponent<Image>().color = new Color(0.045f, 0.05f, 0.07f, 0.95f);
-        // Decorative background must not swallow QuestCraft's original Play/menu clicks.
-        panel.GetComponent<Image>().raycastTarget = false;
+        root.anchorMin = new Vector2(0.5f, 0.5f);
+        root.anchorMax = new Vector2(0.5f, 0.5f);
+        root.anchoredPosition = Vector2.zero;
+        panel.GetComponent<Image>().color = new Color(0.045f, 0.05f, 0.07f, 0.98f);
+        panel.GetComponent<Image>().raycastTarget = true;
 
         CreateText("FOXCRAFT  •  РЕЖИМ ИГРЫ", panel.transform,
             new Vector2(480f, 32f), new Vector2(35f, 92f), 23, White);
@@ -180,6 +206,16 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
         CreateVersionArrow("▶", 172f, 1);
         CreateVersionArrow("»", 228f, 10);
         phoneVersionRow.SetActive(false);
+
+        // Users can dismiss the chooser without changing Minecraft profiles.
+        GameObject close = CreateElement("Close FoxCraft mode menu",
+            panel.transform, new Vector2(42f, 42f), new Vector2(252f, 93f));
+        close.GetComponent<Image>().color = Dark;
+        Button closeButton = close.AddComponent<Button>();
+        closeButton.onClick.AddListener(() => expanded = false);
+        CreateText("×", close.transform, new Vector2(38f, 38f),
+            Vector2.zero, 27, White);
+        panel.SetActive(false);
     }
 
     private void CreateModeButton(string title, Vector2 position, string mode,
