@@ -75,6 +75,17 @@ public class InstanceButton : MonoBehaviour
         if (Application.platform != RuntimePlatform.Android || launchInProgress)
             return;
 
+        // The bundled Pojlib/Vivecraft runtime is VR-only. Never hand it a
+        // phone launch that would crash or hang on a device without OpenXR.
+        // The launcher itself is usable on a phone for version selection.
+        if (configHandler != null && configHandler.IsPhoneModeSelected)
+        {
+            uiHandler.SetAndShowError("Режим телефона выбран. Лаунчер и выбор версий доступны, " +
+                "но запуск Minecraft на телефоне требует отдельного 2D-движка и " +
+                "сенсорного управления. VR-сборка QuestCraft не поддерживает этот запуск.");
+            return;
+        }
+
         PojlibInstance selected = JNIStorage.GetInstance(currInstName);
         if (selected == null)
         {
