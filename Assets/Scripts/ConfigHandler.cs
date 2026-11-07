@@ -19,11 +19,45 @@ public class ConfigHandler : MonoBehaviour
 
     public bool IsLoaded => config != null;
 
+    // Keep a valid previous version on disk so an interrupted save cannot
+    // destroy the user's Microsoft account list, preferences and VR profiles.
+    // This does NOT store account passwords or access tokens.
     public void SaveConfig()
     {
         if (config == null || string.IsNullOrEmpty(configPath))
             return;
-        File.WriteAllText(configPath, JsonConvert.SerializeObject(config, Formatting.Indented));
+
+        string temporary = configPath + ".writing";
+        string previous = configPath + ".previous";
+        string json = JsonConvert.SerializeObject(config, Formatting.Indented);
+        File.WriteAllText(temporary, json);
+        try
+        {
+            if (!File.Exists(configPath))
+            {
+                File.Move(temporary, configPath);
+            }
+            else
+            {
+                try
+                {
+                    File.Replace(temporary, configPath, previous);
+                }
+                catch (PlatformNotSupportedException)
+                {
+                    // Some Android/Unity file-system implementations do not
+                    // support File.Replace. Keep a backup before the fallback.
+                    File.Copy(configPath, previous, true);
+                    File.Delete(configPath);
+                    File.Move(temporary, configPath);
+                }
+            }
+        }
+        finally
+        {
+            if (File.Exists(temporary))
+                File.Delete(temporary);
+        }
     }
 
     // Restore after JNIStorage has populated the version drop-down. Otherwise
@@ -180,6 +214,31 @@ public class ConfigHandler : MonoBehaviour
                 Debug.LogWarning("[FoxCraft] Original launcher settings preserved as " +
                     Path.GetFileName(backup));
                 createNew = true;
+            }
+        }
+
+        if (createNew)
+        {
+            // Recover account and game profile settings from a completed older
+            // write if the main file was corrupted or lost during replacement.
+            string previous = configPath + ".previous";
+            if (File.Exists(previous))
+            {
+                try
+                {
+                    config = JsonConvert.DeserializeObject<Config>(
+                        File.ReadAllText(previous));
+                    if (config != null)
+                    {
+                        createNew = false;
+                        SaveConfig();
+                        Debug.LogWarning("[FoxCraft] Restored previous launcher settings.");
+                    }
+                }
+                catch (JsonException)
+                {
+                    Debug.LogWarning("[FoxCraft] Previous launcher settings are also invalid.");
+                }
             }
         }
 
