@@ -78,18 +78,41 @@ namespace UnityEngine
     public sealed class SerializeField : Attribute { }
     public class AndroidJavaObject : IDisposable
     {
+        public static bool VrTrackingFeature;
+        public static bool OculusVrFeature;
         public void Dispose() { }
+        public T Call<T>(string name, params object[] parameters)
+        {
+            if (name == "getPackageManager")
+                return (T)(object)new AndroidJavaObject();
+            if (name == "hasSystemFeature" && parameters.Length > 0)
+            {
+                string feature = parameters[0] as string;
+                bool enabled = feature == "android.hardware.vr.headtracking"
+                    ? VrTrackingFeature : feature == "com.oculus.feature.VR" && OculusVrFeature;
+                return (T)(object)enabled;
+            }
+            return default(T);
+        }
     }
-    public class AndroidJavaClass
+    public class AndroidJavaClass : IDisposable
     {
         public static int LoginCallCount;
+        public AndroidJavaClass() { }
+        public AndroidJavaClass(string className) { }
+        public void Dispose() { }
         public void SetStatic(string name, object value) { }
         public void CallStatic(string name, params object[] parameters)
         {
             if (name == "login") LoginCallCount++;
         }
         public T CallStatic<T>(string name, params object[] parameters) => default(T);
-        public T GetStatic<T>(string name) => default(T);
+        public T GetStatic<T>(string name)
+        {
+            if (name == "currentActivity")
+                return (T)(object)JNIStorage.activity;
+            return default(T);
+        }
     }
 }
 namespace UnityEngine.Networking
