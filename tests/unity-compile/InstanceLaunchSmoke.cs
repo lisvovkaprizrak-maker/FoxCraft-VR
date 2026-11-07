@@ -472,8 +472,8 @@ public static class InstanceLaunchSmoke
             Thread.Sleep(30);
             int startedInstalls = AndroidJavaClass.InstallCallCount;
             Time.realtimeSinceStartup = 611f;
-            Assert(!hungInstall.MoveNext() && !InstanceButton.IsInstallingInstance,
-                "long-running installer times out without freezing main Unity menu");
+            Assert(!hungInstall.MoveNext() && InstanceButton.IsInstallingInstance,
+                "installer timeout returns control while old Java worker remains locked");
             Assert(installedUi.lastError.Contains("10 минут"),
                 "installer timeout offers concrete recovery instructions");
             delayed.LaunchCurrentInstance();
@@ -483,6 +483,8 @@ public static class InstanceLaunchSmoke
             AndroidJavaClass.InstallDelayMs = 0;
             // Let the original background worker leave its Java mock cleanly.
             Thread.Sleep(520);
+            Assert(!InstanceButton.IsInstallingInstance,
+                "shared installation lock releases only after the Java worker completes");
 
             Console.WriteLine("FoxCraft VR launch smoke: " + checks + " checks passed.");
             return 0;
