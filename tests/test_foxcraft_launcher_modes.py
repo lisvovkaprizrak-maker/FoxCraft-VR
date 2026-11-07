@@ -28,6 +28,9 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         self.assertIn('public const string VrMode = "vr"', config)
         self.assertIn('public const string PhoneMode = "phone"', config)
         self.assertIn("public string phoneVersion;", config)
+        self.assertIn("phoneVersionCache", config)
+        self.assertIn("GetCachedPhoneVersions", config)
+        self.assertIn("SetCachedPhoneVersions", config)
         self.assertIn("public void SetPhoneVersion", config)
         self.assertIn("public void SetLaunchMode", config)
         self.assertIn("config.accounts", config)
@@ -61,6 +64,12 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         self.assertIn("FoxCraftDevice.IsAndroidPhone", keyboard)
         self.assertIn("keyboard.SetActive(false)", keyboard)
         self.assertIn("FoxCraftDevice.IsVrHeadset", config)
+        touch = read("Assets/Scripts/FoxCraftPhoneTouchInput.cs")
+        self.assertIn("FoxCraftDevice.IsAndroidPhone", touch)
+        self.assertIn("InputSystemUIInputModule", touch)
+        self.assertIn("touch.AssignDefaultActions()", touch)
+        self.assertIn("GraphicRaycaster", touch)
+        self.assertIn("FoxCraftPhoneTouchInput", read("Assets/Scripts/UIHandler.cs"))
 
     def test_app_can_be_installed_on_android_without_vr_tracking(self):
         manifest = read("Assets/Plugins/Android/AndroidManifest.xml")
