@@ -40,6 +40,9 @@ public class JNIStorage : MonoBehaviour
     [RuntimeInitializeOnLoadMethod]
     static void RunOnStart()
     {
+        // Restarting Unity from the Pojlib menu can invoke this hook multiple
+        // times in one Android process. Keep exactly one XR cleanup callback.
+        Application.unloading -= CloseXR;
         Application.unloading += CloseXR;
     }
 
@@ -49,6 +52,14 @@ public class JNIStorage : MonoBehaviour
         InitializationFailed = false;
         if (Application.platform != RuntimePlatform.Android)
             return;
+
+        // Clear Java wrappers from an older Unity scene before the newly
+        // created PlayerActivity is queried. A stale signed-in account must
+        // not survive restartLauncher without re-verification.
+        apiClass = null;
+        accountObj = null;
+        instancesObj = null;
+        activity = null;
 
         CrashReportHandler.enableCaptureExceptions = false;
 
