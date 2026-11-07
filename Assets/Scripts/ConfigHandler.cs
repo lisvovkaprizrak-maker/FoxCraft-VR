@@ -37,8 +37,19 @@ public class ConfigHandler : MonoBehaviour
             return;
 
         int selected = Mathf.Clamp(config.lastSelectedInstance, 0, dropdown.options.Count - 1);
+        if (!string.IsNullOrWhiteSpace(config.lastSelectedInstanceName))
+        {
+            // The QuestCraft/Pojlib list can be reordered when Minecraft
+            // versions are added. Restore the actual game profile, not an old
+            // list position that may point to a different Minecraft version.
+            int matching = dropdown.options.FindIndex(option =>
+                option != null && option.text == config.lastSelectedInstanceName);
+            selected = matching >= 0 ? matching : 0;
+        }
         UIHandler.selectedInstance = selected;
         dropdown.SetValueWithoutNotify(selected);
+        config.lastSelectedInstance = selected;
+        config.lastSelectedInstanceName = dropdown.options[selected].text;
         if (JNIStorage.instance.uiHandler != null)
             JNIStorage.instance.uiHandler.UpdateDropdowns(false, null);
     }
@@ -126,6 +137,7 @@ public class ConfigHandler : MonoBehaviour
             setCustomRAM = false,
             customRAMValue = "2048",
             lastSelectedInstance = 0,
+            lastSelectedInstanceName = "",
             lastSelectedAccount = 0,
             launchMode = InitialModeForDevice(),
             phoneVersion = "1.21.5",
@@ -219,6 +231,13 @@ public class ConfigHandler : MonoBehaviour
         if (config == null)
             return;
         config.lastSelectedInstance = instance;
+        if (JNIStorage.instance != null && JNIStorage.instance.instancesDropdown != null)
+        {
+            TMP_Dropdown dropdown = JNIStorage.instance.instancesDropdown;
+            if (dropdown.options != null && instance >= 0 &&
+                instance < dropdown.options.Count)
+                config.lastSelectedInstanceName = dropdown.options[instance].text;
+        }
         SaveConfig();
     }
 
@@ -259,6 +278,7 @@ public class ConfigHandler : MonoBehaviour
         public bool setCustomRAM;
         public string customRAMValue;
         public int lastSelectedInstance;
+        public string lastSelectedInstanceName;
         public int lastSelectedAccount;
         public string launchMode;
         public string phoneVersion;
