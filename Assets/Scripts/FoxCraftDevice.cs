@@ -1,7 +1,11 @@
+using System;
 using UnityEngine;
 
 public static class FoxCraftDevice
 {
+    private static bool? detectedHeadset;
+    private static bool warningLogged;
+
     public static bool IsVrHeadset
     {
         get
@@ -9,9 +13,57 @@ public static class FoxCraftDevice
             if (Application.platform != RuntimePlatform.Android)
                 return false;
 
+            // These models are recognizable even before the UnityPlayer
+            // Android activity is available during the first frame.
             string model = (SystemInfo.deviceModel ?? "").ToLowerInvariant();
-            return model.Contains("quest") || model.Contains("oculus") ||
-                   model.Contains("pico") || model.Contains("yvr");
+            if (model.Contains("quest") || model.Contains("oculus") ||
+                model.Contains("pico") || model.Contains("yvr"))
+            {
+                detectedHeadset = true;
+                return true;
+            }
+
+            if (detectedHeadset.HasValue)
+                return detectedHeadset.Value;
+
+            // Android system features are a better source of truth for devices
+            // whose model names are codenames instead of consumer headset names.
+            // Do not cache a negative result until a PackageManager is present.
+            try
+            {
+                using (AndroidJavaClass unityPlayer =
+                    new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+                using (AndroidJavaObject activity =
+                    unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
+                {
+                    if (activity == null)
+                        return false;
+
+                    using (AndroidJavaObject manager =
+                        activity.Call<AndroidJavaObject>("getPackageManager"))
+                    {
+                        if (manager == null)
+                            return false;
+
+                        bool headTracking = manager.Call<bool>("hasSystemFeature",
+                            "android.hardware.vr.headtracking");
+                        bool oculusVr = manager.Call<bool>("hasSystemFeature",
+                            "com.oculus.feature.VR");
+                        detectedHeadset = headTracking || oculusVr;
+                        return detectedHeadset.Value;
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                if (!warningLogged)
+                {
+                    warningLogged = true;
+                    Debug.LogWarning("[FoxCraft] Headset capability detection unavailable: " +
+                        exception.GetType().Name);
+                }
+                return false;
+            }
         }
     }
 
