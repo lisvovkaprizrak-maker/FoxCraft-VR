@@ -66,6 +66,9 @@ public final class VirtualKeyboardOverlay {
     private boolean symbols;
     private boolean shift;
     private boolean collapsed;
+    private TextFieldWidget positionedChatField;
+    private int originalInputY;
+    private int appliedInputY = Integer.MIN_VALUE;
     private boolean settingsOpen;
     private boolean layoutSettingsOpen;
     private String menuPage = "KEYBOARD";
@@ -132,7 +135,14 @@ public final class VirtualKeyboardOverlay {
                                 int height, boolean detached,
                                 double detachedLeftX, double detachedLeftY) {
         FoxCraftVoiceInput.poll();
+        KeyHoldController.setHoldDuration(featurePrefs.longPressMs());
+        SwipeGesture.setSensitivity(featurePrefs.swipeSensitivity());
+        KeyboardLayout.setKeyGap(featurePrefs.keyGap());
         if (screen != previousScreen) {
+            if (positionedChatField != null)
+                positionedChatField.setY(originalInputY);
+            positionedChatField = null;
+            appliedInputY = Integer.MIN_VALUE;
             previousScreen = screen;
             clearSuggestions();
             pointer.cancel();
@@ -171,6 +181,20 @@ public final class VirtualKeyboardOverlay {
             !activeField.getSelectedText().isEmpty()))
             clearSuggestions();
         boolean chat = screen instanceof ChatScreen;
+        if (chat && FoxCraftVrPlane.isVrSession()) {
+            if (positionedChatField != activeField) {
+                positionedChatField = activeField;
+                originalInputY = activeField.getY();
+                appliedInputY = Integer.MIN_VALUE;
+            }
+            int desired = Math.max(3, Math.min(screen.height -
+                activeField.getHeight() - 3, originalInputY + featurePrefs.inputY()));
+            if (desired != appliedInputY) {
+                activeField.setY(desired);
+                appliedInputY = desired;
+                panel = null;
+            }
+        }
         // Use the actual lower edge of the chat field. The keyboard occupies
         // the free area below it instead of being drawn inside the text box.
         int chatInputBottomY = chat && !detached
@@ -190,7 +214,8 @@ public final class VirtualKeyboardOverlay {
             !layoutMenuPage.equals(menuPage)) {
             panel = KeyboardLayout.make(width, height,
                 chat && !detached, russian, symbols, shift, collapsed,
-                preferredWidth, suggestions, chatInputBottomY, detached);
+                preferredWidth, featurePrefs.wordSuggestions()
+                    ? suggestions : List.of(), chatInputBottomY, detached);
             if (settingsOpen && panel != null) {
                 panel = switch (menuPage) {
                     case "THEMES" -> KeyboardLayout.themeMenu(panel, theme.name());
@@ -287,7 +312,8 @@ public final class VirtualKeyboardOverlay {
                     case "COMPOSE" -> KeyboardLayout.composeMenu(panel,
                         quickDraft.message(), quickDraft.note(),
                         quickDraft.editingNote(), russian, shift,
-                        editingQuickSlot >= 0);
+                        editingQuickSlot >= 0,
+                        editingQuickSlot >= 0 && quickBinds.autoSend(editingQuickSlot));
                     case "CLIPBOARD" -> KeyboardLayout.toolMenu(panel,
                         new String[]{"КОПИРОВАТЬ", "ВСТАВИТЬ",
                             "ВЫДЕЛИТЬ ВСЁ", "← Назад"},
@@ -352,10 +378,10 @@ public final class VirtualKeyboardOverlay {
             layoutMenuPage = menuPage;
         }
         if (panel == null) return;
-        int panelBg = theme.panel();
-        int keyBg = theme.key();
-        int keyHover = theme.hover();
-        int keyPressed = theme.pressed();
+        int panelBg = opacity(theme.panel());
+        int keyBg = opacity(theme.key());
+        int keyHover = opacity(theme.hover());
+        int keyPressed = opacity(theme.pressed());
         int accent = theme.accent();
         int textColor = theme.text();
         int legendColor = theme.legend();
@@ -635,11 +661,18 @@ public final class VirtualKeyboardOverlay {
         if (!detached) QuestCraftKeyboardSuppressor.closeWhenScreenFallbackVisible();
     }
 
+    private int opacity(int color) {
+        int alpha = Math.max(0, Math.min(255,
+            ((color >>> 24) & 255) * featurePrefs.opacity() / 100));
+        return (alpha << 24) | (color & 0x00FFFFFF);
+    }
+
     /** Pixel-drawn VR pictograms, avoiding missing emoji glyphs on Quest. */
     private static boolean drawControlIcon(DrawContext c, KeyboardLayout.Key key,
                                            int ink, int accent) {
         KeyboardLayout.Command cmd = key.command();
-        if (cmd != KeyboardLayout.Command.MICROPHONE &&
+        if (cmd != KeyboardLayout.Command.SETTINGS &&
+            cmd != KeyboardLayout.Command.MICROPHONE &&
             cmd != KeyboardLayout.Command.QUICK_MESSAGES &&
             cmd != KeyboardLayout.Command.CLIPBOARD &&
             cmd != KeyboardLayout.Command.ESCAPE &&
@@ -647,8 +680,20 @@ public final class VirtualKeyboardOverlay {
             cmd != KeyboardLayout.Command.QUICK_DELETE) return false;
         int cx = key.x() + key.width() / 2;
         int cy = key.y() + key.height() / 2;
-        if (cmd == KeyboardLayout.Command.MICROPHONE) {
-            // Capsule, cradle and stand.
+        if (cmd == KeyboardLayout.Command.SETTINGS) {
+            // Clear eight-spoke metal gear with a hollow centre.
+            rounded(c, cx - 5, cy - 5, 10, 10, 3, ink);
+            c.fill(cx - 2, cy - 7, cx + 2, cy - 5, ink);
+            c.fill(cx - 2, cy + 5, cx + 2, cy + 7, ink);
+            c.fill(cx - 7, cy - 2, cx - 5, cy + 2, ink);
+            c.fill(cx + 5, cy - 2, cx + 7, cy + 2, ink);
+            c.fill(cx - 6, cy - 6, cx - 4, cy - 4, ink);
+            c.fill(cx + 4, cy - 6, cx + 6, cy - 4, ink);
+            c.fill(cx - 6, cy + 4, cx - 4, cy + 6, ink);
+            c.fill(cx + 4, cy + 4, cx + 6, cy + 6, ink);
+            rounded(c, cx - 2, cy - 2, 4, 4, 2, accent);
+        } else if (cmd == KeyboardLayout.Command.MICROPHONE) {
+            // A standalone microphone silhouette with simple stand.
             rounded(c, cx - 3, cy - 6, 6, 9, 3, ink);
             c.fill(cx - 6, cy - 1, cx - 4, cy + 3, ink);
             c.fill(cx + 4, cy - 1, cx + 6, cy + 3, ink);
@@ -998,10 +1043,11 @@ public final class VirtualKeyboardOverlay {
         if (field == null) return false;
         boolean accepted = handPointer(hand).press(panel, x, y,
             System.nanoTime() / 1_000_000L, field);
-        if (accepted && "MOVE".equals(menuPage)) {
+        if (accepted && ("MOVE".equals(menuPage) || "POSITION".equals(menuPage))) {
             KeyboardLayout.Key key = panel.at(x, y);
             if (key != null && key.command() == KeyboardLayout.Command.MOVE_GRAB)
-                FoxCraftVrPlane.beginGrab(hand);
+                if (hand == 0)
+                    FoxCraftVrPlane.beginGrab(hand, key.value());
         }
         return accepted;
     }
@@ -1128,8 +1174,9 @@ public final class VirtualKeyboardOverlay {
             // This also handles ordinary typed text followed by a swipe.
             String separator = KeyboardLayout.leadingSwipeSpace(field.getText(), before);
             boolean leadingSpace = !separator.isEmpty();
-            String suffix = "";
-            String inserted = separator + chosen;
+            String suffix = featurePrefs.autoSpace() &&
+                before == field.getText().length() ? " " : "";
+            String inserted = separator + chosen + suffix;
             field.write(inserted);
             int after = field.getCursor();
             String actual = field.getText();
@@ -1155,9 +1202,10 @@ public final class VirtualKeyboardOverlay {
             field.getCursor() != suggestionCursor ||
             !field.getSelectedText().isEmpty() || lastInsertedWord.isEmpty())
             return false;
-        int start = suggestionCursor - lastInsertedWord.length();
+        int start = suggestionCursor - lastInsertedWord.length() -
+            lastInsertedSuffix.length();
         return start >= 0 && field.getText().substring(start,
-            suggestionCursor).equals(lastInsertedWord);
+            suggestionCursor).equals(lastInsertedWord + lastInsertedSuffix);
     }
 
     private void clearSuggestions() {
@@ -1299,15 +1347,66 @@ public final class VirtualKeyboardOverlay {
                 openPage("COMPOSE");
             }
             case CLIPBOARD -> openPage("CLIPBOARD");
-            case MOVE_MENU -> openPage("MOVE");
+            case MOVE_MENU, POSITION_PAGE -> openPage("POSITION");
+            case KEYBOARD_PAGE -> openPage("KEYBOARD_OPTS");
+            case CHAT_PAGE -> openPage("CHAT_OPTS");
+            case SWIPE_PAGE -> openPage("SWIPE_OPTS");
+            case POSITION_LOCK -> {
+                featurePrefs.togglePositionLock();
+                panel = null;
+            }
+            case RESET_CONFIRM -> openPage("RESET_CONFIRM");
+            case RESET_ALL -> {
+                featurePrefs.resetAllVisualSettings();
+                panel = null;
+                openPage("SETTINGS");
+                showStatus("Настройки сброшены");
+            }
+            case ADJUST_OPTION -> {
+                switch (result.key().value()) {
+                    case "KB_UP" -> featurePrefs.move(0, -0.03f, 0);
+                    case "KB_DOWN" -> featurePrefs.move(0, 0.03f, 0);
+                    case "FIELD_UP" -> featurePrefs.adjustInputY(-6);
+                    case "FIELD_DOWN" -> featurePrefs.adjustInputY(6);
+                    case "CHAT_UP" -> featurePrefs.adjustHistoryHeight(3);
+                    case "CHAT_DOWN" -> featurePrefs.adjustHistoryHeight(-3);
+                    case "SIZE_UP" -> featurePrefs.adjustKeyboardSize(10);
+                    case "SIZE_DOWN" -> featurePrefs.adjustKeyboardSize(-10);
+                    case "NEAR" -> featurePrefs.move(0, 0, 0.04f);
+                    case "FAR" -> featurePrefs.move(0, 0, -0.04f);
+                    case "TILT_UP" -> featurePrefs.adjustKeyboardTilt(5);
+                    case "TILT_DOWN" -> featurePrefs.adjustKeyboardTilt(-5);
+                    case "OPACITY_UP" -> featurePrefs.adjustOpacity(10);
+                    case "OPACITY_DOWN" -> featurePrefs.adjustOpacity(-10);
+                    case "TEXT_UP" -> featurePrefs.adjustChatTextSize(10);
+                    case "TEXT_DOWN" -> featurePrefs.adjustChatTextSize(-10);
+                    case "SWIPE_UP" -> featurePrefs.adjustSwipeSensitivity(10);
+                    case "SWIPE_DOWN" -> featurePrefs.adjustSwipeSensitivity(-10);
+                    case "HOLD_UP" -> featurePrefs.adjustLongPressMs(50);
+                    case "HOLD_DOWN" -> featurePrefs.adjustLongPressMs(-50);
+                    case "GAP_UP" -> featurePrefs.adjustKeyGap(1);
+                    case "GAP_DOWN" -> featurePrefs.adjustKeyGap(-1);
+                    case "SOUND" -> featurePrefs.toggleClickSound();
+                    case "SUGGEST" -> featurePrefs.toggleWordSuggestions();
+                    case "SPACE" -> featurePrefs.toggleAutoSpace();
+                    default -> { }
+                }
+                featurePrefs.savePosition();
+                panel = null;
+                showStatus("Настройка сохранена");
+            }
             case CONTROLLER_MENU -> openPage("CONTROLLERS");
             case QUICK_MESSAGE -> {
                 int slot = Integer.parseInt(result.key().value());
                 String preset = quickBinds.outgoing(slot);
                 if (preset.isEmpty()) showStatus("Пустой бинд: нажми шестерёнку");
                 else {
+                    boolean safeAutoSend = quickBinds.autoSend(slot) &&
+                        screen instanceof ChatScreen && field.getText().isEmpty();
                     field.write(preset);
                     openPage("KEYBOARD");
+                    if (safeAutoSend && field.getText().equals(preset))
+                        screen.keyPressed(GLFW.GLFW_KEY_ENTER, 0, 0);
                 }
             }
             case MICROPHONE -> startDictation(screen, field);
@@ -1394,6 +1493,13 @@ public final class VirtualKeyboardOverlay {
                                  KeyHoldController.Activation result) {
         switch (result.key().command()) {
             case COMPOSE_MESSAGE -> quickDraft.selectNote(false);
+            case COMPOSE_AUTOSEND -> {
+                if (editingQuickSlot >= 0) {
+                    quickBinds.toggleAutoSend(editingQuickSlot);
+                    showStatus(quickBinds.autoSend(editingQuickSlot)
+                        ? "Бинд: отправлять сразу" : "Бинд: без автоотправки");
+                }
+            }
             case COMPOSE_NOTE -> quickDraft.selectNote(true);
             case COMPOSE_CLEAR -> quickDraft.clearActive();
             case COMPOSE_SEND -> {
