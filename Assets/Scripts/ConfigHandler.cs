@@ -56,7 +56,7 @@ public class ConfigHandler : MonoBehaviour
             return;
 
         config.launchMode = mode;
-        File.WriteAllText(configPath, JsonConvert.SerializeObject(config, Formatting.Indented));
+        SaveConfig();
     }
 
     public string SelectedPhoneVersion => config != null && !string.IsNullOrWhiteSpace(config.phoneVersion)
@@ -86,7 +86,7 @@ public class ConfigHandler : MonoBehaviour
         if (safe.Count == 0)
             return;
         config.phoneVersionCache = safe;
-        File.WriteAllText(configPath, JsonConvert.SerializeObject(config, Formatting.Indented));
+        SaveConfig();
     }
 
     public void SetPhoneVersion(string version)
@@ -95,7 +95,7 @@ public class ConfigHandler : MonoBehaviour
         if (config == null || !IsSafeVersionId(version))
             return;
         config.phoneVersion = version;
-        File.WriteAllText(configPath, JsonConvert.SerializeObject(config, Formatting.Indented));
+        SaveConfig();
     }
 
     private static bool IsSafeVersionId(string version)
@@ -117,57 +117,101 @@ public class ConfigHandler : MonoBehaviour
         return FoxCraftDevice.IsVrHeadset ? VrMode : PhoneMode;
     }
 
+    private static Config CreateDefaultConfig()
+    {
+        return new Config
+        {
+            acceptedLegal = false,
+            setDevMods = false,
+            setCustomRAM = false,
+            customRAMValue = "2048",
+            lastSelectedInstance = 0,
+            lastSelectedAccount = 0,
+            launchMode = InitialModeForDevice(),
+            phoneVersion = "1.21.5",
+            phoneVersionCache = new List<string> { "1.21.5" },
+            accounts = new List<Accounts>()
+        };
+    }
+
     public void LoadConfig()
     {
-        configPath = Application.persistentDataPath + "/launcher.conf";
-        
-        if (File.Exists(configPath))
-        { 
-            string configFile = File.ReadAllText(configPath);
-            config = JsonConvert.DeserializeObject<Config>(configFile);
-            if (config == null)
-                throw new InvalidDataException("launcher.conf is not valid FoxCraft configuration JSON");
-            if (config.accounts == null)
-                config.accounts = new List<Accounts>();
-            if (config.launchMode != VrMode && config.launchMode != PhoneMode)
-            {
-                config.launchMode = InitialModeForDevice();
-                File.WriteAllText(configPath, JsonConvert.SerializeObject(config, Formatting.Indented));
-            }
-            
-            if (!config.acceptedLegal) { windowHandler.LegalSetter(); }
-            if (config.setDevMods) { devHandler._devToggle.isOn = true; }
-            if (config.setCustomRAM)
-            {
-                devHandler._ramSetterToggle.isOn = true;
-                devHandler._ramSetterField.text = config.customRAMValue;
-                JNIStorage.apiClass.SetStatic("memoryValue", config.customRAMValue);
-            }
-            
-            // Selected instance is restored after Pojlib populates the list.
-        }
-        else
-        {
-            config = new Config
-            {
-                acceptedLegal = false,
-                setDevMods = false,
-                setCustomRAM = false,
-                customRAMValue = "2048",
-                lastSelectedInstance = 0,
-                lastSelectedAccount = 0,
-                launchMode = InitialModeForDevice(),
-                phoneVersion = "1.21.5",
-                phoneVersionCache = new List<string> { "1.21.5" },
-                accounts = new List<Accounts>()
-            };
+        configPath = Path.Combine(Application.persistentDataPath, "launcher.conf");
+        bool createNew = !File.Exists(configPath);
 
-            string JSON = JsonConvert.SerializeObject(config, Formatting.Indented);
-            File.WriteAllText(configPath, JSON);
-            string configFile = File.ReadAllText(configPath);
-            config = JsonConvert.DeserializeObject<Config>(configFile);
-            windowHandler.LegalSetter();
+        if (!createNew)
+        {
+            try
+            {
+                config = JsonConvert.DeserializeObject<Config>(File.ReadAllText(configPath));
+            }
+            catch (JsonException ex)
+            {
+                Debug.LogWarning("[FoxCraft] Invalid launcher.conf JSON: " + ex.GetType().Name);
+                config = null;
+            }
+
+            if (config == null)
+            {
+                // Never overwrite a damaged file containing account/profile data.
+                // Preserve it before creating a clean first-run configuration.
+                string backup = configPath + ".corrupt-" +
+                    DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
+                File.Move(configPath, backup);
+                Debug.LogWarning("[FoxCraft] Original launcher settings preserved as " +
+                    Path.GetFileName(backup));
+                createNew = true;
+            }
         }
+
+        if (createNew)
+        {
+            config = CreateDefaultConfig();
+            SaveConfig();
+        }
+
+        bool migrated = false;
+        if (config.accounts == null)
+        {
+            config.accounts = new List<Accounts>();
+            migrated = true;
+        }
+        if (config.launchMode != VrMode && config.launchMode != PhoneMode)
+        {
+            config.launchMode = InitialModeForDevice();
+            migrated = true;
+        }
+        if (!IsSafeVersionId(config.phoneVersion))
+        {
+            config.phoneVersion = "1.21.5";
+            migrated = true;
+        }
+        if (config.phoneVersionCache == null || config.phoneVersionCache.Count == 0)
+        {
+            config.phoneVersionCache = new List<string> { config.phoneVersion };
+            migrated = true;
+        }
+        if (string.IsNullOrWhiteSpace(config.customRAMValue))
+        {
+            config.customRAMValue = "2048";
+            migrated = true;
+        }
+        if (migrated)
+            SaveConfig();
+
+        if (!config.acceptedLegal && windowHandler != null)
+            windowHandler.LegalSetter();
+        if (config.setDevMods && devHandler != null)
+            devHandler._devToggle.isOn = true;
+        if (config.setCustomRAM && devHandler != null)
+        {
+            devHandler._ramSetterToggle.isOn = true;
+            devHandler._ramSetterField.text = config.customRAMValue;
+            if (JNIStorage.apiClass != null)
+                JNIStorage.apiClass.SetStatic("memoryValue", config.customRAMValue);
+        }
+        // JNIStorage.UpdateInstances restores the saved profile after its
+        // available versions and installed instances are populated.
     }
 
     public void SetLastSelectedInstance(int instance)
