@@ -27,7 +27,7 @@ public final class KeyboardLayout {
         WORD_LIST, WORD_ADD, WORD_PICK, WORD_SAVE, WORD_REMOVE, WORD_CLEAR,
         WORD_PAGE_PREVIOUS, WORD_PAGE_NEXT,
         ADJUST_OPTION, POSITION_LOCK, RESET_CONFIRM, RESET_ALL,
-        COMPOSE_AUTOSEND
+        COMPOSE_AUTOSEND, FREE_OPEN, FREE_RETURN, FREE_KEY, FREE_MODIFIER
     }
 
     public record Key(String label, Command command, String value, String alternate,
@@ -194,13 +194,13 @@ public final class KeyboardLayout {
         rowY += brandHeight + gap;
         addWeighted(keys, insideX, rowY, insideWidth, headerHeight, gap,
             new String[]{"АБВ Русский", "ABC English", "/", "!?#",
-                "", "", "", "⚙", "⌫"},
+                "", "", "", "⌨", "⚙", "⌫"},
             new Command[]{Command.LANGUAGE_RU, Command.LANGUAGE_EN,
                 Command.TYPE, Command.SYMBOLS, Command.MICROPHONE,
-                Command.QUICK_MESSAGES, Command.CLIPBOARD, Command.SETTINGS,
-                Command.BACKSPACE},
-            new String[]{"", "", "/", "", "", "", "", "", ""},
-            new int[]{4, 4, 2, 2, 2, 2, 2, 2, 2});
+                Command.QUICK_MESSAGES, Command.CLIPBOARD, Command.FREE_OPEN,
+                Command.SETTINGS, Command.BACKSPACE},
+            new String[]{"", "", "/", "", "", "", "", "", "", ""},
+            new int[]{4, 4, 2, 2, 2, 2, 2, 2, 2, 2});
         rowY += headerHeight + gap;
 
         // These are actual keys, not just a visual label: either VR hand can
@@ -249,6 +249,50 @@ public final class KeyboardLayout {
         return new Panel(x, y, width, height, List.copyOf(keys));
     }
 
+
+    /**
+     * The game-key page has no text entry field. Function keys and QWERTY
+     * send physical-style key presses, never printable chat characters.
+     * Keep the calibrated 390px VR shell and the existing EN layout rows.
+     */
+    public static Panel freeKeyboard(Panel english) {
+        if (english == null) return null;
+        Key header = english.keys().stream()
+            .filter(k -> k.command() == Command.LANGUAGE_EN)
+            .findFirst().orElse(null);
+        Key bottom = english.keys().stream()
+            .filter(k -> k.command() == Command.SPACE)
+            .findFirst().orElse(null);
+        if (header == null || bottom == null) return english;
+        List<Key> keys = new ArrayList<>();
+        for (Key k : english.keys()) {
+            if (k.y() == header.y() || k.y() == bottom.y()) continue;
+            if (k.command() == Command.TYPE)
+                keys.add(new Key(k.label().toUpperCase(Locale.ROOT),
+                    Command.FREE_KEY, k.value().toUpperCase(Locale.ROOT), "",
+                    k.x(), k.y(), k.width(), k.height()));
+            else keys.add(k);
+        }
+        String[] f = new String[12];
+        Command[] cmds = new Command[12];
+        int[] weights = new int[12];
+        for (int i=0;i<12;i++) {
+            f[i] = "F" + (i+1); cmds[i]=Command.FREE_KEY; weights[i]=1;
+        }
+        addWeighted(keys, english.x()+5, header.y(), english.width()-10,
+            header.height(), 2, f, cmds, f, weights);
+        addWeighted(keys, english.x()+5, bottom.y(), english.width()-10,
+            bottom.height(), 2,
+            new String[]{"В ЧАТ","✥","CTRL","SHIFT","ALT","ESC","TAB","SPACE","ENTER"},
+            new Command[]{Command.FREE_RETURN, Command.MOVE_GRAB,
+                Command.FREE_MODIFIER, Command.FREE_MODIFIER,
+                Command.FREE_MODIFIER, Command.FREE_KEY,
+                Command.FREE_KEY, Command.FREE_KEY, Command.FREE_KEY},
+            new String[]{"","FREE","CTRL","SHIFT","ALT","ESC","TAB","SPACE","ENTER"},
+            new int[]{5,2,3,3,2,2,2,4,3});
+        return new Panel(english.x(),english.y(),english.width(),
+            english.height(),List.copyOf(keys));
+    }
 
     /**
      * In-keyboard settings page: the ordinary input widget keeps focus while
