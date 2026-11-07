@@ -2,7 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:allowBackup="false"
-        android:label="FoxCraft Меню TEST"
+        android:label="FoxCraft Меню V2"
+        android:icon="@drawable/foxcraft_logo"
+        android:roundIcon="@drawable/foxcraft_logo"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="false">
         <activity
