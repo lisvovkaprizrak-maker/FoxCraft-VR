@@ -196,6 +196,28 @@ public static class InstanceLaunchSmoke
                 "successful launch leaves VR handoff active until gameReady");
             ProgressBarManager.started = false;
 
+            // An old gameReady flag can survive from a previous VR session.
+            // Starting the launcher must not fade/deinitialize OpenXR before
+            // the user actually presses Play for this new session.
+            AndroidJavaClass.GameReady = true;
+            int previousFades = LeanTween.ValueCallCount;
+            var update = typeof(InstanceButton).GetMethod("Update");
+            update.Invoke(button, null);
+            Assert(LeanTween.ValueCallCount == previousFades,
+                "stale gameReady does not trigger OpenXR handoff without Play");
+
+            typeof(InstanceButton).GetField("launchInProgress",
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic)
+                .SetValue(successfulButton, true);
+            update.Invoke(successfulButton, null);
+            Assert(LeanTween.ValueCallCount == previousFades + 1,
+                "gameReady starts exactly one VR fade after an active launch");
+            update.Invoke(successfulButton, null);
+            Assert(LeanTween.ValueCallCount == previousFades + 1,
+                "repeated gameReady polls never queue duplicate VR transitions");
+            AndroidJavaClass.GameReady = false;
+
             Console.WriteLine("FoxCraft VR launch smoke: " + checks + " checks passed.");
             return 0;
         }
