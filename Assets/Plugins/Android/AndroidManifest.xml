@@ -6,7 +6,7 @@
   <uses-permission android:name="org.khronos.openxr.permission.OPENXR_SYSTEM" />
   <uses-permission android:name="android.permission.VIBRATE" />
   <uses-permission tools:node="remove" android:name="android.permission.READ_PHONE_STATE"/>
-  <uses-feature android:name="android.hardware.vr.headtracking" android:required="true" android:version="1" />
+  <uses-feature android:name="android.hardware.vr.headtracking" android:required="false" android:version="1" />
 
   <queries>
     <provider android:authorities="org.khronos.openxr.runtime_broker;org.khronos.openxr.system_runtime_broker" />
@@ -34,5 +34,5 @@
     <meta-data android:name="com.oculus.vr.focusaware" android:value="true" />
     <meta-data android:name="com.oculus.intent.category.VR" android:value="vr_only"/>
   </application>
-  <uses-feature android:name="android.hardware.vr.headtracking" android:version="1" android:required="true" />
+  <uses-feature android:name="android.hardware.vr.headtracking" android:version="1" android:required="false" />
 </manifest>
