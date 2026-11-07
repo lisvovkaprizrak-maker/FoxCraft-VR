@@ -133,6 +133,12 @@ public class InstanceButton : MonoBehaviour
 
     private IEnumerator InstallDefaultInstance(string name)
     {
+        if (InstanceManager.IsUpdatingProfiles)
+        {
+            if (uiHandler != null)
+                uiHandler.SetAndShowError("Дождитесь завершения изменения сборки Minecraft.");
+            yield break;
+        }
         if (IsInstallingInstance)
         {
             if (uiHandler != null)
@@ -240,6 +246,12 @@ public class InstanceButton : MonoBehaviour
     {
         if (Application.platform != RuntimePlatform.Android || launchInProgress)
             return;
+        if (InstanceManager.IsUpdatingProfiles)
+        {
+            if (uiHandler != null)
+                uiHandler.SetAndShowError("Изменение сборки Minecraft ещё выполняется.");
+            return;
+        }
         if (IsInstallingInstance)
         {
             if (uiHandler != null)
