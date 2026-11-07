@@ -17,6 +17,8 @@ namespace UnityEngine
             System.Diagnostics.Stopwatch.StartNew();
         public static float realtimeSinceStartup => (float)Clock.Elapsed.TotalSeconds;
     }
+    [AttributeUsage(AttributeTargets.Field)]
+    public sealed class SerializeField : Attribute { }
     public class Coroutine { }
     public class MonoBehaviour
     {
