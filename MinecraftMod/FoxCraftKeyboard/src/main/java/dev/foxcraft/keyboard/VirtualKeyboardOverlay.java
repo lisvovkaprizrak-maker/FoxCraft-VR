@@ -120,6 +120,15 @@ public final class VirtualKeyboardOverlay {
 
     public boolean isFreeMode() { return freeModeActive; }
 
+    /** Clear held game keys whenever a mod opens its own GUI. */
+    public void suspendFreeKeys() {
+        if (!freeModeActive) return;
+        gameKeys.releaseAll();
+        heldGameKeys[0] = heldGameKeys[1] = null;
+        pointer.cancel();
+        leftPointer.cancel();
+    }
+
     private void enterFreeMode() {
         MinecraftClient mc = MinecraftClient.getInstance();
         gameKeys.releaseAll();
