@@ -26,8 +26,12 @@ public class JNIStorage : MonoBehaviour
     
     static void CloseXR()
     {
-        XRGeneralSettings.Instance.Manager.activeLoader.Stop();
-        XRGeneralSettings.Instance.Manager.activeLoader.Deinitialize();
+        // A phone may have no initialized OpenXR loader.
+        var manager = XRGeneralSettings.Instance != null ? XRGeneralSettings.Instance.Manager : null;
+        if (manager == null || manager.activeLoader == null)
+            return;
+        manager.activeLoader.Stop();
+        manager.activeLoader.Deinitialize();
     }
     
     [RuntimeInitializeOnLoadMethod]
@@ -51,7 +55,9 @@ public class JNIStorage : MonoBehaviour
         instancesObj = apiClass.CallStatic<AndroidJavaObject>("loadAll");
         configHandler.LoadConfig();
         UpdateInstances();
-	    apiClass.SetStatic("model", OpenXRFeatureSystemInfo.GetHeadsetName());
+	    string headsetModel = OpenXRFeatureSystemInfo.GetHeadsetName();
+        if (!string.IsNullOrEmpty(headsetModel))
+            apiClass.SetStatic("model", headsetModel);
         CheckConnection();
     }
 
