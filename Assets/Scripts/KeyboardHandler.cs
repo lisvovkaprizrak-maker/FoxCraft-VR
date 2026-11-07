@@ -15,6 +15,17 @@ public class KeyboardHandler : MonoBehaviour
 
     private void Update()
     {
+        if (keyboard == null)
+            return;
+
+        // QuestCraft's VR key grid must not cover the native Android keyboard.
+        // TMP_InputField will instead request the system keyboard on a phone.
+        if (FoxCraftDevice.IsAndroidPhone)
+        {
+            keyboard.SetActive(false);
+            return;
+        }
+
         keyboard.SetActive(searchBox.IsActive() || ramSetter.IsActive() || instanceEditor.IsActive());
     }
     
