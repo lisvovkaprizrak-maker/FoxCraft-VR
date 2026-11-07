@@ -160,6 +160,7 @@ namespace UnityEngine.UI
     {
         public UnityEngine.GameObject gameObject = new UnityEngine.GameObject();
         public ClickEvent onClick = new ClickEvent();
+        public T GetComponentInParent<T>() where T : new() => new T();
     }
     public class Image
     {
