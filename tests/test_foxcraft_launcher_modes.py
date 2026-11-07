@@ -66,6 +66,15 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         self.assertIn('new AndroidJavaClass(BridgeClass)', runtime)
         self.assertNotIn('CallStatic("launchInstance"', runtime)
 
+    def test_failed_vr_launch_restores_play_button_and_never_uses_stale_selection(self):
+        button = read("Assets/Scripts/InstanceButton.cs")
+        self.assertIn("var selectedDropdown = JNIStorage.instance.instancesDropdown;", button)
+        self.assertIn("currInstName = selectedDropdown.options[selectedIndex].text;", button)
+        self.assertIn("ProgressBarManager.started = false;", button)
+        self.assertIn("uiHandler.KillSetter();", button)
+        self.assertIn("selected == null || JNIStorage.apiClass == null", button)
+        self.assertIn("Сначала выберите сборку Minecraft", button)
+
     def test_phone_uses_existing_flat_questcraft_camera_and_android_keyboard(self):
         device = read("Assets/Scripts/FoxCraftDevice.cs")
         camera = read("Assets/Scripts/DesktopCam.cs")
