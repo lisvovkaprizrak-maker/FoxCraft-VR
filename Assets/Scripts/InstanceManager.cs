@@ -24,6 +24,7 @@ public class InstanceManager : MonoBehaviour
     public TMP_Dropdown loaderDropdown;
     public WindowHandler windowHandler;
     public Texture2D errorTexture;
+    private int instanceInfoRequestId;
 
     [FormerlySerializedAs("ModCounter")] public TextMeshProUGUI modCounter;
     [SerializeField] private GameObject modPrefab;
@@ -127,7 +128,17 @@ public class InstanceManager : MonoBehaviour
 
     async void CreateInstanceInfoPage(string slug)
     {
+        // A slow Modrinth response must not render the previous profile's mods
+        // after the user has selected another Minecraft instance.
+        int requestId = ++instanceInfoRequestId;
         PojlibInstance instance = JNIStorage.GetInstance(slug);
+        if (instance == null)
+        {
+            if (JNIStorage.instance != null && JNIStorage.instance.uiHandler != null)
+                JNIStorage.instance.uiHandler.SetAndShowError(
+                    "Сборка Minecraft больше не найдена. Обновите список профилей.");
+            return;
+        }
         windowHandler.InstanceInfoSetter();
 
         instanceVersion.text = instance.versionName + " - Fabric";
@@ -139,7 +150,7 @@ public class InstanceManager : MonoBehaviour
         for (int i = modArray.transform.childCount - 1; i >= 0; i--)
             Destroy(modArray.transform.GetChild(i).gameObject);
 
-        PojlibMod[] modList = instance.GetMods();
+        PojlibMod[] modList = instance.GetMods() ?? Array.Empty<PojlibMod>();
 
         void CountMods(int count)
         {
@@ -159,41 +170,77 @@ public class InstanceManager : MonoBehaviour
 
         async Task GetModInfoArray()
         {
-            string request = "https://api.modrinth.com/v2/projects?ids=[";
-            foreach (PojlibMod mod in modList)
-                request += $"\"{mod.slug}\",";
-            request = request.Remove(request.Length - 1, 1) + "]";
+            // An empty instance is normal. Never call Modrinth with an
+            // invalid ?ids=] query or wait indefinitely for its response.
+            if (modList.Length == 0)
+                return;
 
-            UnityWebRequest www = UnityWebRequest.Get(request);
-            www.SetRequestHeader("User-Agent", "QuestCraftPlusPlus/QuestCraft/" + Application.version + " (discord.gg/questcraft)");
-            www.SendWebRequest();
-            while (!www.isDone)
-                await Task.Delay(16);
-            if (www.result != UnityWebRequest.Result.Success)
-                Debug.Log(www.error);
-            else
-                fetchedMods =
-                    new List<MetaParser>(JsonConvert.DeserializeObject<MetaParser[]>(www.downloadHandler.text));
-
-            HashSet<string> fetchedSlugs = new HashSet<string>(fetchedMods.Select(mod => mod.slug.ToLower()));
+            List<string> slugs = new List<string>();
             foreach (PojlibMod mod in modList)
             {
-                string currentSlug = mod.slug.ToLower();
-                if (fetchedSlugs.Add(currentSlug))
+                if (mod != null && !string.IsNullOrWhiteSpace(mod.slug) &&
+                    !slugs.Contains(mod.slug))
+                    slugs.Add(mod.slug);
+            }
+            if (slugs.Count == 0)
+                return;
+
+            string request = "https://api.modrinth.com/v2/projects?ids=" +
+                UnityWebRequest.EscapeURL(JsonConvert.SerializeObject(slugs));
+            using (UnityWebRequest www = UnityWebRequest.Get(request))
+            {
+                www.timeout = 15;
+                www.SetRequestHeader("User-Agent", "FoxCraft-VR/" + Application.version);
+                www.SendWebRequest();
+                while (!www.isDone)
+                    await Task.Delay(16);
+
+                if (www.result != UnityWebRequest.Result.Success)
                 {
-                    MetaParser newMod = new MetaParser
+                    Debug.LogWarning("[FoxCraft] Modrinth metadata unavailable: " + www.error);
+                }
+                else
+                {
+                    try
                     {
-                        slug = currentSlug,
-                        title = currentSlug,
+                        MetaParser[] response =
+                            JsonConvert.DeserializeObject<MetaParser[]>(www.downloadHandler.text);
+                        if (response != null)
+                            fetchedMods.AddRange(response.Where(mod => mod != null &&
+                                !string.IsNullOrWhiteSpace(mod.slug)));
+                    }
+                    catch (JsonException exception)
+                    {
+                        Debug.LogWarning("[FoxCraft] Invalid Modrinth metadata: " +
+                            exception.GetType().Name);
+                    }
+                }
+            }
+
+            // Network failure / deleted Modrinth project must not hide installed
+            // mods. Always render an offline record for each missing project.
+            HashSet<string> fetchedSlugs = new HashSet<string>(
+                fetchedMods.Select(mod => mod.slug), StringComparer.OrdinalIgnoreCase);
+            foreach (PojlibMod mod in modList)
+            {
+                if (mod == null || string.IsNullOrWhiteSpace(mod.slug))
+                    continue;
+                if (fetchedSlugs.Add(mod.slug))
+                {
+                    fetchedMods.Add(new MetaParser
+                    {
+                        slug = mod.slug,
+                        title = mod.slug,
                         description = "",
                         icon_url = "OFFLINE"
-                    };
-                    fetchedMods.Add(newMod);
+                    });
                 }
             }
         }
 
         await GetModInfoArray();
+        if (requestId != instanceInfoRequestId)
+            return;
 
         //sort it
         fetchedMods = fetchedMods.OrderBy(mod => mod.title).ToList();
