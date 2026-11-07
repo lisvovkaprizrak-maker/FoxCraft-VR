@@ -483,6 +483,19 @@ public final class KeyboardLayout {
             word.substring(1);
     }
 
+    /**
+     * Capitalise exactly the first manually typed Cyrillic letter of an empty
+     * message. Slash commands, later words and all non-Russian keys are inert.
+     */
+    public static String firstRussianLetter(String text, boolean russian,
+                                           String existing, int cursor) {
+        if (!russian || text == null || text.length() != 1 || cursor != 0 ||
+            existing == null || !existing.isEmpty()) return text;
+        char ch = text.charAt(0);
+        return (ch >= 'а' && ch <= 'я') || ch == 'ё'
+            ? text.toUpperCase(Locale.ROOT) : text;
+    }
+
     /** Put a space BEFORE a swipe word whenever preceding text needs one.
      * Works for ordinary typing followed by a swipe as well as two swipes.
      * Never prepend a space in an empty field, at the beginning of text,
