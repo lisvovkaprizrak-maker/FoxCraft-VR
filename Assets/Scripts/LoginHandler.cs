@@ -12,6 +12,7 @@ using UnityEngine.Serialization;
 public class LoginHandler : MonoBehaviour
 {
     bool isLoggedIn;
+    public bool HasAuthenticatedAccount => isLoggedIn && JNIStorage.accountObj != null;
     
     [SerializeField] private TMP_Dropdown accountDropdown;
     public List<ConfigHandler.Accounts> accounts = new();
