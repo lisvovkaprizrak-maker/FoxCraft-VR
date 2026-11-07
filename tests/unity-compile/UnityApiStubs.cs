@@ -216,6 +216,7 @@ public sealed class Dropdown
 public sealed class UIHandler
 {
     public void PlaySetter() { }
+    public void KillSetter() { }
     public void SetAndShowError(string message) { }
 }
 public sealed class ConfigHandler
