@@ -30,6 +30,7 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
     private GameObject phoneVersionRow;
     private TextMeshProUGUI phoneVersionLabel;
     private bool versionsRequested;
+    private bool refreshedVersionsNeedSaving;
 
     private sealed class MinecraftManifest
     {
@@ -66,8 +67,18 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
 
         if (config == null)
             config = FindObjectOfType<ConfigHandler>();
-        if (config != null && phoneVersions.Count == 0)
-            phoneVersions.AddRange(config.GetCachedPhoneVersions());
+        if (config != null && config.IsLoaded)
+        {
+            if (phoneVersions.Count == 0)
+                phoneVersions.AddRange(config.GetCachedPhoneVersions());
+            // The Mojang request can finish before JNIStorage.LoadConfig.
+            // Persist fetched releases once settings become ready.
+            if (refreshedVersionsNeedSaving && phoneVersions.Count > 0)
+            {
+                config.SetCachedPhoneVersions(phoneVersions);
+                refreshedVersionsNeedSaving = false;
+            }
+        }
         if (window == null)
             window = FindObjectOfType<WindowHandler>();
 
@@ -245,6 +256,7 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
                     {
                         phoneVersions.Clear();
                         phoneVersions.AddRange(latest);
+                        refreshedVersionsNeedSaving = true;
                     }
                 }
             }
@@ -256,8 +268,11 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
 
         if (config == null)
             config = FindObjectOfType<ConfigHandler>();
-        if (config != null && phoneVersions.Count > 0)
+        if (refreshedVersionsNeedSaving && config != null && config.IsLoaded)
+        {
             config.SetCachedPhoneVersions(phoneVersions);
+            refreshedVersionsNeedSaving = false;
+        }
         displayedPhone = null;
     }
 
