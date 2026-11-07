@@ -16,12 +16,12 @@ public final class FreeKeyboardSettingsMenu {
                     "РАЗМЕР − 5%", "РАЗМЕР + 5%",
                     "НАКЛОН: " + p.freeKeyboardTilt() + "°", "ПОЗИЦИЯ",
                     "ПРОЗРАЧН.: " + p.freeKeyboardOpacity() + "%",
-                    "ТЕМЫ", "КОНТРОЛЛЕРЫ", "СБРОС СВОБ. КЛАВ", "← К КЛАВИАТУРЕ"},
+                    "ТЕМЫ", "КОНТРОЛЛЕРЫ", "↻ СБРОС ДО СТАНДАРТА", "← К КЛАВИАТУРЕ"},
                 new KeyboardLayout.Command[]{NONE, ADJ, ADJ, PAGE,
-                    PAGE, PAGE, PAGE, PAGE, PAGE, KeyboardLayout.Command.BACK_TO_KEYS},
+                    PAGE, PAGE, PAGE, PAGE, ADJ, KeyboardLayout.Command.BACK_TO_KEYS},
                 new String[]{"", "FREE_SIZE_DOWN", "FREE_SIZE_UP",
                     "FREE_TILT", "FREE_POSITION", "FREE_APPEARANCE",
-                    "FREE_THEMES", "FREE_CONTROLLERS", "FREE_RESET", ""});
+                    "FREE_THEMES", "FREE_CONTROLLERS", "FREE_RESET_ALL", ""});
             case "FREE_TILT" -> KeyboardLayout.toolMenu(panel,
                 new String[]{"НАКЛОН: " + p.freeKeyboardTilt() + "°",
                     "НАКЛОН − 5°", "НАКЛОН + 5°", "НАКЛОН: СБРОС", "← НАСТРОЙКИ"},
