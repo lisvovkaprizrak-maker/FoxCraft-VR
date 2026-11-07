@@ -87,11 +87,12 @@ public static class InstanceLaunchSmoke
             SystemInfo.deviceModel = "Meta Quest 3";
             InstanceButton.currInstName = "old-stale-selection";
             JNIStorage.ActiveInstance = null;
+            int coroutineStartsBeforeInstall = MonoBehaviour.CoroutineStarts;
             button.LaunchCurrentInstance();
             Assert(InstanceButton.currInstName == "Fabric 1.21.5",
                 "Play reads current dropdown rather than a stale static instance");
-            Assert(ui.lastError != null && ui.lastError.Contains("installing"),
-                "missing profile reaches Pojlib installation path");
+            Assert(MonoBehaviour.CoroutineStarts == coroutineStartsBeforeInstall + 1,
+                "missing profile schedules background installation instead of blocking menu");
 
             // A fake Pojlib prelaunch returns false. Verify the coroutine
             // restores Play/Cancel controls and clears progress instead of
@@ -353,11 +354,10 @@ public static class InstanceLaunchSmoke
             Assert(AndroidJavaClass.LaunchInstanceCallCount == javaCalls,
                 "blocked reattempt does not create a second Java worker");
             nestedWorker.GetField("completed").SetValue(pendingWorker, true);
+            int nextInstallCount = MonoBehaviour.CoroutineStarts;
             watchdog.LaunchCurrentInstance();
-            // CreateDefaultInstance reports installation via the shared
-            // JNIStorage UIHandler rather than this button's local handler.
-            Assert(ui.lastError != null && ui.lastError.Contains("installing"),
-                "the player can try again after the old Java worker finishes");
+            Assert(MonoBehaviour.CoroutineStarts == nextInstallCount + 1,
+                "the player can retry installation after the old Java worker finishes");
 
             // Pojlib.launchInstance can remain blocked for the entire game.
             // The VR handoff should finish its Unity coroutine after gameReady
