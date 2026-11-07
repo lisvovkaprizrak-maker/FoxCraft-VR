@@ -106,15 +106,15 @@ public final class FoxCraftVrPlane {
         if (hand != 0 || keyboard == null ||
             keyboard.features().positionLocked()) return;
         if (!"KEYBOARD".equals(target) && !"INPUT".equals(target) &&
-            !"HISTORY".equals(target)) return;
+            !"HISTORY".equals(target) && !"FREE".equals(target)) return;
         Vector3f controller = controllerRoomPosition(hand);
         if (controller == null) return;
         FoxCraftFeatureSettings pref = keyboard.features();
         grabHand = hand;
         grabStartController = controller;
-        grabStartRight = pref.offsetRight();
-        grabStartDown = pref.offsetDown();
-        grabStartForward = pref.offsetForward();
+        grabStartRight = "FREE".equals(target) ? pref.freeRight() : pref.offsetRight();
+        grabStartDown = "FREE".equals(target) ? pref.freeDown() : pref.offsetDown();
+        grabStartForward = "FREE".equals(target) ? pref.freeForward() : pref.offsetForward();
         grabStartHistory = pref.historyHeight();
         grabStartInputY = pref.inputY();
         grabTarget = target;
@@ -153,7 +153,12 @@ public final class FoxCraftVrPlane {
             new Vector3f(0, 1, 0), new Vector3f()).normalize();
         Vector3f localForward = guiRotation.transformDirection(
             new Vector3f(0, 0, 1), new Vector3f()).normalize();
-        keyboard.features().setPosition(
+        if ("FREE".equals(grabTarget)) {
+            keyboard.features().setFreePosition(
+                grabStartRight + delta.dot(localRight) / guiScale,
+                grabStartDown - delta.dot(localUp) / guiScale,
+                grabStartForward + delta.dot(localForward) / guiScale);
+        } else keyboard.features().setPosition(
             grabStartRight + delta.dot(localRight) / guiScale,
             grabStartDown - delta.dot(localUp) / guiScale,
             grabStartForward + delta.dot(localForward) / guiScale);
@@ -302,16 +307,22 @@ public final class FoxCraftVrPlane {
                 "org.vivecraft.client_vr.gameplay.screenhandlers.GuiHandler");
             Object chatPos = guiClass.getField("GUI_POS_ROOM").get(null);
             Object chatRotation = guiClass.getField("GUI_ROTATION_ROOM").get(null);
-            if (!(chatPos instanceof Vector3f guiPos) ||
-                !(chatRotation instanceof Matrix4f guiRot))
-                return; // GUI is not yet positioned; retry on the next frame.
+            // While playing with FREE keyboard, GuiHandler may no longer
+            // expose a GUI pose; keep the last valid chat-room anchor.
+            boolean free = keyboard.isFreeMode();
+            if ((!free || placementAnchor == null || placementRotation == null) &&
+                (!(chatPos instanceof Vector3f) ||
+                 !(chatRotation instanceof Matrix4f)))
+                return;
 
             float guiScale = guiClass.getField("GUI_SCALE").getFloat(null);
             if (!(guiScale > 0)) return;
             // Pin the keyboard to its own room pose for this screen. Subsequent
             // chat window movement must not drag the keyboard along with it.
-            if (placementScreen != client.currentScreen ||
+            if ((!free && placementScreen != client.currentScreen) ||
                 placementAnchor == null || placementRotation == null) {
+                if (!(chatPos instanceof Vector3f guiPos) ||
+                    !(chatRotation instanceof Matrix4f guiRot)) return;
                 placementScreen = client.currentScreen;
                 placementAnchor = new Vector3f(guiPos);
                 placementRotation = new Matrix4f(guiRot);
@@ -322,7 +333,7 @@ public final class FoxCraftVrPlane {
             // Chat history uses an isolated HUD transform. Never mutate
             // GuiHandler.GUI_POS_ROOM: doing so also moves the chat input
             // and breaks independent height controls or other GUI elements.
-            boolean inChat = client.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen;
+            boolean inChat = free || client.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen;
             // Equivalent to QuestCraft's chat-relative keyboard positioning:
             // project down the GUI's local up axis and slightly toward player.
             // Neither KeyboardHandler.SHOWING nor its framebuffer is modified.
@@ -331,9 +342,9 @@ public final class FoxCraftVrPlane {
             rotation = new Matrix4f(baseRotation)
                 .rotateX((float) Math.toRadians(settings.keyboardTilt()));
             float xCorrection = (inChat ? CHAT_RIGHT_SHIFT : MENU_RIGHT_SHIFT)
-                + settings.offsetRight();
+                + (free ? settings.freeRight() : settings.offsetRight());
             float yCorrection = (inChat ? CHAT_DOWN_SHIFT : MENU_DOWN_SHIFT)
-                + settings.offsetDown();
+                + (free ? settings.freeDown() : settings.offsetDown());
             position = new Vector3f(placementAnchor)
                 .sub(baseRotation.transformDirection(new Vector3f(0, 1, 0),
                     new Vector3f()).mul((down + yCorrection) * guiScale))
@@ -344,7 +355,7 @@ public final class FoxCraftVrPlane {
                     new Vector3f()).mul(xCorrection * guiScale))
                 .add(baseRotation.transformDirection(new Vector3f(0, 0, 1),
                     new Vector3f()).mul(
-                        (forward + settings.offsetForward()) * guiScale))
+                        (forward + (free ? settings.freeForward() : settings.offsetForward())) * guiScale))
                 .add(rotation.transformDirection(new Vector3f(0, 0, 1),
                     new Vector3f()).mul(TOWARDS_PLAYER * guiScale));
             scale = Math.max(0.25f, guiScale *
