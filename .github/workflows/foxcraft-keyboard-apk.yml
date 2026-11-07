@@ -61,8 +61,10 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Compile launcher C# syntax with Unity API test doubles
         run: dotnet build tests/unity-compile/FoxCraftUnitySyntax.csproj --configuration Release --nologo
-      - name: Compile configuration and Microsoft account login lifecycle
-        run: dotnet build tests/unity-login-compile/FoxCraftLoginSyntax.csproj --configuration Release --nologo
+      - name: Compile and smoke-test configuration and Microsoft login startup
+        run: |
+          dotnet build tests/unity-login-compile/FoxCraftLoginSyntax.csproj --configuration Release --nologo
+          dotnet run --project tests/unity-login-compile/FoxCraftLoginSyntax.csproj --configuration Release --no-build
       - name: Verify Minecraft 1.21.5 APK configuration
         run: |
           python3 -m unittest discover -s tests -p 'test_keyboard_apk_pipeline.py' -v
