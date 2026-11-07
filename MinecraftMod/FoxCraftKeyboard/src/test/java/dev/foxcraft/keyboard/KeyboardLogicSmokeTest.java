@@ -10,6 +10,7 @@ public final class KeyboardLogicSmokeTest {
     public static void main(String[] args) {
         testQuickMessageComposer();
         testPersistentOptions();
+        testRequestedTypingAndSwipe();
         testQuickBinds();
         // Regression: on Quest, the world-selection text field must not
         // display FoxCraft over the menu, while in-world chat stays usable
@@ -804,6 +805,34 @@ public final class KeyboardLogicSmokeTest {
             require(editor.at(key.x() + key.width() / 2.0,
                 key.y() + key.height() / 2.0) != null,
                 "Composer keys must remain hit-testable by VR controllers");
+    }
+
+    private static void testRequestedTypingAndSwipe() {
+        require("П".equals(KeyboardLayout.firstRussianLetter("п", true, "", 0)),
+            "First manually typed Russian letter must be uppercase");
+        require("п".equals(KeyboardLayout.firstRussianLetter("п", true, "Привет ", 7)),
+            "Other words must remain lowercase");
+        require("п".equals(KeyboardLayout.firstRussianLetter("п", true, "/", 1)),
+            "Slash-command arguments must not be autocapitalised");
+        require("п".equals(KeyboardLayout.firstRussianLetter("п", false, "", 0)),
+            "English mode must not force Russian capitals");
+
+        KeyboardLayout.Panel ru = KeyboardLayout.make(854, 480,
+            true, true, false, false, false);
+        for (String target : new String[]{"куплю", "донки", "купить", "покупка"}) {
+            var stroke = new java.util.ArrayList<GestureWordRecognizer.Point>();
+            for (int i = 0; i < target.length(); i++) {
+                String letter = target.substring(i, i + 1);
+                KeyboardLayout.Key key = ru.keys().stream()
+                    .filter(k -> letter.equals(k.value()) &&
+                        k.command() == KeyboardLayout.Command.TYPE)
+                    .findFirst().orElseThrow();
+                stroke.add(new GestureWordRecognizer.Point(
+                    key.x() + key.width() / 2., key.y() + key.height() / 2.));
+            }
+            require(GestureWordRecognizer.suggest(ru, stroke, 3).contains(target),
+                "Exact Russian swipe must suggest " + target);
+        }
     }
 
     private static void testPersistentOptions() {
