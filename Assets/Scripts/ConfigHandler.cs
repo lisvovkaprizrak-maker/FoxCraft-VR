@@ -19,6 +19,21 @@ public class ConfigHandler : MonoBehaviour
 
     public bool IsLoaded => config != null;
 
+    private void Update()
+    {
+        // On the very first Android boot the Quest/Pico model may be a codename
+        // and PackageManager may not yet be available. Resolve the default
+        // launch mode only after hardware classification; never override a mode
+        // explicitly chosen by the player.
+        if (config == null || !config.autoLaunchMode ||
+            FoxCraftDevice.IsDetectionPending)
+            return;
+
+        config.launchMode = InitialModeForDevice();
+        config.autoLaunchMode = false;
+        SaveConfig();
+    }
+
     // Keep a valid previous version on disk so an interrupted save cannot
     // destroy the user's Microsoft account list, preferences and VR profiles.
     // This does NOT store account passwords or access tokens.
@@ -108,6 +123,7 @@ public class ConfigHandler : MonoBehaviour
             return;
 
         config.launchMode = mode;
+        config.autoLaunchMode = false;
         SaveConfig();
     }
 
@@ -176,7 +192,8 @@ public class ConfigHandler : MonoBehaviour
 
     private static string InitialModeForDevice()
     {
-        return FoxCraftDevice.IsVrHeadset ? VrMode : PhoneMode;
+        return FoxCraftDevice.IsDetectionPending ||
+            FoxCraftDevice.IsVrHeadset ? VrMode : PhoneMode;
     }
 
     private static Config CreateDefaultConfig()
@@ -191,6 +208,7 @@ public class ConfigHandler : MonoBehaviour
             lastSelectedInstanceName = "",
             lastSelectedAccount = 0,
             launchMode = InitialModeForDevice(),
+            autoLaunchMode = true,
             phoneVersion = "1.21.5",
             phoneVersionCache = new List<string> { "1.21.5" },
             accounts = new List<Accounts>()
@@ -267,6 +285,7 @@ public class ConfigHandler : MonoBehaviour
         if (config.launchMode != VrMode && config.launchMode != PhoneMode)
         {
             config.launchMode = InitialModeForDevice();
+            config.autoLaunchMode = true;
             migrated = true;
         }
         if (!IsSafeVersionId(config.phoneVersion))
@@ -374,6 +393,7 @@ public class ConfigHandler : MonoBehaviour
         public string lastSelectedInstanceName;
         public int lastSelectedAccount;
         public string launchMode;
+        public bool autoLaunchMode;
         public string phoneVersion;
         public List<string> phoneVersionCache;
         public List<Accounts> accounts;
