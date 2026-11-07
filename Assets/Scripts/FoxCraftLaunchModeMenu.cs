@@ -226,11 +226,21 @@ public sealed class FoxCraftLaunchModeMenu : MonoBehaviour
                     request.downloadHandler.text);
                 if (list != null && list.versions != null)
                 {
+                    // Replace stale cached results instead of appending them
+                    // ahead of the newest official versions.
+                    List<string> latest = new List<string>();
                     foreach (MinecraftRelease entry in list.versions)
                     {
+                        if (latest.Count >= 160)
+                            break;
                         if (entry != null && entry.type == "release" &&
-                            !string.IsNullOrWhiteSpace(entry.id) && phoneVersions.Count < 160)
-                            phoneVersions.Add(entry.id);
+                            !string.IsNullOrWhiteSpace(entry.id) && !latest.Contains(entry.id))
+                            latest.Add(entry.id);
+                    }
+                    if (latest.Count > 0)
+                    {
+                        phoneVersions.Clear();
+                        phoneVersions.AddRange(latest);
                     }
                 }
             }
