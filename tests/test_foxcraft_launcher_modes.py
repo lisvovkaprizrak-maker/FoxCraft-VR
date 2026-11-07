@@ -42,6 +42,12 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         self.assertIn("version_manifest_v2.json", menu)
         self.assertIn("raycastTarget = false", menu)
         self.assertIn('entry.type == "release"', menu)
+        self.assertIn("modeToggle", menu)
+        self.assertIn("expanded = !expanded", menu)
+        self.assertIn('new Vector2(-145f, 55f)', menu)
+        self.assertIn('root.anchorMin = new Vector2(0.5f, 0.5f)', menu)
+        self.assertIn("closeButton.onClick.AddListener", menu)
+        self.assertNotIn('root.anchoredPosition = new Vector2(0f, 160f)', menu)
 
     def test_phone_launch_never_uses_vr_renderer(self):
         button = read("Assets/Scripts/InstanceButton.cs")
