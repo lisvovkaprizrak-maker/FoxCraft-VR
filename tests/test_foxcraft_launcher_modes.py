@@ -37,6 +37,7 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         menu = read("Assets/Scripts/FoxCraftLaunchModeMenu.cs")
         self.assertIn("config.SelectedPhoneVersion", menu)
         self.assertIn("version_manifest_v2.json", menu)
+        self.assertIn("raycastTarget = false", menu)
         self.assertIn('entry.type == "release"', menu)
 
     def test_phone_launch_never_uses_vr_renderer(self):
