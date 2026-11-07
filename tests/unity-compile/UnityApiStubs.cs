@@ -90,6 +90,7 @@ namespace UnityEngine
         public static int PrelaunchCallCount;
         public static bool PrelaunchResult;
         public static bool FailLaunchInstance;
+        public static int LaunchInstanceDelayMs;
         public static int LaunchInstanceCallCount;
         public static bool GameReady;
         public AndroidJavaClass(string name) { }
@@ -117,6 +118,8 @@ namespace UnityEngine
             if (method == "launchInstance")
             {
                 System.Threading.Interlocked.Increment(ref LaunchInstanceCallCount);
+                if (LaunchInstanceDelayMs > 0)
+                    System.Threading.Thread.Sleep(LaunchInstanceDelayMs);
                 if (FailLaunchInstance)
                     throw new InvalidOperationException("Simulated Pojlib launch failure");
             }
