@@ -122,6 +122,19 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         self.assertIn('new AndroidJavaClass(BridgeClass)', runtime)
         self.assertNotIn('CallStatic("launchInstance"', runtime)
 
+    def test_mod_manager_handles_missing_game_and_escaped_modrinth_queries(self):
+        source = read("Assets/Scripts/ModManager.cs")
+        self.assertIn("UnityWebRequest.EscapeURL(", source)
+        self.assertIn("string encodedFacets", source)
+        self.assertIn("PojlibInstance installed = JNIStorage.GetInstance(", source)
+        self.assertIn("installed == null || installed.raw == null", source)
+        self.assertIn("action.interactable = false", source)
+        self.assertIn("Сначала установите выбранную сборку Minecraft.", source)
+        self.assertNotIn(
+            "fetchedmod.Contains(JNIStorage.GetInstance(InstanceButton.currInstName).versionName)",
+            source,
+        )
+
     def test_new_minecraft_profile_installation_is_nonblocking(self):
         source = read("Assets/Scripts/InstanceButton.cs")
         progress = read("Assets/Scripts/ProgressBarManager.cs")
