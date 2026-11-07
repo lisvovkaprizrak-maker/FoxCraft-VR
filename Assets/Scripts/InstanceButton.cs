@@ -42,20 +42,37 @@ public class InstanceButton : MonoBehaviour
 
         currInstName = dropdown.options[dropdown.value].text;
 
-        if (JNIStorage.apiClass.GetStatic<bool>("gameReady") && !gameReady) {
+        if (JNIStorage.apiClass.GetStatic<bool>("gameReady") && !gameReady)
+        {
             gameReady = true;
             Debug.Log("[FoxCraft] Pojlib reports Minecraft gameReady.");
-            async Task FinishAnim()
-            {
-                await Task.Delay(200);
-                var manager = XRGeneralSettings.Instance != null
-                    ? XRGeneralSettings.Instance.Manager : null;
-                if (manager != null)
-                    manager.DeinitializeLoader();
-            }
 
-            LeanTween.value(ScreenFade.gameObject,0, 1, 1).setOnUpdate(alpha => ScreenFade.alpha = alpha).setOnComplete(() => FinishAnim());
+            if (ScreenFade == null || ScreenFade.gameObject == null)
+            {
+                // A missing scene reference should not trap Minecraft behind
+                // a launcher fade. Finish the VR handoff without animation.
+                Debug.LogWarning("[FoxCraft] VR fade CanvasGroup is not configured.");
+                StartCoroutine(FinishVrHandoff());
+            }
+            else
+            {
+                LeanTween.value(ScreenFade.gameObject, 0f, 1f, 1f)
+                    .setOnUpdate(alpha => ScreenFade.alpha = alpha)
+                    .setOnComplete(() => { StartCoroutine(FinishVrHandoff()); });
+            }
         }
+    }
+
+    private IEnumerator FinishVrHandoff()
+    {
+        // Unity XR manager calls must stay on Unity's thread. Task.Delay in
+        // an async callback could resume on a background thread after the
+        // Android Activity or its SynchronizationContext changes.
+        yield return new WaitForSecondsRealtime(0.2f);
+        var manager = XRGeneralSettings.Instance != null
+            ? XRGeneralSettings.Instance.Manager : null;
+        if (manager != null)
+            manager.DeinitializeLoader();
     }
 
     public void SelectInstance()
