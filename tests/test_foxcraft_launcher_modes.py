@@ -99,6 +99,12 @@ class FoxCraftLauncherModeTests(unittest.TestCase):
         self.assertIn("productName: FoxCraft", settings)
         self.assertIn("companyName: FoxCraft Project", settings)
         self.assertIn("Android: com.foxcraftvr.quest", settings)
+        android_icons = settings.split("  - m_BuildTarget: Android", 1)[1].split(
+            "  - m_BuildTarget: iPhone", 1)[0]
+        self.assertGreaterEqual(
+            android_icons.count("guid: 54840f8d81764639a139cdd31fc683f3"), 13
+        )
+        self.assertNotIn("839b852ee4fcea3409f7f8e239536537", settings)
         self.assertIn("androidUseCustomKeystore: 0", settings)
         manifest = read("Assets/Plugins/Android/AndroidManifest.xml")
         self.assertIn('android:label="FoxCraft"', manifest)
