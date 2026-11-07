@@ -15,6 +15,7 @@ public class ConfigHandler : MonoBehaviour
 
     public const string VrMode = "vr";
     public const string PhoneMode = "phone";
+    public const int MaxCachedPhoneVersions = 512;
 
     public bool IsLoaded => config != null;
 
@@ -95,7 +96,7 @@ public class ConfigHandler : MonoBehaviour
         List<string> safe = new List<string>();
         foreach (string version in versions)
         {
-            if (safe.Count >= 160)
+            if (safe.Count >= MaxCachedPhoneVersions)
                 break;
             if (IsSafeVersionId(version) && !safe.Contains(version))
                 safe.Add(version);
