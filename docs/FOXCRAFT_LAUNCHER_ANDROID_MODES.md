@@ -107,3 +107,22 @@ and the phone's 2D renderer remains unimplemented.
    version, account identity and installed game profiles.
 
 Do not distribute a phone-playable build until criterion 4 actually passes.
+
+
+## FoxCraft selector placement inside QuestCraft's actual Unity scene
+
+The source scene `Assets/Scenes/Main.unity` has a 1200×600 world-space
+`MainCanvas`. Its bottom bar already contains **Играть**, the instance
+selection, mod/instance management and settings buttons.
+
+The FoxCraft mode selector is a small orange **VR / ТЕЛ.** button docked in
+the unused gap between the mod and settings buttons. The larger mode/version
+chooser opens only on demand, above the bottom bar, and can be dismissed
+without changing an existing QuestCraft profile. This avoids covering
+**Играть**, as the original always-open panel did.
+
+The source geometry is enforced by
+`tests/test_foxcraft_unity_scene.py`, alongside checks that the
+original UIHandler, LoginHandler, JNIStorage, world-space canvases and
+independent desktop phone camera remain wired. These are source-level checks;
+actual tap targets and legibility still need testing on a physical phone.
