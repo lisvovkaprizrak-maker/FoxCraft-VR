@@ -61,6 +61,27 @@ public final class LeftPointerBridgeSmokeTest {
             "Left-source GUI right-click must never click RIGHT");
         guiRight.active = false;
 
+        // QuestCraft can expose the LEFT index trigger as Minecraft Use
+        // rather than a GUI action. Read it without remapping controls.
+        var leftUse = new GuiHandler.FakeGuiClick();
+        leftUse.action.active = true;
+        leftUse.action.pressed = true;
+        leftUse.action.origin = 100;
+        require(FoxCraftGuiClickInput.pressed(vr, ControllerType.LEFT,
+                keyboard, left, right, leftUse),
+            "Physically LEFT-sourced Use trigger clicks LEFT keyboard ray");
+        require(!FoxCraftGuiClickInput.pressed(vr, ControllerType.RIGHT,
+                keyboard, left, right, leftUse),
+            "LEFT Use cannot click RIGHT keyboard ray");
+        leftUse.action.origin = 200;
+        require(!FoxCraftGuiClickInput.pressed(vr, ControllerType.LEFT,
+                keyboard, left, right, leftUse),
+            "RIGHT-sourced Use must NEVER click LEFT keyboard ray");
+        require(!FoxCraftGuiClickInput.pressed(vr, ControllerType.RIGHT,
+                keyboard, left, right, leftUse),
+            "Use fallback is restricted to LEFT to avoid new RIGHT button remaps");
+        leftUse.action.active = false;
+
         // The native handed Vivecraft action is allowed ONLY with its own
         // active OpenXR state and physical origin, not with KeyBinding.isDown.
         var raw = GuiHandler.KEY_KEYBOARD_CLICK.action;
